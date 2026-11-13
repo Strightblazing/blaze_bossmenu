@@ -5,7 +5,8 @@ local RES = GetCurrentResourceName()
 local function call(name, ...) return lib.callback.await(('%s:%s'):format(RES, name), false, ...) end
 local function result(ok, msg) lib.notify({ title = 'Boss menu placement', description = msg or (ok and 'Done.' or 'Failed.'), type = ok and 'success' or 'error' }) return ok end
 
-local TYPE_LABEL = { boss = 'Boss desk', applications = 'Applications point' }
+local TYPE_LABEL = { boss = 'Boss desk', applications = 'Applications point', review = 'Application review point' }
+local TYPE_ICON = { boss = 'fa-solid fa-briefcase', applications = 'fa-solid fa-file-signature', review = 'fa-solid fa-clipboard-check' }
 local openPlacement
 
 --- Raycast marker where the player looks. E = confirm, Backspace = cancel. Returns coords, heading or nil.
@@ -32,7 +33,7 @@ end
 local function addFlow(info, ptype)
     local options = {}
     for _, g in ipairs(info.groups) do
-        if ptype == 'boss' or g.apps then -- hide applications points for groups with applications off
+        if ptype == 'boss' or g.apps then -- hide application/review points for groups with applications off
             options[#options + 1] = {
                 title = g.label, description = (g.gtype == 'gang' and 'Gang · ' or 'Job · ') .. g.name, arrow = true,
                 onSelect = function()
@@ -70,7 +71,7 @@ local function manageFlow(info)
             options[#options + 1] = {
                 title = ('%s · %s'):format(labels[k] or k, TYPE_LABEL[p.type] or p.type),
                 description = fixed or ('#%s · %.1f, %.1f, %.1f'):format(p.id, p.coords.x, p.coords.y, p.coords.z),
-                icon = p.type == 'boss' and 'fa-solid fa-briefcase' or 'fa-solid fa-file-signature', arrow = true,
+                icon = TYPE_ICON[p.type] or 'fa-solid fa-location-dot', arrow = true,
                 onSelect = function()
                     UI.registerMenu({
                         id = 'blaze_boss_place_point', title = ('%s · %s'):format(labels[k] or k, TYPE_LABEL[p.type] or p.type), menu = 'blaze_boss_place_list',
@@ -104,7 +105,8 @@ openPlacement = function()
         id = 'blaze_boss_place', title = 'Boss menu placement',
         options = {
             { title = 'Add boss desk', description = 'Managers open the boss menu here', icon = 'fa-solid fa-briefcase', arrow = true, onSelect = function() addFlow(info, 'boss') end },
-            { title = 'Add applications point', description = 'Anyone can apply here', icon = 'fa-solid fa-file-signature', arrow = true, onSelect = function() addFlow(info, 'applications') end },
+            { title = 'Add applications point', description = 'Anyone can apply here', icon = TYPE_ICON.applications, arrow = true, onSelect = function() addFlow(info, 'applications') end },
+            { title = 'Add application review point', description = 'Managers review that job\'s applications here', icon = TYPE_ICON.review, arrow = true, onSelect = function() addFlow(info, 'review') end },
             { title = 'Manage points', description = ('%d points'):format(#info.points), icon = 'fa-solid fa-list', arrow = true, onSelect = function() manageFlow(info) end },
         },
     })

@@ -353,7 +353,8 @@ end
 ---------------------------------------------------------------------------
 local function pointVisible(p)
     if not groupCfg(p.gtype, p.group) then return false end
-    if p.type == 'applications' then return appsOn(p.gtype, p.group) end
+    -- 'applications' = where people apply, 'review' = where managers review them
+    if p.type == 'applications' or p.type == 'review' then return appsOn(p.gtype, p.group) end
     return p.type == 'boss'
 end
 
@@ -866,6 +867,37 @@ if APPS.enabled then
         return { status = row.status, label = STATUS_LABEL[row.status], message = msg, type = t }
     end)
 
+    --- The player's own applications (newest first) for the status menu. job = nil for every job.
+    -- Manager notes are never sent to the applicant.
+    register('getMyApplications', function(src, job)
+        local cid = Bridge.GetCitizenId(src)
+        if not cid then return {} end
+        if job ~= nil and not appsOn('job', job) then return {} end
+        local hours = tonumber(APPS.denyCooldownHours) or 0
+        local rows = MySQL.query.await(([[SELECT id, job, status, answers, deny_reason, interview_msg, reviewed_by,
+                DATE_FORMAT(created_at, '%%Y-%%m-%%d %%H:%%i') AS created, DATE_FORMAT(updated_at, '%%Y-%%m-%%d %%H:%%i') AS updated,
+                DATE_FORMAT(updated_at + INTERVAL ? HOUR, '%%Y-%%m-%%d %%H:%%i') AS reapply_at,
+                (updated_at + INTERVAL ? HOUR > NOW()) AS cooling
+            FROM blaze_boss_applications WHERE citizenid = ? %s ORDER BY id DESC LIMIT 25]]):format(job and 'AND job = ?' or ''),
+            job and { hours, hours, cid, job } or { hours, hours, cid }) or {}
+        local out = {}
+        for _, r in ipairs(rows) do
+            if appsOn('job', r.job) then
+                local msg = statusMessage(r.job, r)
+                out[#out + 1] = {
+                    id = r.id, job = r.job, jobLabel = groupLabel('job', r.job), status = r.status, statusLabel = STATUS_LABEL[r.status],
+                    message = msg, answers = json.decode(r.answers) or {}, denyReason = r.deny_reason, interviewMsg = r.interview_msg,
+                    reviewedBy = r.reviewed_by, created = r.created, updated = r.updated,
+                    reapplyAt = (r.status == 'denied' and hours > 0 and (r.cooling == 1 or r.cooling == true)) and r.reapply_at or nil,
+                    open = isOpen(r.job),
+                }
+            end
+        end
+        -- they've now seen any pending updates
+        MySQL.update('UPDATE blaze_boss_applications SET notified = 1, updated_at = updated_at WHERE citizenid = ? AND notified = 0', { cid })
+        return out
+    end)
+
     register('getApplications', function(src, job, filter)
         if not managerCheck(src, job) then return nil end
         local where = "status IN ('new','interview')"
@@ -993,8 +1025,8 @@ end)
 register('addPoint', function(src, gtype, name, ptype, coords, heading, radius)
     if not isAdmin(src) then return false, 'Admins only.' end
     if not groupCfg(gtype, name) then return false, 'That group isn\'t configured.' end
-    if ptype ~= 'boss' and ptype ~= 'applications' then return false, 'Invalid point type.' end
-    if ptype == 'applications' and not appsOn(gtype, name) then return false, 'Applications are off for this group.' end
+    if ptype ~= 'boss' and ptype ~= 'applications' and ptype ~= 'review' then return false, 'Invalid point type.' end
+    if ptype ~= 'boss' and not appsOn(gtype, name) then return false, 'Applications are off for this group.' end
     if type(coords) ~= 'table' and type(coords) ~= 'vector3' then return false, 'Invalid position.' end
     local x, y, z = tonumber(coords.x), tonumber(coords.y), tonumber(coords.z)
     if not x or not y or not z then return false, 'Invalid position.' end

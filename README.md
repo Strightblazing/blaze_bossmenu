@@ -16,6 +16,7 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - **Hire**: nearby players or by server ID. The person gets an **Accept / Decline** popup first.
 - **Applications**: anyone applies at an application point. Managers review, invite to interview, accept & hire
   (picking the starting rank), or deny with a reason. Applicants are told right away, or on their next login.
+  Managers can also review at a separate **application review point**, and applicants check theirs with `/applicationstatus`.
 - **Form builder in game**: add, edit, reorder, delete and preview questions; edit the intro; save or reset to default.
   Old applications keep their own questions and answers, so they still read correctly after the form changes.
 - **Funds**: society balance, deposit and withdraw cash (with a reason), confirm on big amounts, recent history.
@@ -84,10 +85,19 @@ Use `/bossmenu` in game (admins only):
 
 - **Add boss desk**: pick the job or gang, aim at the spot, press **E** (Backspace cancels), then pick a size.
 - **Add applications point**: same, but only for jobs with applications on.
+- **Add application review point**: where managers review that job's applications (for example an HR office),
+  without needing the boss desk. Only that job's managers (and admins) see it.
 - **Manage points**: everything placed, grouped by job. Teleport to a point or delete it.
   Points from `Config.locations`, or added by other scripts, can't be deleted in game.
 
-Boss desks only show to that job's managers (and admins). Application points show to everyone.
+Boss desks and review points only show to that job's managers (and admins). Application points show to everyone.
+
+## Checking your applications
+
+`/applicationstatus` (or "My application status" at an application point) opens **My applications**:
+every job you applied to, with the status (waiting, interview, accepted, denied), the interview message,
+the deny reason and when you can apply again, who reviewed it, and your own answers. Manager notes are never shown.
+Change or turn off the command with `applications.statusCommand`.
 
 ## Building the application form
 
@@ -121,6 +131,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `applications.enabled` | `false` = applications off everywhere (the boss menu still works). |
 | `applications.startOpen` | Whether applications start open. Managers can open/close them in game. |
 | `applications.denyCooldownHours` | Wait after a denial before applying to the same job again. |
+| `applications.statusCommand` | Command for "My applications" (default `applicationstatus`), or `false` for none. |
 | `applications.formEditor` | `'management'` (managers + admins), `'admin'` (admins only) or `false` (no in-game editing). |
 | `applications.maxQuestions` | Most questions a form can have. |
 | `applications.intro` / `defaultQuestions` | The starting form for every job. |

@@ -95,6 +95,9 @@ Config = {
         startOpen = true,
         -- After a denial, how many hours before that player can apply to the same job again
         denyCooldownHours = 72,
+        -- Command that opens "My applications" (status, reasons, interview details, their answers).
+        -- false = no command (the application point still has "My application status")
+        statusCommand = 'applicationstatus',
         -- Who can build/edit the application form in game:
         -- 'management' = managers (+ admins), 'admin' = admins only, false = no in-game editing
         formEditor = 'management',
@@ -129,7 +132,8 @@ Config = {
 
     -- Optional fixed points. In-game placed points (/bossmenu) are added on top.
     -- These can't be deleted in game; remove them here.
-    -- type: 'boss' (management desk) or 'applications' (apply point). For a gang desk use gang = 'name' instead of job.
+    -- type: 'boss' (management desk), 'applications' (apply point) or 'review' (managers review applications).
+    -- For a gang desk use gang = 'name' instead of job.
     locations = {
         -- { job = 'ambulance', type = 'boss', coords = vec3(0.0, 0.0, 0.0), radius = 1.0 },
         -- { job = 'ambulance', type = 'applications', coords = vec3(0.0, 0.0, 0.0), radius = 1.0 },

@@ -386,7 +386,11 @@ local function openApp(m, id, filter)
     local a = call('getApplication', m.name, id)
     if not a then return notify('Application not found.', 'error') end
     local decided = a.status == 'accepted' or a.status == 'denied'
-    local back = function() local again = call('getMenu', m.gtype, m.name) or m openApps(again, filter) end
+    local back = function()
+        local again = call('getMenu', m.gtype, m.name) or m
+        again.fromReview = m.fromReview
+        openApps(again, filter)
+    end
     local reopen = function() openApp(m, id, filter) end
     local statusLine = a.statusLabel or a.status
     if a.reviewed_by then statusLine = statusLine .. ' · by ' .. a.reviewed_by end
@@ -458,7 +462,8 @@ openApps = function(m, filter)
         }
     end
     if #list == 0 then options[#options + 1] = { title = 'No applications here', readOnly = true } end
-    UI.registerMenu({ id = 'blaze_boss_apps', title = 'Applications · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    -- opened from a review point: no "back" to the boss menu (they may not be at a desk)
+    UI.registerMenu({ id = 'blaze_boss_apps', title = 'Applications · ' .. m.label, menu = not m.fromReview and 'blaze_boss_main' or nil, options = options })
     UI.showMenu('blaze_boss_apps')
 end
 
@@ -619,14 +624,83 @@ local function openApplication(job)
 end
 exports('openApplication', openApplication)
 
+---------------------------------------------------------------------------
+-- My applications (status menu: /applicationstatus, the application point, or the export)
+---------------------------------------------------------------------------
+local STATUS_COLOR = { new = '#5AA9FF', interview = '#F0A93B', accepted = '#3DDC84', denied = '#E5484D' }
+local openMyApplications
+
+local function openMyApplication(a, list, job)
+    local options = {
+        { title = a.statusLabel or a.status, description = a.message, icon = STATUS_ICON[a.status] or 'fa-solid fa-file',
+          iconColor = STATUS_COLOR[a.status], readOnly = true },
+    }
+    if a.status == 'interview' and a.interviewMsg then
+        options[#options + 1] = { title = 'Interview details', description = short(a.interviewMsg, 80), icon = 'fa-solid fa-comments', readOnly = true,
+            metadata = #a.interviewMsg > 80 and { { label = 'Message', value = a.interviewMsg } } or nil }
+    end
+    if a.status == 'denied' then
+        if a.denyReason then
+            options[#options + 1] = { title = 'Reason', description = short(a.denyReason, 80), icon = 'fa-solid fa-circle-info', readOnly = true,
+                metadata = #a.denyReason > 80 and { { label = 'Reason', value = a.denyReason } } or nil }
+        end
+        options[#options + 1] = { title = a.reapplyAt and ('You can apply again after ' .. a.reapplyAt) or 'You can apply again',
+            icon = 'fa-solid fa-hourglass-half', readOnly = true }
+    end
+    options[#options + 1] = { title = 'Sent', description = a.created or '', icon = 'fa-regular fa-calendar', readOnly = true }
+    if a.reviewedBy then
+        options[#options + 1] = { title = 'Reviewed by', description = ('%s · %s'):format(a.reviewedBy, a.updated or ''), icon = 'fa-solid fa-user-tie', readOnly = true }
+    end
+    for _, ans in ipairs(a.answers or {}) do
+        local text = answerText(ans)
+        options[#options + 1] = { title = ans.label, description = short(text, 80), icon = 'fa-regular fa-comment', readOnly = true,
+            metadata = #text > 80 and { { label = 'Your answer', value = text } } or nil }
+    end
+    UI.registerMenu({ id = 'blaze_boss_myapp', title = ('%s · Application #%d'):format(a.jobLabel, a.id), menu = 'blaze_boss_myapps', options = options })
+    UI.showMenu('blaze_boss_myapp')
+end
+
+--- job = nil lists every job they applied to; a job name shows only that job
+openMyApplications = function(job)
+    if not Config.applications.enabled then return notify('Applications are turned off on this server.', 'error', 'Application') end
+    local list = call('getMyApplications', job) or {}
+    local options = {}
+    for _, a in ipairs(list) do
+        options[#options + 1] = {
+            title = a.jobLabel, description = ('%s · %s'):format(a.statusLabel or a.status, a.created or ''),
+            icon = STATUS_ICON[a.status] or 'fa-solid fa-file', iconColor = STATUS_COLOR[a.status], arrow = true,
+            onSelect = function() openMyApplication(a, list, job) end,
+        }
+    end
+    if #options == 0 then
+        options[1] = { title = job and 'You haven\'t applied here yet' or 'You haven\'t applied anywhere yet',
+            description = 'Find an application point to apply', icon = 'fa-solid fa-circle-info', readOnly = true }
+    end
+    local title = job and ((Config.jobs[job] or {}).label or job) .. ' · My applications' or 'My applications'
+    UI.registerMenu({ id = 'blaze_boss_myapps', title = title, options = options })
+    UI.showMenu('blaze_boss_myapps')
+end
+
 local function openApplicationStatus(job)
-    if not Config.jobs[job] then return end
-    local s = call('getMyApplicationStatus', job)
-    if not s then return notify('This job doesn\'t take applications.', 'error', 'Application') end
-    if s.none then return notify('You haven\'t applied here yet.', 'inform', 'Application') end
-    notify(s.message, s.type, 'Application · ' .. (s.label or s.status))
+    if job and not Config.jobs[job] then return end
+    openMyApplications(job)
 end
 exports('openApplicationStatus', openApplicationStatus)
+
+if Config.applications.enabled and Config.applications.statusCommand then
+    RegisterCommand(Config.applications.statusCommand, function() openMyApplications(nil) end, false)
+    TriggerEvent('chat:addSuggestion', '/' .. Config.applications.statusCommand, 'See the status of your job applications')
+end
+
+---------------------------------------------------------------------------
+-- Review point: straight to that job's applications (managers only; the server checks)
+---------------------------------------------------------------------------
+local function openReview(job)
+    local m = call('getMenu', 'job', job)
+    if not m or not m.apps then return notify('You can\'t review applications here.', 'error') end
+    m.fromReview = true
+    openApps(m)
+end
 
 ---------------------------------------------------------------------------
 -- Hire consent (from qbx_management)
@@ -658,6 +732,12 @@ local function buildTargets(points)
                 name = 'blaze_boss_desk', label = label .. ' management', icon = 'fa-solid fa-briefcase',
                 canInteract = function() return managed[p.gtype .. ':' .. p.group] == true end,
                 onSelect = function() openGroup(p.gtype, p.group) end,
+            } }
+        elseif p.type == 'review' then
+            options = { {
+                name = 'blaze_boss_review', label = 'Review ' .. label .. ' applications', icon = 'fa-solid fa-clipboard-check',
+                canInteract = function() return managed[p.gtype .. ':' .. p.group] == true end,
+                onSelect = function() openReview(p.group) end,
             } }
         else
             options = {
