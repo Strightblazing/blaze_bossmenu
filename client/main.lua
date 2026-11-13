@@ -105,6 +105,50 @@ local function openMember(m, data, p)
             end,
         }
     end
+    local FT = Config.features or {}
+    if FT.profiles then
+        table.insert(options, 1, { title = 'View profile', icon = 'fa-solid fa-id-badge', arrow = true, description = 'Hours, rank history and record',
+            onSelect = function() BMC.openProfile(m.gtype, m.name, p.citizenid, 'blaze_boss_member') end })
+    end
+    if FT.records then
+        options[#options + 1] = { title = 'Give commendation', icon = 'fa-solid fa-award', iconColor = '#3DDC84', disabled = p.isSelf,
+            onSelect = function()
+                local v = UI.input('Commend ' .. p.name, { { type = 'textarea', label = 'What did they do well?', required = true, minLength = 3, maxLength = 300 } })
+                if v then result(call('addRecord', m.gtype, m.name, p.citizenid, 'commend', v[1])) end
+                openStaff(m)
+            end }
+        options[#options + 1] = { title = 'Write-up', icon = 'fa-solid fa-triangle-exclamation', iconColor = '#F0A93B', disabled = p.isSelf or not below,
+            onSelect = function()
+                local v = UI.input('Write-up · ' .. p.name, { { type = 'textarea', label = 'What happened?', required = true, minLength = 3, maxLength = 300 } })
+                if v and UI.confirm({ header = 'Write-up', content = ('Add a write-up to %s\'s record? They will be told.'):format(p.name), type = 'warning', confirm = 'Add write-up' }) then
+                    result(call('addRecord', m.gtype, m.name, p.citizenid, 'warning', v[1]))
+                end
+                openStaff(m)
+            end }
+    end
+    if FT.employeeOfWeek then
+        options[#options + 1] = { title = p.eotw and 'Employee of the Week ⭐' or 'Make Employee of the Week', icon = 'fa-solid fa-star', iconColor = '#F5C542',
+            disabled = p.isSelf or p.eotw == true, description = 'Announced to the whole department',
+            onSelect = function()
+                local v = UI.input('Employee of the Week · ' .. p.name, { { type = 'input', label = 'Why? (optional)', maxLength = 200 } })
+                if v then result(call('setEmployeeOfWeek', m.gtype, m.name, p.citizenid, v[1] or '')) end
+                openStaff(m)
+            end }
+    end
+    if m.funds and Config.funds.bonuses then
+        options[#options + 1] = { title = 'Give bonus', icon = 'fa-solid fa-gift', iconColor = '#3DDC84', disabled = p.isSelf or not p.online,
+            description = p.online and ('Paid into their bank from %s funds'):format(m.label) or 'They must be online',
+            onSelect = function()
+                local v = UI.input('Bonus · ' .. p.name, {
+                    { type = 'number', label = ('Amount (max $%d)'):format(Config.funds.maxBonus or 5000), required = true, min = 1, max = Config.funds.maxBonus or 5000 },
+                    { type = 'input', label = 'Reason', required = true, minLength = 1, maxLength = 100 },
+                })
+                if v and v[1] and UI.confirm({ header = 'Give bonus', content = ('Pay %s a $%d bonus?'):format(p.name, math.floor(v[1])), type = 'info', confirm = 'Pay' }) then
+                    result(call('bonus', m.gtype, m.name, 'one', p.citizenid, math.floor(v[1]), v[2]))
+                end
+                openStaff(m)
+            end }
+    end
     options[#options + 1] = {
         title = m.gtype == 'gang' and 'Kick from gang' or 'Fire', icon = 'fa-solid fa-user-slash', iconColor = '#E5484D',
         disabled = p.isSelf or not below,
@@ -130,18 +174,22 @@ openStaff = function(m)
         local parts = { p.gradeName }
         if p.callsign then parts[#parts + 1] = p.callsign end
         parts[#parts + 1] = status
-        local meta
+        -- badges
+        if p.probationDays then parts[#parts + 1] = ('Probation %dd'):format(p.probationDays) end
+        if p.inactive then parts[#parts + 1] = 'Inactive' end
+        if p.readyForPromotion then parts[#parts + 1] = 'Ready for promotion' end
+        local meta = {}
         if p.hours or p.lastCheckin then
-            meta = {
-                { label = 'Status', value = status },
-                { label = 'Hours (last ' .. ((Config.activity and Config.activity.keepDays) or 31) .. ' days)', value = tostring(p.hours or 0) },
-                { label = 'Last check-in', value = p.lastCheckin or 'N/A' },
-            }
+            meta[#meta + 1] = { label = 'Status', value = status }
+            meta[#meta + 1] = { label = 'Hours (last ' .. ((Config.activity and Config.activity.keepDays) or 31) .. ' days)', value = tostring(p.hours or 0) }
+            meta[#meta + 1] = { label = 'Last check-in', value = p.lastCheckin or 'N/A' }
         end
+        if p.hiredAt then meta[#meta + 1] = { label = 'Hired', value = p.hiredAt } end
+        if #meta == 0 then meta = nil end
         options[#options + 1] = {
-            title = p.name .. (p.isSelf and ' (you)' or ''),
+            title = (p.eotw and '⭐ ' or '') .. p.name .. (p.isSelf and ' (you)' or ''),
             description = table.concat(parts, ' · '),
-            icon = 'fa-solid fa-user',
+            icon = p.readyForPromotion and 'fa-solid fa-arrow-up-right-dots' or (p.inactive and 'fa-solid fa-user-clock' or 'fa-solid fa-user'),
             iconColor = p.online and (p.onduty and '#3DDC84' or '#F0A93B') or '#8F99A5',
             metadata = meta, arrow = true,
             onSelect = function() openMember(m, data, p) end,
@@ -378,14 +426,37 @@ end
 ---------------------------------------------------------------------------
 -- Applications (managers)
 ---------------------------------------------------------------------------
-local FILTERS = { review = 'To review', accepted = 'Accepted', denied = 'Denied' }
-local NEXT_FILTER = { review = 'accepted', accepted = 'denied', denied = 'review' }
-local STATUS_ICON = { new = 'fa-solid fa-envelope', interview = 'fa-solid fa-comments', accepted = 'fa-solid fa-check', denied = 'fa-solid fa-xmark' }
+local FILTERS = { review = 'To review', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
+local NEXT_FILTER = { review = 'accepted', accepted = 'denied', denied = 'withdrawn', withdrawn = 'review' }
+local STATUS_ICON = { new = 'fa-solid fa-envelope', interview = 'fa-solid fa-comments', accepted = 'fa-solid fa-check', denied = 'fa-solid fa-xmark', withdrawn = 'fa-solid fa-rotate-left' }
+
+--- Message dialog with optional ready-made replies (Config.applications.quickReplies[kind]).
+--- Returns the text, or nil if cancelled.
+local function messageDialog(title, label, kind, default)
+    local replies = (Config.applications.quickReplies or {})[kind] or {}
+    if #replies == 0 then
+        local v = UI.input(title, { { type = 'textarea', label = label, required = true, minLength = 1, maxLength = 300, default = default } })
+        return v and v[1] or nil
+    end
+    local opts = { { value = 'own', label = 'Write my own (below)' } }
+    for i, r in ipairs(replies) do opts[#opts + 1] = { value = tostring(i), label = short(r, 60) } end
+    while true do
+        local v = UI.input(title, {
+            { type = 'select', label = 'Quick reply', options = opts, default = 'own' },
+            { type = 'textarea', label = label, maxLength = 300, default = default },
+        })
+        if not v then return nil end
+        if v[2] and v[2] ~= '' then return v[2] end
+        local i = tonumber(v[1])
+        if i and replies[i] then return replies[i] end
+        notify('Pick a quick reply or write a message.', 'error')
+    end
+end
 
 local function openApp(m, id, filter)
     local a = call('getApplication', m.name, id)
     if not a then return notify('Application not found.', 'error') end
-    local decided = a.status == 'accepted' or a.status == 'denied'
+    local decided = a.status == 'accepted' or a.status == 'denied' or a.status == 'withdrawn'
     local back = function()
         local again = call('getMenu', m.gtype, m.name) or m
         again.fromReview = m.fromReview
@@ -408,9 +479,23 @@ local function openApp(m, id, filter)
             metadata = #text > 80 and { { label = 'Answer', value = text } } or nil,
         }
     end
+    if a.votes then
+        local mine = a.votes.mine
+        local voterMeta = {}
+        for _, s in ipairs(a.votes.voters) do voterMeta[#voterMeta + 1] = s end
+        options[#options + 1] = { title = ('Team vote: 👍 %d  ·  👎 %d'):format(a.votes.up, a.votes.down), icon = 'fa-solid fa-square-poll-vertical',
+            description = mine == 1 and 'You voted 👍' or (mine == -1 and 'You voted 👎' or 'You haven\'t voted'), readOnly = true,
+            metadata = #voterMeta > 0 and voterMeta or nil }
+        options[#options + 1] = { title = mine == 1 and 'Remove 👍 vote' or 'Vote 👍', icon = 'fa-solid fa-thumbs-up', iconColor = '#3DDC84', onSelect = function()
+            result(call('voteApplication', m.name, a.id, mine == 1 and 0 or 1)) reopen()
+        end }
+        options[#options + 1] = { title = mine == -1 and 'Remove 👎 vote' or 'Vote 👎', icon = 'fa-solid fa-thumbs-down', iconColor = '#E5484D', onSelect = function()
+            result(call('voteApplication', m.name, a.id, mine == -1 and 0 or -1)) reopen()
+        end }
+    end
     options[#options + 1] = { title = 'Invite to interview', icon = 'fa-solid fa-comments', disabled = decided, onSelect = function()
-        local v = UI.input('Invite ' .. a.name, { { type = 'textarea', label = 'Message (when / where)', required = true, minLength = 1, maxLength = 300, default = a.interview_msg } })
-        if v then result(call('interview', m.name, a.id, v[1])) end
+        local msg = messageDialog('Invite ' .. a.name, 'Message (when / where)', 'interview', a.interview_msg)
+        if msg then result(call('interview', m.name, a.id, msg)) end
         reopen()
     end }
     options[#options + 1] = { title = 'Accept & hire', icon = 'fa-solid fa-user-check', iconColor = '#3DDC84', disabled = decided, onSelect = function()
@@ -421,9 +506,9 @@ local function openApp(m, id, filter)
         reopen()
     end }
     options[#options + 1] = { title = 'Deny', icon = 'fa-solid fa-xmark', iconColor = '#E5484D', disabled = decided, onSelect = function()
-        local v = UI.input('Deny ' .. a.name, { { type = 'textarea', label = 'Reason (the applicant sees this)', required = true, minLength = 1, maxLength = 300 } })
-        if v and UI.confirm({ header = 'Deny application', content = ('Deny %s\'s application?'):format(a.name), type = 'error', confirm = 'Deny' }) then
-            if result(call('deny', m.name, a.id, v[1])) then return back() end
+        local reason = messageDialog('Deny ' .. a.name, 'Reason (the applicant sees this)', 'deny')
+        if reason and UI.confirm({ header = 'Deny application', content = ('Deny %s\'s application?'):format(a.name), type = 'error', confirm = 'Deny' }) then
+            if result(call('deny', m.name, a.id, reason)) then return back() end
         end
         reopen()
     end }
@@ -492,25 +577,39 @@ openFunds = function(m)
     local d, err = call('getFunds', m.gtype, m.name)
     if not d then return notify(err or 'Funds are not available.', 'error') end
     local history = {}
+    local KIND = { deposit = { '+', 'fa-solid fa-arrow-down', '#3DDC84' }, withdraw = { '-', 'fa-solid fa-arrow-up', '#F0A93B' }, bonus = { '-', 'fa-solid fa-gift', '#A78BFA' } }
     for _, h in ipairs(d.history or {}) do
+        local k = KIND[h.type] or KIND.withdraw
         history[#history + 1] = {
-            title = ('%s %s'):format(h.type == 'deposit' and '+' or '-', money(h.amount)),
+            title = ('%s %s%s'):format(k[1], money(h.amount), h.type == 'bonus' and '  (bonus)' or ''),
             description = ('%s · %s · %s'):format(h.name or '?', short(h.reason or '', 40), h.at or ''),
-            icon = h.type == 'deposit' and 'fa-solid fa-arrow-down' or 'fa-solid fa-arrow-up',
-            iconColor = h.type == 'deposit' and '#3DDC84' or '#F0A93B', readOnly = true,
+            icon = k[2], iconColor = k[3], readOnly = true,
+            metadata = #(h.reason or '') > 40 and { { label = 'Reason', value = h.reason } } or nil,
         }
     end
     if #history == 0 then history[1] = { title = 'No transactions yet', readOnly = true } end
     UI.registerMenu({ id = 'blaze_boss_funds_history', title = 'Recent history · ' .. m.label, menu = 'blaze_boss_funds', options = history })
-    UI.registerMenu({
-        id = 'blaze_boss_funds', title = 'Funds · ' .. money(d.balance), menu = 'blaze_boss_main',
-        options = {
-            { title = 'Balance', description = money(d.balance), icon = 'fa-solid fa-building-columns', readOnly = true },
-            { title = 'Deposit', description = 'Put your cash into the account', icon = 'fa-solid fa-money-bill-wave', onSelect = function() moneyDialog(m, 'deposit', d.confirmAbove) openFunds(m) end },
-            { title = 'Withdraw', description = 'Take cash out of the account', icon = 'fa-solid fa-hand-holding-dollar', onSelect = function() moneyDialog(m, 'withdraw', d.confirmAbove) openFunds(m) end },
-            { title = 'Recent history', icon = 'fa-solid fa-clock-rotate-left', menu = 'blaze_boss_funds_history', arrow = true },
-        },
-    })
+    local options = {
+        { title = 'Balance', description = money(d.balance), icon = 'fa-solid fa-building-columns', readOnly = true },
+        { title = 'Deposit', description = 'Put your cash into the account', icon = 'fa-solid fa-money-bill-wave', onSelect = function() moneyDialog(m, 'deposit', d.confirmAbove) openFunds(m) end },
+        { title = 'Withdraw', description = d.left and ('Your rank can take out %s more today'):format(money(math.max(0, d.left))) or 'Take cash out of the account',
+          icon = 'fa-solid fa-hand-holding-dollar', onSelect = function() moneyDialog(m, 'withdraw', d.confirmAbove) openFunds(m) end },
+    }
+    if Config.funds.bonuses then
+        options[#options + 1] = { title = 'Bonus everyone on duty', description = 'Each person on duty (except you) gets the amount in their bank',
+            icon = 'fa-solid fa-gifts', iconColor = '#A78BFA', onSelect = function()
+                local v = UI.input('Bonus everyone on duty', {
+                    { type = 'number', label = ('Amount per person (max $%d)'):format(Config.funds.maxBonus or 5000), required = true, min = 1, max = Config.funds.maxBonus or 5000 },
+                    { type = 'input', label = 'Reason', required = true, minLength = 1, maxLength = 100 },
+                })
+                if v and v[1] and UI.confirm({ header = 'Bonus everyone on duty', content = ('Pay %s to each person on duty? The total comes out of %s funds.'):format(money(v[1]), m.label), type = 'warning', confirm = 'Pay bonuses' }) then
+                    result(call('bonus', m.gtype, m.name, 'onduty', nil, math.floor(v[1]), v[2]))
+                end
+                openFunds(m)
+            end }
+    end
+    options[#options + 1] = { title = 'Recent history', icon = 'fa-solid fa-clock-rotate-left', menu = 'blaze_boss_funds_history', arrow = true }
+    UI.registerMenu({ id = 'blaze_boss_funds', title = 'Funds · ' .. money(d.balance), menu = 'blaze_boss_main', options = options })
     UI.showMenu('blaze_boss_funds')
 end
 
@@ -547,6 +646,69 @@ local function openGrades(m)
 end
 
 ---------------------------------------------------------------------------
+-- Payroll, announcements, activity log
+---------------------------------------------------------------------------
+local function openPayroll(m)
+    local d = call('getPayroll', m.gtype, m.name)
+    if not d then return notify('Payroll isn\'t available.', 'error') end
+    local options = {
+        { title = 'One paycheck, everyone', description = money(d.perPaycheckAll), icon = 'fa-solid fa-users', readOnly = true },
+        { title = 'One paycheck, on duty now', description = money(d.perPaycheckOnDuty), icon = 'fa-solid fa-user-check', iconColor = '#3DDC84', readOnly = true },
+    }
+    for i = #d.grades, 1, -1 do
+        local g = d.grades[i]
+        options[#options + 1] = { title = ('%s · %s'):format(g.name, money(g.pay)), icon = 'fa-solid fa-money-check-dollar', readOnly = true,
+            description = ('%d member%s · %d on duty'):format(g.members, g.members == 1 and '' or 's', g.onduty) }
+    end
+    UI.registerMenu({ id = 'blaze_boss_payroll', title = 'Payroll · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_payroll')
+end
+
+local function openAnnouncement(m)
+    local a = call('getAnnouncement', m.gtype, m.name)
+    local options = {}
+    if a then
+        options[#options + 1] = { title = 'Current announcement', description = short(a.message, 80), icon = 'fa-solid fa-bullhorn', iconColor = '#A78BFA', readOnly = true,
+            metadata = { { label = 'From', value = a.by_name or '?' }, { label = 'Posted', value = a.at or '' }, { label = 'Message', value = a.message } } }
+    else
+        options[#options + 1] = { title = 'No announcement right now', icon = 'fa-solid fa-bullhorn', readOnly = true }
+    end
+    options[#options + 1] = { title = a and 'Post a new one' or 'Post announcement', icon = 'fa-solid fa-pen', description = 'On-duty staff see it now, others when they clock in',
+        onSelect = function()
+            local v = UI.input('Announcement · ' .. m.label, { { type = 'textarea', label = 'Message', required = true, minLength = 1, maxLength = 500 } })
+            if v then result(call('postAnnouncement', m.gtype, m.name, v[1])) end
+            openAnnouncement(m)
+        end }
+    options[#options + 1] = { title = 'Clear announcement', icon = 'fa-solid fa-eraser', disabled = not a, onSelect = function()
+        if UI.confirm({ header = 'Clear announcement', content = 'Remove the current announcement?', type = 'warning', confirm = 'Clear' }) then
+            result(call('postAnnouncement', m.gtype, m.name, ''))
+        end
+        openAnnouncement(m)
+    end }
+    UI.registerMenu({ id = 'blaze_boss_announce', title = 'Announcement · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_announce')
+end
+
+local AUDIT_ICON = {
+    hire = 'fa-solid fa-user-plus', accept = 'fa-solid fa-user-check', fire = 'fa-solid fa-user-slash', promote = 'fa-solid fa-arrow-up',
+    demote = 'fa-solid fa-arrow-down', deposit = 'fa-solid fa-arrow-down', withdraw = 'fa-solid fa-arrow-up', bonus = 'fa-solid fa-gift',
+    deny = 'fa-solid fa-xmark', interview = 'fa-solid fa-comments', record = 'fa-solid fa-folder-open', eotw = 'fa-solid fa-star',
+    announce = 'fa-solid fa-bullhorn', callsign = 'fa-solid fa-hashtag', checkin = 'fa-solid fa-door-open',
+}
+local function openAudit(m)
+    local rows = call('getAudit', m.gtype, m.name) or {}
+    local options = {}
+    for _, r in ipairs(rows) do
+        options[#options + 1] = { title = short(r.message or r.event, 60), description = ('%s · %s'):format(r.actor or 'system', r.at or ''),
+            icon = AUDIT_ICON[r.event] or 'fa-solid fa-circle-dot', readOnly = true,
+            metadata = #(r.message or '') > 60 and { { label = 'Details', value = r.message } } or nil }
+    end
+    if #options == 0 then options[1] = { title = 'Nothing yet', readOnly = true } end
+    UI.registerMenu({ id = 'blaze_boss_audit', title = 'Activity log · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_audit')
+end
+
+---------------------------------------------------------------------------
 -- Main menu
 ---------------------------------------------------------------------------
 local function openPicker(list)
@@ -576,6 +738,16 @@ openGroup = function(gtype, name, fromPicker)
     end
     if m.gradeEdit then
         options[#options + 1] = { title = 'Manage ranks', description = 'Rank names, pay and boss access', icon = 'fa-solid fa-clipboard-list', arrow = true, onSelect = function() openGrades(m) end }
+    end
+    local FT = Config.features or {}
+    if gtype == 'job' and Config.funds.payroll then
+        options[#options + 1] = { title = 'Payroll', description = 'Pay per rank and what a paycheck costs', icon = 'fa-solid fa-file-invoice-dollar', arrow = true, onSelect = function() openPayroll(m) end }
+    end
+    if FT.announcements then
+        options[#options + 1] = { title = 'Announcement', description = 'Post a message to your department', icon = 'fa-solid fa-bullhorn', arrow = true, onSelect = function() openAnnouncement(m) end }
+    end
+    if FT.auditLog then
+        options[#options + 1] = { title = 'Activity log', description = 'Recent hires, promotions, money moves…', icon = 'fa-solid fa-list-check', arrow = true, onSelect = function() openAudit(m) end }
     end
     for _, item in pairs(dynamicItems) do
         if item.args and type(item.args.type) == 'string' and item.args.type:lower() == gtype then options[#options + 1] = item end
@@ -627,7 +799,7 @@ exports('openApplication', openApplication)
 ---------------------------------------------------------------------------
 -- My applications (status menu: /applicationstatus, the application point, or the export)
 ---------------------------------------------------------------------------
-local STATUS_COLOR = { new = '#5AA9FF', interview = '#F0A93B', accepted = '#3DDC84', denied = '#E5484D' }
+local STATUS_COLOR = { new = '#5AA9FF', interview = '#F0A93B', accepted = '#3DDC84', denied = '#E5484D', withdrawn = '#8F99A5' }
 local openMyApplications
 
 local function openMyApplication(a, list, job)
@@ -655,6 +827,14 @@ local function openMyApplication(a, list, job)
         local text = answerText(ans)
         options[#options + 1] = { title = ans.label, description = short(text, 80), icon = 'fa-regular fa-comment', readOnly = true,
             metadata = #text > 80 and { { label = 'Your answer', value = text } } or nil }
+    end
+    if Config.applications.allowWithdraw and (a.status == 'new' or a.status == 'interview') then
+        options[#options + 1] = { title = 'Withdraw application', icon = 'fa-solid fa-rotate-left', iconColor = '#E5484D', onSelect = function()
+            if UI.confirm({ header = 'Withdraw application', content = ('Withdraw your %s application? You can apply again later.'):format(a.jobLabel), type = 'warning', confirm = 'Withdraw' }) then
+                result(call('withdrawApplication', a.id))
+            end
+            openMyApplications(job)
+        end }
     end
     UI.registerMenu({ id = 'blaze_boss_myapp', title = ('%s · Application #%d'):format(a.jobLabel, a.id), menu = 'blaze_boss_myapps', options = options })
     UI.showMenu('blaze_boss_myapp')
@@ -739,6 +919,14 @@ local function buildTargets(points)
                 canInteract = function() return managed[p.gtype .. ':' .. p.group] == true end,
                 onSelect = function() openReview(p.group) end,
             } }
+            if Config.applications.interviewCheckIn then
+                -- applicants invited to an interview check in here (the server checks they have one)
+                options[#options + 1] = {
+                    name = 'blaze_boss_checkin', label = 'Check in for interview', icon = 'fa-solid fa-door-open',
+                    canInteract = function() return managed[p.gtype .. ':' .. p.group] ~= true end,
+                    onSelect = function() result(call('interviewCheckIn', p.group)) end,
+                }
+            end
         else
             options = {
                 { name = 'blaze_boss_apply', label = 'Apply for ' .. label, icon = 'fa-solid fa-file-signature', onSelect = function() openApplication(p.group) end },
@@ -747,6 +935,7 @@ local function buildTargets(points)
         end
         handles[#handles + 1] = Target.addPoint({ coords = coords, radius = p.radius or 1.0, options = options })
     end
+    BMC.onPoints(points) -- receptionist NPCs (client/features.lua)
 end
 
 RegisterNetEvent(RES .. ':client:points', function(points) buildTargets(points) end)

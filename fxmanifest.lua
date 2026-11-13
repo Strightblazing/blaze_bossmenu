@@ -5,7 +5,7 @@ lua54 'yes'
 name 'blaze_bossmenu'
 author 'Blaze'
 description 'Boss menu + job applications for any job (Qbox / QBCore, ox_lib, optional Lation UI)'
-version '1.0.0'
+version '1.1.0'
 repository 'Strightblazing/blaze_bossmenu' -- used by the startup version check (server/version.lua)
 
 shared_scripts {
@@ -25,7 +25,8 @@ server_scripts {
 
 client_scripts {
     'bridge/client/framework.lua',
-    'client/ui.lua',      -- UI wrapper: must load before client/main.lua
+    'client/ui.lua',       -- UI wrapper: must load before client/main.lua
+    'client/features.lua', -- extras (profiles, /myjob, /jobs, celebrations, receptionist)
     'client/main.lua',
     'client/placement.lua',
 }

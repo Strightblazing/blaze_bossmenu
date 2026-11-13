@@ -27,6 +27,37 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - **Logs** to console, the ox_lib logger and Discord.
 - **Compatibility** with scripts written for qbx_management or qb-bossmenu (e.g. illenium-appearance boss outfits).
 
+### Extras (each can be turned off in `Config.features`, `Config.applications` or `Config.funds`)
+
+**Staff**
+- **Employee profiles**: hire date, probation, hours this week and this month, last check-in, rank history and record.
+- **Commendations & write-ups** on an employee's record (write-ups only for people below you). They're told right away.
+- **Probation**: new hires are on probation for `probationDays`; managers get a reminder when it ends.
+- **Badges in the staff list**: ⭐ Employee of the Week, Probation, Inactive (no duty in `inactiveDays`), Ready for promotion (`promotionHours`).
+- **Employee of the Week**: announced to the whole department, with a big on-screen message for the winner.
+- **`/myjob`**: staff see their own profile, record and the current department announcement.
+
+**Applications**
+- **Team votes**: managers vote 👍/👎 on an application and see who voted what.
+- **Quick replies**: ready-made deny reasons and interview messages (`applications.quickReplies`).
+- **Withdraw**: applicants can withdraw an undecided application from `/applicationstatus`.
+- **Interview check-in**: invited applicants "Check in for interview" at the review point, and online managers are told.
+- **`/jobs` "Now hiring" board**: every job taking applications, with a waypoint to its application point.
+- **Phone mail**: results also arrive as an email in sd-phone (if it's running).
+- **Receptionist NPC**: stands behind each applications point and says hello.
+
+**Money**
+- **Bonuses**: pay one employee or everyone on duty from society funds, straight into their bank (`maxBonus` per person).
+- **Daily withdrawal limits per rank** (`jobs[x].withdrawLimits`), covering withdrawals and bonuses. Admins aren't limited.
+- **Payroll**: pay per rank, and what one paycheck costs for everyone / for staff on duty now.
+
+**Flair**
+- **Celebrations**: big centre-screen message + sound for new hires, promotions, bonuses and Employee of the Week.
+- **Handshake**: manager and new hire shake hands when a nearby hire is accepted.
+- **Starter items** for new hires (`jobs[x].starterItems`, ox_inventory or the framework inventory).
+- **Announcements**: on-duty staff see them now (with a sound), others when they clock in.
+- **Activity log**: recent hires, fires, promotions, money moves and more, right in the boss menu.
+
 ## Requirements
 
 - [ox_lib](https://github.com/overextended/ox_lib)
@@ -138,6 +169,20 @@ The applicant's full name always comes from their character. It is never a quest
 | `funds.enabled` | `false` = no Funds anywhere. |
 | `funds.confirmAbove` | Deposits/withdrawals of this amount or more ask to confirm. |
 | `funds.historyLimit` | Transactions shown in Recent history. |
+| `applications.allowWithdraw` / `votes` / `interviewCheckIn` | Applicant withdraw, manager 👍/👎 votes, interview check-in at the review point. |
+| `applications.quickReplies` | Ready-made `deny` and `interview` messages. |
+| `funds.bonuses` / `maxBonus` / `payroll` | Bonuses from society funds, biggest bonus per person, the Payroll page. |
+| `jobs[x].description` | Text shown on the `/jobs` board. |
+| `jobs[x].promotionHours` | `{ [rank] = hours }` needed to show "Ready for promotion". |
+| `jobs[x].withdrawLimits` | `{ [rank] = amount }` most that rank can withdraw + pay in bonuses per day. |
+| `jobs[x].starterItems` | `{ { item = 'radio', count = 1 } }` given to new hires. |
+| `features.profiles` / `records` | Employee profiles (+ `/myjob`) and commendations / write-ups. |
+| `features.probationDays` / `inactiveDays` | Probation length and the Inactive badge (0 = off). |
+| `features.announcements` / `employeeOfWeek` / `auditLog` | Announcements, Employee of the Week, Activity log (`auditShow`, `auditKeepDays`). |
+| `features.celebrations` / `handshake` | On-screen celebrations and the hire handshake. |
+| `features.myJobCommand` / `jobBoardCommand` | `/myjob` and `/jobs` command names, or `false`. |
+| `features.phoneMail` | Send application results by sd-phone mail. |
+| `features.receptionist` | NPC at applications points: `enabled`, `model`, `scenario`, `greet`. |
 | `locations` | Fixed points from config (added to the ones placed in game). |
 | `logs.*` | Console, ox_lib logger, Discord, and each event on/off. |
 
@@ -154,7 +199,7 @@ The applicant's full name always comes from their character. It is never a quest
 Set `set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."` in `server.cfg`.
 The webhook is **never** read from a file, so it can't end up in the repo. Logs are batched to stay under Discord's rate limit.
 Events: hire, fire, promote, demote, callsign, accept, deny, interview, deposit, withdraw, toggle, formEdit,
-formReset, placement, gradeEdit. Turn single events off in `Config.logs.events`.
+formReset, placement, gradeEdit, record, eotw, announce, bonus, withdrawApp, checkin. Turn single events off in `Config.logs.events`.
 
 ## Lation UI
 
@@ -197,7 +242,8 @@ Events `qb-bossmenu:client:OpenMenu` and `qb-gangmenu:client:OpenMenu` open the 
 ## Database tables
 
 `blaze_boss_applications`, `blaze_boss_forms`, `blaze_boss_callsigns`, `blaze_boss_fund_log`,
-`blaze_boss_settings`, `blaze_boss_points`, plus `player_jobs_activity` and `management_groups`
+`blaze_boss_settings`, `blaze_boss_points`, `blaze_boss_members`, `blaze_boss_records`, `blaze_boss_audit`,
+`blaze_boss_announcements`, `blaze_boss_eotw`, `blaze_boss_app_votes`, plus `player_jobs_activity` and `management_groups`
 (the same tables qbx_management used).
 
 ## License
