@@ -11,7 +11,8 @@ Config = {
     -- Falls back to ox_lib automatically if lation_ui isn't started. Notifications always use ox_lib.
     useLationUI = false,
 
-    -- Which target script to use: 'auto' (ox_target first, then qb-target) | 'ox_target' | 'qb-target'
+    -- Which target script to use: 'auto' (ox_target, then qb-target, else 'none') | 'ox_target' | 'qb-target'
+    -- | 'none' (walk-up zone: a "[E]" text prompt when you stand at the point, like qbx_management without target)
     target = 'auto',
 
     -- Ace that allows /bossmenu (placing points) and admin overrides. Framework admins also count.
@@ -23,6 +24,36 @@ Config = {
 
     -- How close (metres) a player must be to the manager to be hired from the boss menu
     hireDistance = 5.0,
+
+    -- true = the person being hired gets an Accept/Decline popup first (from qbx_management)
+    hireConsent = true,
+    -- Seconds they have to answer before it counts as declined
+    hireConsentSeconds = 30,
+
+    -- Duty hours (from qbx_management): logs on/off duty time per employee and shows hours + last check-in
+    -- in the staff list. Uses the same player_jobs_activity table as qbx_management, so old hours carry over.
+    activity = {
+        -- false = no duty hour tracking
+        enabled = true,
+        -- Shifts shorter than this (minutes) aren't saved
+        minOnDutyMinutes = 30,
+        -- Hours shown are from the last this-many days; older rows are deleted on start
+        keepDays = 31,
+        -- How dates are shown (os.date format)
+        dateFormat = '%m-%d-%Y %H:%M',
+    },
+
+    -- In-game grade editor (from qbx_management): bosses rename grades, change pay, boss flag and bank access
+    -- for grades up to their own. Qbox only. Saved in the management_groups table (same as qbx_management)
+    -- and loaded into qbx_core on start. Also needs this in server.cfg (the same convar qbx_management used):
+    --   setr qbx:enableGroupManagement "true"
+    gradeEditor = true,
+
+    -- qbx_management compatibility: answer qb-bossmenu:client:OpenMenu / qb-gangmenu:client:OpenMenu and
+    -- exports.qbx_management:OpenBossMenu / AddBossMenuItem / RegisterBossMenu ... so other scripts
+    -- (illenium-appearance boss outfits, etc.) keep working after qbx_management is stopped.
+    -- Turned off automatically while qbx_management itself is started.
+    qbxManagementCompat = true,
 
     -- Only jobs listed here get a boss menu / applications. The key is the framework job name.
     jobs = {
@@ -41,6 +72,17 @@ Config = {
         -- police = { label = 'LSPD', bossGrade = nil, society = 'police', applications = true, funds = true },
         -- fire = { label = 'LSFD', bossGrade = 4, society = 'fire', applications = true, funds = false },
         -- mechanic = { label = 'Mechanic', bossGrade = nil, society = 'mechanic', applications = true, funds = true },
+    },
+
+    -- Gangs that get a gang menu (members, hire, promote/demote, kick, grade editor, optional funds).
+    -- Gangs don't use applications or callsigns. The key is the framework gang name.
+    gangs = {
+        -- lostmc = {
+        --     label = 'The Lost MC',
+        --     bossGrade = nil,      -- nil = the gang grade's isboss flag; or a number (min grade)
+        --     society = 'lostmc',   -- account name for Funds (only used when funds = true)
+        --     funds = false,        -- show Funds for this gang (also needs funds.enabled below)
+        -- },
     },
 
     applications = {
@@ -84,10 +126,11 @@ Config = {
 
     -- Optional fixed points. In-game placed points (/bossmenu) are added on top.
     -- These can't be deleted in game; remove them here.
-    -- type: 'boss' (management desk) or 'applications' (apply point)
+    -- type: 'boss' (management desk) or 'applications' (apply point). For a gang desk use gang = 'name' instead of job.
     locations = {
         -- { job = 'ambulance', type = 'boss', coords = vec3(0.0, 0.0, 0.0), radius = 1.0 },
         -- { job = 'ambulance', type = 'applications', coords = vec3(0.0, 0.0, 0.0), radius = 1.0 },
+        -- { gang = 'lostmc', type = 'boss', coords = vec3(983.69, -90.92, 74.85), radius = 1.0 },
     },
 
     logs = {
@@ -101,7 +144,7 @@ Config = {
         events = {
             hire = true, fire = true, promote = true, demote = true, callsign = true,
             accept = true, deny = true, interview = true, deposit = true, withdraw = true,
-            toggle = true, formEdit = true, formReset = true, placement = true,
+            toggle = true, formEdit = true, formReset = true, placement = true, gradeEdit = true,
         },
     },
 }
