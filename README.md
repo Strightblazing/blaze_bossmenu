@@ -130,6 +130,20 @@ every job you applied to, with the status (waiting, interview, accepted, denied)
 the deny reason and when you can apply again, who reviewed it, and your own answers. Manager notes are never shown.
 Change or turn off the command with `applications.statusCommand`.
 
+## Testing on your own
+
+`/bossmenutest` (admins) opens test tools:
+
+- **Add 4 test staff** to a job or gang: one on probation, one inactive, one ready for promotion with a commendation,
+  and one regular. They're real offline characters (citizen IDs `BMTEST01`, `BMTEST02`, …) that nobody can log in as,
+  so you can promote, demote, write up, commend, set callsigns and fire them.
+- **Add 3 test applications** using the job's current form: two waiting, one invited to an interview. Accepting one hires that test character.
+- **Previews** of the promotion celebration, the hire offer popup and the announcement popup.
+- **Remove all test data**: deletes every test character and everything linked to them.
+
+Things that need a real second player: hiring someone nearby (consent popup + handshake) and bonuses (paid to online players).
+Turn the command off with `testCommand = false` once you go live.
+
 ## Building the application form
 
 Boss menu → Applications → **Edit application form**:

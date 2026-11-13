@@ -14,6 +14,10 @@ Config = {
     -- On start, check GitHub for a newer release and say so in the console (false = don't check)
     versionCheck = true,
 
+    -- Admin test tools: fake offline staff + applications so one person can try everything, plus effect previews.
+    -- "Remove all test data" in the menu cleans it all up. false = no command (recommended once you go live)
+    testCommand = 'bossmenutest',
+
     -- Which target script to use: 'auto' (ox_target, then qb-target, else 'none') | 'ox_target' | 'qb-target'
     -- | 'none' (walk-up zone: a "[E]" text prompt when you stand at the point, like qbx_management without target)
     target = 'auto',

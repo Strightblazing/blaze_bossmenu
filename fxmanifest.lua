@@ -21,6 +21,7 @@ server_scripts {
     'server/version.lua',
     'server/main.lua',
     'server/features.lua', -- extras (profiles, records, bonuses, ...): needs server/main.lua first
+    'server/test.lua',     -- /bossmenutest (admins)
 }
 
 client_scripts {
@@ -29,6 +30,7 @@ client_scripts {
     'client/features.lua', -- extras (profiles, /myjob, /jobs, celebrations, receptionist)
     'client/main.lua',
     'client/placement.lua',
+    'client/test.lua',
 }
 
 -- ox_target / qb-target / lation_ui are optional and detected at runtime
