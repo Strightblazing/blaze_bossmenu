@@ -20,6 +20,7 @@ server_scripts {
     'server/logs.lua',
     'server/version.lua',
     'server/main.lua',
+    'server/features.lua', -- extras (profiles, records, bonuses, ...): needs server/main.lua first
 }
 
 client_scripts {

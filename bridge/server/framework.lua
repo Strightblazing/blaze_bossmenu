@@ -272,6 +272,34 @@ function Bridge.RemoveCash(src, amount, reason)
     return p.Functions.RemoveMoney('cash', amount, reason or 'blaze_bossmenu') ~= false
 end
 
+--- Pay into the player's bank (bonuses)
+function Bridge.AddBank(src, amount, reason)
+    local p = Bridge.GetPlayer(src)
+    return p and p.Functions.AddMoney('bank', amount, reason or 'blaze_bossmenu') ~= false or false
+end
+
+--- Give an item (starter items): ox_inventory if started, else the framework inventory
+function Bridge.AddItem(src, item, count, metadata)
+    if GetResourceState('ox_inventory') == 'started' then
+        local ok = exports.ox_inventory:CanCarryItem(src, item, count or 1)
+        if not ok then return false end
+        return exports.ox_inventory:AddItem(src, item, count or 1, metadata) and true or false
+    end
+    local p = Bridge.GetPlayer(src)
+    return p and p.Functions.AddItem and p.Functions.AddItem(item, count or 1, nil, metadata) or false
+end
+
+--- Phone mail (sd-phone). Works for offline players too. Returns true if delivered.
+function Bridge.SendMail(cid, fromName, fromEmail, subject, body)
+    if GetResourceState('sd-phone') ~= 'started' then return false end
+    local ok, addresses = pcall(function() return exports['sd-phone']:getMailAddresses(cid) end)
+    if not ok or type(addresses) ~= 'table' or not addresses[1] then return false end
+    local sent, res = pcall(function()
+        return exports['sd-phone']:sendMail({ to = addresses[1].email, subject = subject, body = body, from = { name = fromName, email = fromEmail } })
+    end)
+    return sent and type(res) == 'table' and res.success == true
+end
+
 function Bridge.Notify(src, description, ntype, title)
     TriggerClientEvent('ox_lib:notify', src, { title = title or 'Management', description = description, type = ntype or 'inform' })
 end

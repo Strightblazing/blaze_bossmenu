@@ -11,6 +11,7 @@ local COLOURS = {
     hire = 0x3DDC84, accept = 0x3DDC84, promote = 0x5AA9FF, demote = 0xF0A93B, fire = 0xE5484D,
     deny = 0xE5484D, interview = 0x5AA9FF, callsign = 0x8F99A5, deposit = 0x3DDC84, withdraw = 0xF0A93B,
     toggle = 0xA78BFA, formEdit = 0xA78BFA, formReset = 0xA78BFA, placement = 0x8F99A5, gradeEdit = 0xA78BFA,
+    record = 0x5AA9FF, eotw = 0xF5C542, announce = 0xA78BFA, bonus = 0x3DDC84, withdrawApp = 0x8F99A5, checkin = 0x5AA9FF,
 }
 
 --- "Steven Blaze (ABC12345) [12]"
@@ -57,8 +58,16 @@ end
 --- @param message string plain words
 --- @param fields table?  extra details { Job = 'ambulance', Amount = '$500' }
 function Logs.log(event, src, message, fields)
-    if events[event] == false then return end
     fields = fields or {}
+
+    -- In-game Activity log (boss menu): saved even when this event is turned off for console/Discord
+    local group = fields.Group or fields.Job
+    if group and Config.features and Config.features.auditLog then
+        MySQL.insert('INSERT INTO blaze_boss_audit (job, actor, event, message) VALUES (?, ?, ?, ?)',
+            { group, src and src ~= 0 and Bridge.GetName(src) or 'system', event, message })
+    end
+
+    if events[event] == false then return end
 
     if cfg.oxLogger and lib.logger then
         local tags = {}

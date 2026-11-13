@@ -11,6 +11,16 @@ if not Config.enabled then
 end
 
 local RES = GetCurrentResourceName()
+
+-- Shared with server/features.lua: helpers (filled in at the end of this file) and hooks it can attach to.
+BM = { hooks = {} }
+local function hook(name, ...)
+    local fn = BM.hooks[name]
+    if not fn then return end
+    local ok, err = pcall(fn, ...)
+    if not ok then print(('^1[blaze_bossmenu]^7 hook %s failed: %s'):format(name, err)) end
+end
+
 local APPS = Config.applications or {}
 local FUNDS = Config.funds or {}
 local ACT = Config.activity or {}
@@ -204,6 +214,58 @@ local function createTables()
         `created_by` VARCHAR(128) NULL,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    -- Member extras: hire date + probation (rows exist for people hired through blaze_bossmenu)
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_members` (
+        `citizenid` VARCHAR(64) NOT NULL,
+        `job` VARCHAR(70) NOT NULL,
+        `hired_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `probation_until` DATETIME NULL,
+        `probation_done` TINYINT(1) NOT NULL DEFAULT 0,
+        PRIMARY KEY (`citizenid`, `job`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    -- Employee record: commendations, write-ups, rank history, Employee of the Week wins
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_records` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `job` VARCHAR(70) NOT NULL,
+        `citizenid` VARCHAR(64) NOT NULL,
+        `type` VARCHAR(16) NOT NULL,
+        `text` TEXT NULL,
+        `by_name` VARCHAR(128) NULL,
+        `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`), INDEX `job_citizen` (`job`, `citizenid`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_audit` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `job` VARCHAR(70) NOT NULL,
+        `actor` VARCHAR(128) NULL,
+        `event` VARCHAR(32) NOT NULL,
+        `message` TEXT NULL,
+        `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`), INDEX `job` (`job`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_announcements` (
+        `job` VARCHAR(70) NOT NULL,
+        `message` TEXT NOT NULL,
+        `by_name` VARCHAR(128) NULL,
+        `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`job`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_eotw` (
+        `job` VARCHAR(70) NOT NULL,
+        `citizenid` VARCHAR(64) NOT NULL,
+        `name` VARCHAR(128) NULL,
+        `reason` VARCHAR(255) NULL,
+        `week` INT NOT NULL,
+        `by_name` VARCHAR(128) NULL,
+        PRIMARY KEY (`job`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_app_votes` (
+        `app_id` INT UNSIGNED NOT NULL,
+        `citizenid` VARCHAR(64) NOT NULL,
+        `name` VARCHAR(128) NULL,
+        `vote` TINYINT NOT NULL,
+        PRIMARY KEY (`app_id`, `citizenid`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
     -- Same table as qbx_management, so existing hours carry over (no foreign key: works on QBCore too)
     MySQL.query.await([[CREATE TABLE IF NOT EXISTS `player_jobs_activity` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -290,6 +352,7 @@ local clockedIn = {} -- [src] = { citizenid, job, time }
 local function activityOn() return ACT.enabled and not qbxManagementRunning() end
 
 local function checkIn(src, cid, job)
+    hook('dutyOn', src, cid, job)
     if not activityOn() then return end
     clockedIn[src] = { citizenid = cid, job = job, time = os.time() }
 end
@@ -337,12 +400,13 @@ local function activityFor(job)
         FROM player_jobs_activity WHERE job = ? GROUP BY citizenid]], { job }) or {}
     local fmt = ACT.dateFormat or '%m-%d-%Y %H:%M'
     for _, r in ipairs(rows) do
-        out[r.citizenid] = { hours = tonumber(r.hours) or 0, lastCheckin = r.last and os.date(fmt, r.last) or 'N/A' }
+        out[r.citizenid] = { hours = tonumber(r.hours) or 0, lastCheckin = r.last and os.date(fmt, r.last) or 'N/A', lastT = r.last }
     end
     for _, c in pairs(clockedIn) do
         if c.job == job then
             out[c.citizenid] = out[c.citizenid] or { hours = 0 }
             out[c.citizenid].lastCheckin = os.date(fmt, c.time)
+            out[c.citizenid].lastT = os.time()
         end
     end
     return out
@@ -475,7 +539,7 @@ local function validateAnswers(questions, answers)
     return snapshot
 end
 
-local STATUS_LABEL = { new = 'Waiting for review', interview = 'Invited to interview', accepted = 'Accepted', denied = 'Denied' }
+local STATUS_LABEL = { new = 'Waiting for review', interview = 'Invited to interview', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
 
 local function statusMessage(job, row)
     local label = groupLabel('job', job)
@@ -486,13 +550,15 @@ local function statusMessage(job, row)
     if row.status == 'interview' then
         return ('You are invited to an interview for %s.%s'):format(label, row.interview_msg and (' ' .. row.interview_msg) or ''), 'inform'
     end
+    if row.status == 'withdrawn' then return ('You withdrew your %s application.'):format(label), 'inform' end
     return ('Your %s application is waiting for review.'):format(label), 'inform'
 end
 
 --- Tell the applicant now if online, otherwise flag it for their next login
 local function notifyApplicant(id)
-    local row = MySQL.single.await('SELECT id, citizenid, job, status, deny_reason, interview_msg FROM blaze_boss_applications WHERE id = ?', { id })
+    local row = MySQL.single.await('SELECT id, citizenid, job, name, status, deny_reason, interview_msg FROM blaze_boss_applications WHERE id = ?', { id })
     if not row then return end
+    hook('applicationUpdate', row)
     local p = Bridge.GetPlayerByCitizenId(row.citizenid)
     if p then
         local msg, t = statusMessage(row.job, row)
@@ -600,6 +666,7 @@ register('getStaff', function(src, gtype, name)
         if a.grade ~= b.grade then return a.grade > b.grade end
         return a.name < b.name
     end)
+    hook('decorateStaff', gtype, name, members, activity)
     return { members = members, limit = limit, grades = Bridge.GetGrades(gtype, name) }
 end)
 
@@ -634,6 +701,7 @@ local function changeGrade(src, gtype, name, cid, dir)
     if not ok then return false, err or 'Could not change their rank.' end
     local who = Bridge.GetNameByCitizenId(cid)
     local newName = gradeName(gtype, name, new)
+    hook('gradeChanged', src, cid, gtype, name, grade, new, dir)
     notifyMember(cid, ('You were %s to %s.'):format(dir > 0 and 'promoted' or 'demoted', newName), dir > 0 and 'success' or 'inform')
     Logs.log(dir > 0 and 'promote' or 'demote', src, ('%s %s %s to %s (%s)'):format(Logs.who(src), dir > 0 and 'promoted' or 'demoted', who, newName, groupLabel(gtype, name)),
         { Group = gkey(gtype, name), Target = cid, From = grade, To = new })
@@ -650,6 +718,7 @@ register('fire', function(src, gtype, name, cid)
     local ok, err = Bridge.RemoveGroup(cid, gtype, name)
     if not ok then return false, err or 'Could not remove them.' end
     if gtype == 'job' then MySQL.update('DELETE FROM blaze_boss_callsigns WHERE citizenid = ? AND job = ?', { cid, name }) end
+    hook('removed', src, cid, gtype, name)
     notifyMember(cid, ('You were removed from %s.'):format(groupLabel(gtype, name)), 'error')
     Logs.log('fire', src, ('%s removed %s from %s'):format(Logs.who(src), who, groupLabel(gtype, name)), { Group = gkey(gtype, name), Target = cid, Grade = grade })
     return true, ('%s was removed.'):format(who)
@@ -710,6 +779,7 @@ register('hire', function(src, gtype, name, target, grade)
     if not ok then return false, err or 'Could not hire them.' end
     local who = Bridge.GetName(target)
     Bridge.Notify(target, ('You were hired into %s as %s.'):format(label, gradeName(gtype, name, grade)), 'success')
+    hook('hired', src, cid, gtype, name, grade, target)
     Logs.log('hire', src, ('%s hired %s into %s as %s'):format(Logs.who(src), Logs.who(target), label, gradeName(gtype, name, grade)), { Group = gkey(gtype, name), Target = cid, Grade = grade })
     return true, ('%s was hired.'):format(who)
 end)
@@ -767,7 +837,7 @@ if FUNDS.enabled then
         if not account then return nil, err end
         local history = MySQL.query.await(("SELECT name, type, amount, reason, DATE_FORMAT(created_at, '%%Y-%%m-%%d %%H:%%i') AS at FROM blaze_boss_fund_log WHERE job = ? ORDER BY id DESC LIMIT %d")
             :format(math.max(1, math.floor(FUNDS.historyLimit or 20))), { gkey(gtype, name) }) or {}
-        return { balance = Banking.getBalance(account), history = history, confirmAbove = FUNDS.confirmAbove or 5000 }
+        return { balance = Banking.getBalance(account), history = history, confirmAbove = FUNDS.confirmAbove or 5000, left = BM.withdrawLeft(src, gtype, name) }
     end)
 
     local function logFunds(src, gtype, name, kind, amount, reason)
@@ -800,6 +870,8 @@ if FUNDS.enabled then
         reason = cleanText(reason, 100)
         if not amount then return false, 'Enter a whole amount of at least $1.' end
         if not reason or #reason < 1 then return false, 'A reason is required.' end
+        local left = BM.withdrawLeft(src, gtype, name)
+        if left and amount > left then return false, ('Your rank can take out $%d more today.'):format(math.max(0, left)) end
         if not Banking.withdraw(account, amount, reason) then return false, 'The account doesn\'t have enough money.' end
         if not Bridge.AddCash(src, amount, 'Society withdrawal') then
             Banking.deposit(account, amount, 'Withdrawal refund')
@@ -901,7 +973,9 @@ if APPS.enabled then
     register('getApplications', function(src, job, filter)
         if not managerCheck(src, job) then return nil end
         local where = "status IN ('new','interview')"
-        if filter == 'accepted' then where = "status = 'accepted'" elseif filter == 'denied' then where = "status = 'denied'" end
+        if filter == 'accepted' then where = "status = 'accepted'"
+        elseif filter == 'denied' then where = "status = 'denied'"
+        elseif filter == 'withdrawn' then where = "status = 'withdrawn'" end
         return MySQL.query.await(("SELECT id, name, status, DATE_FORMAT(created_at, '%%Y-%%m-%%d %%H:%%i') AS created FROM blaze_boss_applications WHERE job = ? AND %s ORDER BY id DESC LIMIT 100"):format(where), { job }) or {}
     end)
 
@@ -911,6 +985,15 @@ if APPS.enabled then
         if not row then return nil end
         row.answers = json.decode(row.answers) or {}
         row.statusLabel = STATUS_LABEL[row.status]
+        if APPS.votes then
+            local me = Bridge.GetCitizenId(src)
+            row.votes = { up = 0, down = 0, mine = 0, voters = {} }
+            for _, v in ipairs(MySQL.query.await('SELECT citizenid, name, vote FROM blaze_boss_app_votes WHERE app_id = ?', { row.id }) or {}) do
+                if v.vote > 0 then row.votes.up = row.votes.up + 1 else row.votes.down = row.votes.down + 1 end
+                if v.citizenid == me then row.votes.mine = v.vote end
+                row.votes.voters[#row.votes.voters + 1] = ('%s %s'):format(v.vote > 0 and '👍' or '👎', v.name or '?')
+            end
+        end
         row.created_at, row.updated_at = nil, nil
         return row
     end)
@@ -943,6 +1026,8 @@ if APPS.enabled then
         if not ok then return false, e or 'Could not hire them.' end
         MySQL.update.await("UPDATE blaze_boss_applications SET status = 'accepted', reviewed_by = ? WHERE id = ?", { Bridge.GetName(src), row.id })
         notifyApplicant(row.id)
+        local applicant = Bridge.GetPlayerByCitizenId(row.citizenid)
+        hook('hired', src, row.citizenid, 'job', job, grade, nil, applicant and applicant.PlayerData.source or nil)
         Logs.log('accept', src, ('%s accepted %s into %s as %s'):format(Logs.who(src), row.name, groupLabel('job', job), gradeName('job', job, grade)),
             { Job = job, Application = row.id, Target = row.citizenid, Grade = grade })
         return true, ('%s was hired.'):format(row.name)
@@ -1086,6 +1171,28 @@ exports('RegisterBossMenu', registerBossMenu)
 if Config.qbxManagementCompat and not qbxManagementRunning() then
     AddEventHandler('__cfx_export_qbx_management_RegisterBossMenu', function(setCB) setCB(registerBossMenu) end)
 end
+
+---------------------------------------------------------------------------
+-- Daily withdrawal limit per rank (jobs[x].withdrawLimits = { [grade] = amount }). nil = no limit.
+-- Counts withdrawals and bonuses paid today by this player. Admins aren't limited.
+---------------------------------------------------------------------------
+local function withdrawLeft(src, gtype, name)
+    local c = groupCfg(gtype, name)
+    if not c or type(c.withdrawLimits) ~= 'table' or isAdmin(src) then return nil end
+    local grade = Bridge.GetPlayerGroupGrade(src, gtype, name)
+    local limit = grade and c.withdrawLimits[grade]
+    if not limit then return nil end
+    local used = MySQL.scalar.await("SELECT COALESCE(SUM(amount), 0) FROM blaze_boss_fund_log WHERE job = ? AND citizenid = ? AND type IN ('withdraw','bonus') AND created_at >= CURDATE()",
+        { gkey(gtype, name), Bridge.GetCitizenId(src) }) or 0
+    return math.floor(limit - (tonumber(used) or 0))
+end
+
+-- Helpers for server/features.lua
+BM.register, BM.groupCfg, BM.gkey, BM.appsOn, BM.fundsOn = register, groupCfg, gkey, appsOn, fundsOn
+BM.isAdmin, BM.managerGrade, BM.actorLimit, BM.checkTarget = isAdmin, managerGrade, actorLimit, checkTarget
+BM.notifyMember, BM.groupLabel, BM.gradeName, BM.cleanText, BM.cleanLong = notifyMember, groupLabel, gradeName, cleanText, cleanLong
+BM.isOpen, BM.activityFor, BM.allPoints, BM.withdrawLeft = isOpen, activityFor, allPoints, withdrawLeft
+BM.clockedIn = clockedIn
 
 ---------------------------------------------------------------------------
 -- Start

@@ -71,6 +71,16 @@ Config = {
             applications = true,
             -- Show Funds for this job (also needs funds.enabled below)
             funds = true,
+            -- Shown on the /jobs board
+            description = 'Save lives on the streets of Los Santos. No experience needed, we train you.',
+            -- Ready for promotion: hours on duty (last activity.keepDays days) needed at each rank. Remove = no badge.
+            promotionHours = { [0] = 10, [1] = 20, [2] = 35, [3] = 50 },
+            -- Most a rank can withdraw (and pay in bonuses) per day. Ranks not listed = no limit. Admins aren't limited.
+            withdrawLimits = { [3] = 10000 },
+            -- Items new hires get (ox_inventory or your framework inventory). {} = none.
+            starterItems = {
+                -- { item = 'radio', count = 1 },
+            },
         },
         -- police = { label = 'LSPD', bossGrade = nil, society = 'police', applications = true, funds = true },
         -- fire = { label = 'LSFD', bossGrade = 4, society = 'fire', applications = true, funds = false },
@@ -98,6 +108,24 @@ Config = {
         -- Command that opens "My applications" (status, reasons, interview details, their answers).
         -- false = no command (the application point still has "My application status")
         statusCommand = 'applicationstatus',
+        -- Applicants can withdraw an application that hasn't been decided yet
+        allowWithdraw = true,
+        -- Managers vote 👍/👎 on applications and see the tally
+        votes = true,
+        -- Applicants invited to an interview can "Check in" at the review point; online managers are told
+        interviewCheckIn = true,
+        -- Ready-made messages managers can pick when denying or inviting (they can still write their own)
+        quickReplies = {
+            deny = {
+                'We have no open positions right now. Please try again later.',
+                'Your application needs more detail. Feel free to apply again.',
+                'You did not meet our requirements at this time.',
+            },
+            interview = {
+                'Come to the front desk today. Check in at the review desk when you arrive.',
+                'Contact a manager in the city to set up a time.',
+            },
+        },
         -- Who can build/edit the application form in game:
         -- 'management' = managers (+ admins), 'admin' = admins only, false = no in-game editing
         formEditor = 'management',
@@ -128,6 +156,52 @@ Config = {
         confirmAbove = 5000,
         -- How many recent transactions show in "Recent history"
         historyLimit = 20,
+        -- Managers pay bonuses from the society account to one employee or everyone on duty (into their bank)
+        bonuses = true,
+        -- Biggest bonus per person
+        maxBonus = 5000,
+        -- "Payroll" page: pay per rank and what one paycheck costs for all staff / staff on duty (jobs only)
+        payroll = true,
+    },
+
+    -- Extras. Each one can be turned off on its own.
+    features = {
+        -- Employee profiles (staff list + /myjob): hire date, hours this week, rank history, record
+        profiles = true,
+        -- Commendations and write-ups on an employee's record
+        records = true,
+        -- New hires are on probation this many days; managers get a reminder when it ends. 0 = off
+        probationDays = 7,
+        -- Flag staff with no duty time in this many days as Inactive in the staff list. 0 = off
+        inactiveDays = 7,
+        -- Managers post an announcement; on-duty staff see it now, others when they clock in
+        announcements = true,
+        -- Managers name an Employee of the Week (⭐ in the staff list, announced to the department)
+        employeeOfWeek = true,
+        -- "Activity log" in the boss menu: recent hires, fires, promotions, money moves...
+        auditLog = true,
+        -- How many entries the activity log shows, and how many days they're kept
+        auditShow = 50,
+        auditKeepDays = 30,
+        -- Big on-screen message + sound when someone is hired, promoted, gets a bonus or Employee of the Week
+        celebrations = true,
+        -- Manager and new hire shake hands when a nearby hire is accepted
+        handshake = true,
+        -- Command for staff to see their own profile, record and the department announcement. false = off
+        myJobCommand = 'myjob',
+        -- "Now hiring" board: lists jobs taking applications, with a waypoint to each application point. false = off
+        jobBoardCommand = 'jobs',
+        -- Also send application results by phone mail (sd-phone, if it's running). false = off
+        phoneMail = true,
+        -- A receptionist NPC stands at each applications point and greets people who walk up
+        receptionist = {
+            enabled = true,
+            model = 'a_f_y_business_02',
+            -- Animation the receptionist plays (GTA scenario name); false = just stand
+            scenario = 'WORLD_HUMAN_CLIPBOARD',
+            -- Say hello when someone walks up
+            greet = true,
+        },
     },
 
     -- Optional fixed points. In-game placed points (/bossmenu) are added on top.
@@ -152,6 +226,7 @@ Config = {
             hire = true, fire = true, promote = true, demote = true, callsign = true,
             accept = true, deny = true, interview = true, deposit = true, withdraw = true,
             toggle = true, formEdit = true, formReset = true, placement = true, gradeEdit = true,
+            record = true, eotw = true, announce = true, bonus = true, withdrawApp = true, checkin = true,
         },
     },
 }
