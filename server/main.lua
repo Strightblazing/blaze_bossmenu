@@ -564,7 +564,8 @@ register('getMenu', function(src, gtype, name)
         apps = appsOn(gtype, name), funds = fundsOn(gtype, name),
         formEdit = gtype == 'job' and canEditForm(src, name) or false,
         gradeEdit = gradeEditorOn(), isAdmin = isAdmin(src),
-        callsigns = gtype == 'job',
+        callsigns = gtype == 'job', grades = Bridge.GetGrades(gtype, name),
+        ownGrade = managerGrade(src, gtype, name),
     }
     if data.apps then
         data.appsOpen = isOpen(name)

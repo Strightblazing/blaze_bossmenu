@@ -1,0 +1,713 @@
+-- blaze_bossmenu client menus. All menus/forms/confirms go through UI.* (client/ui.lua).
+-- Boss menu flow forked from qbx_management (Qbox Project, GPL-3.0).
+if not Config.enabled then
+    exports('openBossMenu', function() end)
+    exports('openApplication', function() end)
+    exports('openApplicationStatus', function() end)
+    return
+end
+
+local RES = GetCurrentResourceName()
+
+local function call(name, ...) return lib.callback.await(('%s:%s'):format(RES, name), false, ...) end
+local function notify(msg, ntype, title) lib.notify({ title = title or 'Management', description = msg, type = ntype or 'inform' }) end
+local function result(ok, msg)
+    notify(msg or (ok and 'Done.' or 'That didn\'t work.'), ok and 'success' or 'error')
+    return ok
+end
+local function money(n) return n and ('$' .. tostring(math.floor(n)):reverse():gsub('(%d%d%d)', '%1,'):reverse():gsub('^,', '')) or 'unknown' end
+local function short(s, n)
+    s = tostring(s or '')
+    s = s:gsub('\n', ' ')
+    return #s > n and (s:sub(1, n - 1) .. '…') or s
+end
+
+local managed = {}  -- ['job:ambulance'] = true
+local myGroups = {} -- list from getMyJobs
+local isAdmin = false
+local dynamicItems = {} -- items other scripts add (AddBossMenuItem / AddGangMenuItem)
+
+local function refreshManaged()
+    local d = call('getMyJobs') or { groups = {} }
+    managed, myGroups, isAdmin = {}, d.groups or {}, d.isAdmin == true
+    for _, g in ipairs(myGroups) do managed[g.gtype .. ':' .. g.name] = true end
+end
+Bridge.onGroupsChanged(refreshManaged)
+
+local openGroup -- forward
+
+---------------------------------------------------------------------------
+-- Rank picker
+---------------------------------------------------------------------------
+--- Returns the chosen grade level (only ranks below the manager's limit), or nil
+local function pickRank(m, title)
+    local options = {}
+    for _, g in ipairs(m.grades or {}) do
+        if g.level < m.limit then options[#options + 1] = { value = tostring(g.level), label = ('%s (%d)'):format(g.name, g.level) } end
+    end
+    if #options == 0 then notify('There is no rank you can give.', 'error') return nil end
+    local v = UI.input(title or 'Starting rank', {
+        { type = 'select', label = 'Rank', options = options, default = options[1].value, required = true },
+    })
+    return v and tonumber(v[1]) or nil
+end
+
+---------------------------------------------------------------------------
+-- Staff
+---------------------------------------------------------------------------
+local openStaff
+
+local function gradeAfter(grades, level, dir)
+    if dir > 0 then
+        for _, g in ipairs(grades) do if g.level > level then return g end end
+    else
+        for i = #grades, 1, -1 do if grades[i].level < level then return grades[i] end end
+    end
+end
+
+local function openMember(m, data, p)
+    local below = p.grade < data.limit
+    local up, down = gradeAfter(data.grades, p.grade, 1), gradeAfter(data.grades, p.grade, -1)
+    local options = {
+        {
+            title = 'Promote', icon = 'fa-solid fa-arrow-up',
+            description = up and ('To ' .. up.name) or 'Already at the top rank',
+            disabled = p.isSelf or not below or not up or up.level >= data.limit,
+            onSelect = function()
+                if UI.confirm({ header = 'Promote', content = ('Promote %s to %s?'):format(p.name, up.name), type = 'info' }) then
+                    result(call('promote', m.gtype, m.name, p.citizenid))
+                end
+                openStaff(m)
+            end,
+        },
+        {
+            title = 'Demote', icon = 'fa-solid fa-arrow-down',
+            description = down and ('To ' .. down.name) or 'Already at the lowest rank',
+            disabled = p.isSelf or not below or not down,
+            onSelect = function()
+                if UI.confirm({ header = 'Demote', content = ('Demote %s to %s?'):format(p.name, down.name), type = 'warning' }) then
+                    result(call('demote', m.gtype, m.name, p.citizenid))
+                end
+                openStaff(m)
+            end,
+        },
+    }
+    if m.callsigns then
+        options[#options + 1] = {
+            title = 'Set callsign', icon = 'fa-solid fa-hashtag', description = p.callsign and ('Current: ' .. p.callsign) or 'None set',
+            disabled = not p.isSelf and not below,
+            onSelect = function()
+                local v = UI.input('Callsign · ' .. p.name, {
+                    { type = 'input', label = 'Callsign', description = '1-8 letters, numbers or dashes', default = p.callsign, required = true, minLength = 1, maxLength = 8 },
+                })
+                if v then result(call('setCallsign', m.gtype, m.name, p.citizenid, v[1])) end
+                openStaff(m)
+            end,
+        }
+    end
+    options[#options + 1] = {
+        title = m.gtype == 'gang' and 'Kick from gang' or 'Fire', icon = 'fa-solid fa-user-slash', iconColor = '#E5484D',
+        disabled = p.isSelf or not below,
+        onSelect = function()
+            if UI.confirm({ header = m.gtype == 'gang' and 'Kick member' or 'Fire employee', content = ('Remove %s from %s?'):format(p.name, m.label),
+                    type = 'error', callout = 'This removes them from the ' .. (m.gtype == 'gang' and 'gang.' or 'job.'), confirm = 'Remove' }) then
+                result(call('fire', m.gtype, m.name, p.citizenid))
+            end
+            openStaff(m)
+        end,
+    }
+    UI.registerMenu({ id = 'blaze_boss_member', title = p.name, menu = 'blaze_boss_staff', options = options })
+    UI.showMenu('blaze_boss_member')
+end
+
+openStaff = function(m)
+    local data = call('getStaff', m.gtype, m.name)
+    if not data then return notify('You are not a manager here.', 'error') end
+    local options = {}
+    for _, p in ipairs(data.members) do
+        local status = p.online and (p.onduty and 'On duty' or 'Off duty') or 'Offline'
+        if m.gtype == 'gang' then status = p.online and 'Online' or 'Offline' end
+        local parts = { p.gradeName }
+        if p.callsign then parts[#parts + 1] = p.callsign end
+        parts[#parts + 1] = status
+        local meta
+        if p.hours or p.lastCheckin then
+            meta = {
+                { label = 'Status', value = status },
+                { label = 'Hours (last ' .. ((Config.activity and Config.activity.keepDays) or 31) .. ' days)', value = tostring(p.hours or 0) },
+                { label = 'Last check-in', value = p.lastCheckin or 'N/A' },
+            }
+        end
+        options[#options + 1] = {
+            title = p.name .. (p.isSelf and ' (you)' or ''),
+            description = table.concat(parts, ' · '),
+            icon = 'fa-solid fa-user',
+            iconColor = p.online and (p.onduty and '#3DDC84' or '#F0A93B') or '#8F99A5',
+            metadata = meta, arrow = true,
+            onSelect = function() openMember(m, data, p) end,
+        }
+    end
+    if #options == 0 then options[1] = { title = 'Nobody here yet', readOnly = true } end
+    UI.registerMenu({ id = 'blaze_boss_staff', title = (m.gtype == 'gang' and 'Members' or 'Staff') .. ' · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_staff')
+end
+
+---------------------------------------------------------------------------
+-- Hire
+---------------------------------------------------------------------------
+local function doHire(m, target, name)
+    local grade = pickRank(m, 'Hire ' .. (name or ('ID ' .. target)))
+    if not grade then return end
+    if Config.hireConsent then notify('Waiting for them to accept the offer…', 'inform') end
+    result(call('hire', m.gtype, m.name, target, grade))
+end
+
+local function openHire(m)
+    local players = call('getNearbyPlayers', m.gtype, m.name) or {}
+    local options = {
+        {
+            title = 'Hire by server ID', icon = 'fa-solid fa-id-card',
+            description = ('They must be within %sm of you'):format(Config.hireDistance or 5.0),
+            onSelect = function()
+                local v = UI.input('Hire by server ID', { { type = 'number', label = 'Server ID', required = true, min = 1 } })
+                if v and v[1] then doHire(m, math.floor(v[1])) end
+            end,
+        },
+    }
+    for _, p in ipairs(players) do
+        options[#options + 1] = {
+            title = p.name, description = 'ID ' .. p.src, icon = 'fa-solid fa-user-plus',
+            onSelect = function() doHire(m, p.src, p.name) end,
+        }
+    end
+    if #players == 0 then options[#options + 1] = { title = 'Nobody nearby', description = 'Stand close to the person you want to hire', readOnly = true } end
+    UI.registerMenu({ id = 'blaze_boss_hire', title = 'Hire · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_hire')
+end
+
+---------------------------------------------------------------------------
+-- Application form helpers (shared by the applicant form, preview and editor)
+---------------------------------------------------------------------------
+local FRIENDLY = { input = 'Short answer', textarea = 'Long answer', number = 'Number', select = 'Dropdown', checkbox = 'Checkbox' }
+local TYPE_ORDER = { 'input', 'textarea', 'number', 'select', 'checkbox' }
+
+--- Turn saved questions into UI.input fields. defaults = previous answers by index.
+local function buildFields(questions, defaults)
+    defaults = defaults or {}
+    local fields = {}
+    for i, q in ipairs(questions) do
+        local f = { type = q.type, label = q.label, required = q.required, default = defaults[i] }
+        if q.type == 'input' then
+            f.minLength, f.maxLength = q.min, q.max or 200
+        elseif q.type == 'textarea' then
+            f.minLength, f.maxLength = q.min, q.max or 1000
+            if q.min then f.description = ('At least %d characters'):format(q.min) end
+        elseif q.type == 'number' then
+            f.min, f.max = q.min, q.max
+        elseif q.type == 'select' then
+            f.options = {}
+            for _, o in ipairs(q.options or {}) do f.options[#f.options + 1] = { value = o, label = o } end
+        elseif q.type == 'checkbox' then
+            f.checked = defaults[i] == true
+            f.default = nil
+        end
+        fields[i] = f
+    end
+    return fields
+end
+
+local function answerText(a)
+    if a.type == 'checkbox' then return a.answer and 'Yes' or 'No' end
+    if a.answer == nil or a.answer == '' then return '—' end
+    return tostring(a.answer)
+end
+
+---------------------------------------------------------------------------
+-- Form editor
+---------------------------------------------------------------------------
+local openApps
+
+local function questionDialog(existing)
+    local typeOptions = {}
+    for _, t in ipairs(TYPE_ORDER) do typeOptions[#typeOptions + 1] = { value = t, label = FRIENDLY[t] } end
+    local v = UI.input(existing and 'Edit question' or 'Add question', {
+        { type = 'input', label = 'Question text', required = true, minLength = 1, maxLength = 100, default = existing and existing.label },
+        { type = 'select', label = 'Type', options = typeOptions, required = true, default = existing and existing.type or 'input' },
+        { type = 'checkbox', label = 'Required', checked = existing == nil or existing.required == true },
+    })
+    if not v or not v[1] or not v[2] then return nil end
+    local q = { label = v[1], type = v[2], required = v[3] == true }
+    local keep = existing and existing.type == q.type and existing or {}
+
+    if q.type == 'input' or q.type == 'textarea' then
+        local w = UI.input('Answer length (optional)', {
+            { type = 'number', label = 'Minimum length', min = 0, max = 1000, default = keep.min },
+            { type = 'number', label = 'Maximum length', min = 1, max = 1000, default = keep.max },
+        })
+        if not w then return nil end
+        q.min, q.max = w[1], w[2]
+        if q.min and q.max and q.min > q.max then notify('Minimum can\'t be more than maximum.', 'error') return nil end
+    elseif q.type == 'number' then
+        local w = UI.input('Allowed numbers (optional)', {
+            { type = 'number', label = 'Minimum', default = keep.min },
+            { type = 'number', label = 'Maximum', default = keep.max },
+        })
+        if not w then return nil end
+        q.min, q.max = w[1], w[2]
+        if q.min and q.max and q.min > q.max then notify('Minimum can\'t be more than maximum.', 'error') return nil end
+    elseif q.type == 'select' then
+        local text = keep.options and table.concat(keep.options, '\n') or nil
+        while true do
+            local w = UI.input('Dropdown options', {
+                { type = 'textarea', label = 'Options', description = 'One per line, 2-10 options, up to 50 characters each', required = true, default = text },
+            })
+            if not w then return nil end
+            text = w[1]
+            local opts, bad = {}, nil
+            for line in tostring(text):gmatch('[^\n]+') do
+                line = line:gsub('^%s+', ''):gsub('%s+$', '')
+                if #line > 0 then
+                    if #line > 50 then bad = ('"%s" is longer than 50 characters.'):format(short(line, 20)) end
+                    opts[#opts + 1] = line
+                end
+            end
+            if not bad and (#opts < 2 or #opts > 10) then bad = 'Enter 2 to 10 options.' end
+            if not bad then q.options = opts break end
+            notify(bad, 'error')
+        end
+    end
+    return q
+end
+
+local function openFormEditor(m)
+    local form = call('getForm', m.name)
+    if not form then return notify('Applications are off for this job.', 'error') end
+    local draft = { intro = form.intro or '', questions = lib.table.deepclone(form.questions or {}) }
+    local dirty = false
+    local max = form.maxQuestions or 15
+    local show
+
+    local function leave(after)
+        CreateThread(function()
+            if dirty and not UI.confirm({ header = 'Discard changes?', content = 'You have unsaved changes to this form. Discard them?', type = 'warning', confirm = 'Discard', cancel = 'Keep editing' }) then
+                return show()
+            end
+            if after then after() end
+        end)
+    end
+
+    local function openQuestion(i)
+        local q = draft.questions[i]
+        UI.registerMenu({
+            id = 'blaze_boss_form_q', title = ('%d. %s'):format(i, short(q.label, 40)), menu = 'blaze_boss_form',
+            options = {
+                { title = 'Edit', icon = 'fa-solid fa-pen', onSelect = function()
+                    local nq = questionDialog(q)
+                    if nq then draft.questions[i] = nq dirty = true end
+                    show()
+                end },
+                { title = 'Move up', icon = 'fa-solid fa-arrow-up', disabled = i == 1, onSelect = function()
+                    draft.questions[i], draft.questions[i - 1] = draft.questions[i - 1], draft.questions[i]
+                    dirty = true
+                    show()
+                end },
+                { title = 'Move down', icon = 'fa-solid fa-arrow-down', disabled = i == #draft.questions, onSelect = function()
+                    draft.questions[i], draft.questions[i + 1] = draft.questions[i + 1], draft.questions[i]
+                    dirty = true
+                    show()
+                end },
+                { title = 'Delete', icon = 'fa-solid fa-trash', iconColor = '#E5484D', disabled = #draft.questions <= 1, onSelect = function()
+                    if UI.confirm({ header = 'Delete question', content = ('Delete "%s"?'):format(q.label), type = 'error', confirm = 'Delete' }) then
+                        table.remove(draft.questions, i)
+                        dirty = true
+                    end
+                    show()
+                end },
+            },
+        })
+        UI.showMenu('blaze_boss_form_q')
+    end
+
+    show = function()
+        local options = {
+            { title = 'Back to applications', icon = 'fa-solid fa-angle-left', onSelect = function() leave(function() openApps(m) end) end },
+            { title = 'Add question', icon = 'fa-solid fa-plus', disabled = #draft.questions >= max,
+              description = ('%d of %d questions'):format(#draft.questions, max), onSelect = function()
+                local q = questionDialog(nil)
+                if q then draft.questions[#draft.questions + 1] = q dirty = true end
+                show()
+            end },
+            { title = 'Edit intro text', icon = 'fa-solid fa-align-left', description = short(draft.intro ~= '' and draft.intro or 'No intro', 60), onSelect = function()
+                local v = UI.input('Intro text', { { type = 'textarea', label = 'Shown before the form (max 500 characters)', default = draft.intro, maxLength = 500 } })
+                if v then draft.intro = v[1] or '' dirty = true end
+                show()
+            end },
+            { title = 'Preview form', icon = 'fa-solid fa-eye', description = 'Shows the exact applicant form. Nothing is sent.', onSelect = function()
+                UI.confirm({ header = 'Apply for ' .. m.label, content = (draft.intro ~= '' and draft.intro or 'No intro text.') .. '\n\nYour name is taken from your character automatically.', type = 'info', confirm = 'Continue' })
+                UI.input('Preview · ' .. m.label, buildFields(draft.questions), { submitText = 'Preview only' })
+                notify('Preview only. Nothing was sent.', 'inform')
+                show()
+            end },
+            { title = 'Save form', icon = 'fa-solid fa-floppy-disk', description = dirty and 'You have unsaved changes' or 'No changes', disabled = not dirty, onSelect = function()
+                if UI.confirm({ header = 'Save form', content = 'Save this form? New applicants will see it. Applications already sent keep their own questions and answers.', type = 'info', confirm = 'Save' }) then
+                    if result(call('saveForm', m.name, draft)) then dirty = false end
+                end
+                show()
+            end },
+            { title = 'Reset to default', icon = 'fa-solid fa-rotate-left', description = form.custom and 'Go back to the form in config.lua' or 'Already using the default form', onSelect = function()
+                if UI.confirm({ header = 'Reset form', content = 'Delete the saved form for ' .. m.label .. ' and use the default from config.lua?', type = 'warning', confirm = 'Reset' }) then
+                    if result(call('resetForm', m.name)) then dirty = false return openFormEditor(m) end
+                end
+                show()
+            end },
+        }
+        for i, q in ipairs(draft.questions) do
+            options[#options + 1] = {
+                title = ('%d. %s'):format(i, q.label), icon = 'fa-solid fa-circle-question', arrow = true,
+                description = FRIENDLY[q.type] .. (q.required and ' · Required' or ' · Optional'),
+                onSelect = function() openQuestion(i) end,
+            }
+        end
+        UI.registerMenu({ id = 'blaze_boss_form', title = 'Edit form · ' .. m.label .. (dirty and ' *' or ''), options = options,
+            onExit = function() if dirty then leave() end end })
+        UI.showMenu('blaze_boss_form')
+    end
+    show()
+end
+
+---------------------------------------------------------------------------
+-- Applications (managers)
+---------------------------------------------------------------------------
+local FILTERS = { review = 'To review', accepted = 'Accepted', denied = 'Denied' }
+local NEXT_FILTER = { review = 'accepted', accepted = 'denied', denied = 'review' }
+local STATUS_ICON = { new = 'fa-solid fa-envelope', interview = 'fa-solid fa-comments', accepted = 'fa-solid fa-check', denied = 'fa-solid fa-xmark' }
+
+local function openApp(m, id, filter)
+    local a = call('getApplication', m.name, id)
+    if not a then return notify('Application not found.', 'error') end
+    local decided = a.status == 'accepted' or a.status == 'denied'
+    local back = function() local again = call('getMenu', m.gtype, m.name) or m openApps(again, filter) end
+    local reopen = function() openApp(m, id, filter) end
+    local statusLine = a.statusLabel or a.status
+    if a.reviewed_by then statusLine = statusLine .. ' · by ' .. a.reviewed_by end
+    local meta = {}
+    if a.deny_reason then meta[#meta + 1] = { label = 'Deny reason', value = a.deny_reason } end
+    if a.interview_msg then meta[#meta + 1] = { label = 'Interview message', value = a.interview_msg } end
+    local options = {
+        { title = a.name, description = statusLine, icon = STATUS_ICON[a.status] or 'fa-solid fa-file', readOnly = true,
+          metadata = #meta > 0 and meta or nil },
+    }
+    for _, ans in ipairs(a.answers or {}) do
+        local text = answerText(ans)
+        options[#options + 1] = {
+            title = ans.label, description = short(text, 80), icon = 'fa-regular fa-comment', readOnly = true,
+            metadata = #text > 80 and { { label = 'Answer', value = text } } or nil,
+        }
+    end
+    options[#options + 1] = { title = 'Invite to interview', icon = 'fa-solid fa-comments', disabled = decided, onSelect = function()
+        local v = UI.input('Invite ' .. a.name, { { type = 'textarea', label = 'Message (when / where)', required = true, minLength = 1, maxLength = 300, default = a.interview_msg } })
+        if v then result(call('interview', m.name, a.id, v[1])) end
+        reopen()
+    end }
+    options[#options + 1] = { title = 'Accept & hire', icon = 'fa-solid fa-user-check', iconColor = '#3DDC84', disabled = decided, onSelect = function()
+        local grade = pickRank(m, 'Hire ' .. a.name)
+        if grade and UI.confirm({ header = 'Accept & hire', content = ('Hire %s into %s?'):format(a.name, m.label), type = 'info', confirm = 'Hire' }) then
+            if result(call('accept', m.name, a.id, grade)) then return back() end
+        end
+        reopen()
+    end }
+    options[#options + 1] = { title = 'Deny', icon = 'fa-solid fa-xmark', iconColor = '#E5484D', disabled = decided, onSelect = function()
+        local v = UI.input('Deny ' .. a.name, { { type = 'textarea', label = 'Reason (the applicant sees this)', required = true, minLength = 1, maxLength = 300 } })
+        if v and UI.confirm({ header = 'Deny application', content = ('Deny %s\'s application?'):format(a.name), type = 'error', confirm = 'Deny' }) then
+            if result(call('deny', m.name, a.id, v[1])) then return back() end
+        end
+        reopen()
+    end }
+    options[#options + 1] = { title = a.notes and a.notes ~= '' and 'Edit note' or 'Add note', icon = 'fa-solid fa-note-sticky',
+        description = a.notes and a.notes ~= '' and short(a.notes, 60) or 'Only managers see notes', onSelect = function()
+        local v = UI.input('Note · ' .. a.name, { { type = 'textarea', label = 'Note', default = a.notes, maxLength = 1000 } })
+        if v then result(call('saveNote', m.name, a.id, v[1] or '')) end
+        reopen()
+    end }
+    UI.registerMenu({ id = 'blaze_boss_app', title = 'Application #' .. a.id, menu = 'blaze_boss_apps', options = options })
+    UI.showMenu('blaze_boss_app')
+end
+
+openApps = function(m, filter)
+    filter = filter or 'review'
+    local list = call('getApplications', m.name, filter) or {}
+    local options = {
+        { title = 'Accepting applications: ' .. (m.appsOpen and 'On' or 'Off'), icon = m.appsOpen and 'fa-solid fa-toggle-on' or 'fa-solid fa-toggle-off',
+          iconColor = m.appsOpen and '#3DDC84' or '#8F99A5', description = 'Click to turn ' .. (m.appsOpen and 'off' or 'on'), onSelect = function()
+            local ok, msg, open = call('toggleApplications', m.name)
+            result(ok, msg)
+            if ok then m.appsOpen = open end
+            openApps(m, filter)
+        end },
+    }
+    if m.formEdit then
+        options[#options + 1] = { title = 'Edit application form', icon = 'fa-solid fa-pen-to-square', arrow = true, onSelect = function() openFormEditor(m) end }
+    end
+    options[#options + 1] = { title = 'Showing: ' .. FILTERS[filter], icon = 'fa-solid fa-filter', description = 'Click for ' .. FILTERS[NEXT_FILTER[filter]],
+        onSelect = function() openApps(m, NEXT_FILTER[filter]) end }
+    for _, a in ipairs(list) do
+        options[#options + 1] = {
+            title = a.name, description = ('%s · %s'):format(a.status == 'new' and 'New' or (a.status == 'interview' and 'Interview' or a.status:gsub('^%l', string.upper)), a.created or ''),
+            icon = STATUS_ICON[a.status] or 'fa-solid fa-file', arrow = true,
+            onSelect = function() openApp(m, a.id, filter) end,
+        }
+    end
+    if #list == 0 then options[#options + 1] = { title = 'No applications here', readOnly = true } end
+    UI.registerMenu({ id = 'blaze_boss_apps', title = 'Applications · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_apps')
+end
+
+---------------------------------------------------------------------------
+-- Funds
+---------------------------------------------------------------------------
+local openFunds
+
+local function moneyDialog(m, kind, confirmAbove)
+    local deposit = kind == 'deposit'
+    local v = UI.input(deposit and 'Deposit cash' or 'Withdraw cash', {
+        { type = 'number', label = 'Amount', required = true, min = 1 },
+        { type = 'input', label = 'Reason', required = true, minLength = 1, maxLength = 100 },
+    })
+    if not v or not v[1] then return end
+    local amount = math.floor(v[1])
+    if amount >= (confirmAbove or 5000) then
+        if not UI.confirm({ header = deposit and 'Confirm deposit' or 'Confirm withdrawal',
+                content = ('%s %s %s %s?'):format(deposit and 'Deposit' or 'Withdraw', money(amount), deposit and 'into' or 'from', m.label),
+                type = deposit and 'info' or 'warning' }) then return end
+    end
+    result(call(kind, m.gtype, m.name, amount, v[2]))
+end
+
+openFunds = function(m)
+    local d, err = call('getFunds', m.gtype, m.name)
+    if not d then return notify(err or 'Funds are not available.', 'error') end
+    local history = {}
+    for _, h in ipairs(d.history or {}) do
+        history[#history + 1] = {
+            title = ('%s %s'):format(h.type == 'deposit' and '+' or '-', money(h.amount)),
+            description = ('%s · %s · %s'):format(h.name or '?', short(h.reason or '', 40), h.at or ''),
+            icon = h.type == 'deposit' and 'fa-solid fa-arrow-down' or 'fa-solid fa-arrow-up',
+            iconColor = h.type == 'deposit' and '#3DDC84' or '#F0A93B', readOnly = true,
+        }
+    end
+    if #history == 0 then history[1] = { title = 'No transactions yet', readOnly = true } end
+    UI.registerMenu({ id = 'blaze_boss_funds_history', title = 'Recent history · ' .. m.label, menu = 'blaze_boss_funds', options = history })
+    UI.registerMenu({
+        id = 'blaze_boss_funds', title = 'Funds · ' .. money(d.balance), menu = 'blaze_boss_main',
+        options = {
+            { title = 'Balance', description = money(d.balance), icon = 'fa-solid fa-building-columns', readOnly = true },
+            { title = 'Deposit', description = 'Put your cash into the account', icon = 'fa-solid fa-money-bill-wave', onSelect = function() moneyDialog(m, 'deposit', d.confirmAbove) openFunds(m) end },
+            { title = 'Withdraw', description = 'Take cash out of the account', icon = 'fa-solid fa-hand-holding-dollar', onSelect = function() moneyDialog(m, 'withdraw', d.confirmAbove) openFunds(m) end },
+            { title = 'Recent history', icon = 'fa-solid fa-clock-rotate-left', menu = 'blaze_boss_funds_history', arrow = true },
+        },
+    })
+    UI.showMenu('blaze_boss_funds')
+end
+
+---------------------------------------------------------------------------
+-- Grade editor (Qbox, from qbx_management)
+---------------------------------------------------------------------------
+local function openGrades(m)
+    local options = {}
+    for _, g in ipairs(m.grades or {}) do
+        options[#options + 1] = {
+            title = g.name, icon = 'fa-solid fa-pen-to-square',
+            description = ('Rank %d%s%s'):format(g.level, g.isboss and ' · Boss' or '', g.payment and (' · ' .. money(g.payment)) or ''),
+            disabled = g.level > m.limit and g.level ~= m.ownGrade,
+            onSelect = function()
+                local fields = { { type = 'input', label = 'Rank name', default = g.name, required = true, minLength = 1, maxLength = 50 } }
+                if m.gtype == 'job' then
+                    fields[#fields + 1] = { type = 'number', label = 'Pay', default = g.payment or 0, min = 0, max = 1000000, required = true }
+                end
+                fields[#fields + 1] = { type = 'checkbox', label = 'Boss (can open this menu)', checked = g.isboss }
+                if m.gtype == 'job' then fields[#fields + 1] = { type = 'checkbox', label = 'Bank access', checked = g.bankAuth } end
+                local v = UI.input(('%s: %s'):format(m.label, g.name), fields)
+                if v then
+                    local data = { name = v[1] }
+                    if m.gtype == 'job' then data.payment, data.isboss, data.bankAuth = v[2], v[3], v[4]
+                    else data.isboss = v[2] end
+                    result(call('modifyGrade', m.gtype, m.name, g.level, data))
+                end
+                openGroup(m.gtype, m.name)
+            end,
+        }
+    end
+    UI.registerMenu({ id = 'blaze_boss_grades', title = 'Ranks · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_grades')
+end
+
+---------------------------------------------------------------------------
+-- Main menu
+---------------------------------------------------------------------------
+local function openPicker(list)
+    local options = {}
+    for _, g in ipairs(list) do
+        options[#options + 1] = { title = g.label, description = g.gtype == 'gang' and 'Gang' or 'Job', icon = g.gtype == 'gang' and 'fa-solid fa-users-rectangle' or 'fa-solid fa-briefcase',
+            arrow = true, onSelect = function() openGroup(g.gtype, g.name, true) end }
+    end
+    UI.registerMenu({ id = 'blaze_boss_pick', title = 'Pick a job', options = options })
+    UI.showMenu('blaze_boss_pick')
+end
+
+openGroup = function(gtype, name, fromPicker)
+    local m = call('getMenu', gtype, name)
+    if not m then return notify('You are not a manager here.', 'error') end
+    local options = {
+        { title = gtype == 'gang' and 'Members' or 'Staff', description = 'Promote, demote, ' .. (m.callsigns and 'callsigns, ' or '') .. (gtype == 'gang' and 'kick' or 'fire'),
+          icon = 'fa-solid fa-users', arrow = true, onSelect = function() openStaff(m) end },
+        { title = 'Hire', description = 'Hire someone nearby or by server ID', icon = 'fa-solid fa-user-plus', arrow = true, onSelect = function() openHire(m) end },
+    }
+    if m.apps then
+        options[#options + 1] = { title = 'Applications', icon = 'fa-solid fa-file-signature', arrow = true,
+            description = ('%d new · %s'):format(m.newApps or 0, m.appsOpen and 'Open' or 'Closed'), onSelect = function() openApps(m) end }
+    end
+    if m.funds then
+        options[#options + 1] = { title = 'Funds', description = 'Balance: ' .. money(m.balance), icon = 'fa-solid fa-building-columns', arrow = true, onSelect = function() openFunds(m) end }
+    end
+    if m.gradeEdit then
+        options[#options + 1] = { title = 'Manage ranks', description = 'Rank names, pay and boss access', icon = 'fa-solid fa-clipboard-list', arrow = true, onSelect = function() openGrades(m) end }
+    end
+    for _, item in pairs(dynamicItems) do
+        if item.args and type(item.args.type) == 'string' and item.args.type:lower() == gtype then options[#options + 1] = item end
+    end
+    UI.registerMenu({ id = 'blaze_boss_main', title = m.label .. ' · Management', menu = fromPicker and 'blaze_boss_pick' or nil, options = options })
+    UI.showMenu('blaze_boss_main')
+end
+
+--- Open the boss menu. job = a job name (or nil to pick). gtype defaults to 'job'.
+local function openBossMenu(job, gtype)
+    refreshManaged()
+    if job then
+        gtype = gtype or 'job'
+        if not managed[gtype .. ':' .. job] then return notify('You are not a manager here.', 'error') end
+        return openGroup(gtype, job)
+    end
+    local list = {}
+    for _, g in ipairs(myGroups) do if not gtype or g.gtype == gtype then list[#list + 1] = g end end
+    if #list == 0 then return notify('You are not a manager of any ' .. (gtype or 'job') .. '.', 'error') end
+    if #list == 1 then return openGroup(list[1].gtype, list[1].name) end
+    openPicker(list)
+end
+exports('openBossMenu', function(job) openBossMenu(job, 'job') end)
+
+---------------------------------------------------------------------------
+-- Applicants
+---------------------------------------------------------------------------
+local function openApplication(job)
+    if not Config.jobs[job] then return end
+    local form = call('getForm', job)
+    if not form then return notify('This job doesn\'t take applications.', 'error', 'Application') end
+    if not form.open then return notify(('%s is not accepting applications right now.'):format(form.label), 'error', 'Application') end
+    if not UI.confirm({ header = 'Apply for ' .. form.label, content = (form.intro ~= '' and form.intro or 'Fill in the form to apply.') .. '\n\nYour name is taken from your character automatically.',
+            type = 'info', confirm = 'Start' }) then return end
+    local fields, answers = nil, nil
+    while true do
+        fields = buildFields(form.questions, answers)
+        local v = UI.input('Apply · ' .. form.label, fields, { submitText = 'Send application' })
+        if not v then return end
+        local ok, msg = call('submitApplication', job, v)
+        if ok then return notify(msg, 'success', 'Application') end
+        notify(msg or 'Your application could not be sent.', 'error', 'Application')
+        if msg and (msg:find('already') or msg:find('not accepting') or msg:find('denied') or msg:find('turned off') or msg:find('doesn\'t take')) then return end
+        answers = v
+    end
+end
+exports('openApplication', openApplication)
+
+local function openApplicationStatus(job)
+    if not Config.jobs[job] then return end
+    local s = call('getMyApplicationStatus', job)
+    if not s then return notify('This job doesn\'t take applications.', 'error', 'Application') end
+    if s.none then return notify('You haven\'t applied here yet.', 'inform', 'Application') end
+    notify(s.message, s.type, 'Application · ' .. (s.label or s.status))
+end
+exports('openApplicationStatus', openApplicationStatus)
+
+---------------------------------------------------------------------------
+-- Hire consent (from qbx_management)
+---------------------------------------------------------------------------
+lib.callback.register(RES .. ':client:confirmHire', function(fromName, label, seconds)
+    local open = true
+    SetTimeout((seconds or 30) * 1000, function() if open then UI.closeConfirm() end end)
+    local ok = UI.confirm({ header = 'Job offer', content = ('%s wants to hire you into %s. Do you accept?'):format(fromName, label),
+        type = 'info', confirm = 'Accept', cancel = 'Decline' })
+    open = false
+    return ok
+end)
+
+---------------------------------------------------------------------------
+-- Points -> targets
+---------------------------------------------------------------------------
+local handles = {}
+
+local function buildTargets(points)
+    for _, h in ipairs(handles) do Target.remove(h) end
+    handles = {}
+    for _, p in ipairs(points or {}) do
+        local coords = vec3(p.coords.x, p.coords.y, p.coords.z)
+        local cfg = (p.gtype == 'gang' and (Config.gangs or {}) or Config.jobs)[p.group] or {}
+        local label = cfg.label or p.group
+        local options
+        if p.type == 'boss' then
+            options = { {
+                name = 'blaze_boss_desk', label = label .. ' management', icon = 'fa-solid fa-briefcase',
+                canInteract = function() return managed[p.gtype .. ':' .. p.group] == true end,
+                onSelect = function() openGroup(p.gtype, p.group) end,
+            } }
+        else
+            options = {
+                { name = 'blaze_boss_apply', label = 'Apply for ' .. label, icon = 'fa-solid fa-file-signature', onSelect = function() openApplication(p.group) end },
+                { name = 'blaze_boss_status', label = 'My application status', icon = 'fa-solid fa-circle-info', onSelect = function() openApplicationStatus(p.group) end },
+            }
+        end
+        handles[#handles + 1] = Target.addPoint({ coords = coords, radius = p.radius or 1.0, options = options })
+    end
+end
+
+RegisterNetEvent(RES .. ':client:points', function(points) buildTargets(points) end)
+
+CreateThread(function()
+    Wait(1000)
+    refreshManaged()
+    buildTargets(call('getPoints'))
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    if res ~= RES then return end
+    for _, h in ipairs(handles) do pcall(Target.remove, h) end
+end)
+
+---------------------------------------------------------------------------
+-- qbx_management / qb-bossmenu compatibility
+---------------------------------------------------------------------------
+--- menuItem = ox-style menu option with args.type = 'job'|'gang' (any case). Returns an id.
+local function addMenuItem(menuItem)
+    if type(menuItem) ~= 'table' or type(menuItem.args) ~= 'table' or not menuItem.args.type then return end
+    local id = #dynamicItems + 1
+    dynamicItems[id] = lib.table.deepclone(menuItem)
+    return id
+end
+local function removeMenuItem(id) dynamicItems[id] = nil end
+local function compatOpen(gtype) openBossMenu(nil, gtype == 'gang' and 'gang' or 'job') end
+
+exports('OpenBossMenu', compatOpen)
+exports('AddBossMenuItem', addMenuItem)
+exports('AddGangMenuItem', addMenuItem)
+exports('RemoveBossMenuItem', removeMenuItem)
+exports('RemoveGangMenuItem', removeMenuItem)
+
+if Config.qbxManagementCompat and GetResourceState('qbx_management') ~= 'started' then
+    -- exports.qbx_management:X() calls from other scripts land here while qbx_management is stopped
+    local map = { OpenBossMenu = compatOpen, AddBossMenuItem = addMenuItem, AddGangMenuItem = addMenuItem,
+        RemoveBossMenuItem = removeMenuItem, RemoveGangMenuItem = removeMenuItem }
+    for name, fn in pairs(map) do
+        AddEventHandler(('__cfx_export_qbx_management_%s'):format(name), function(setCB) setCB(fn) end)
+    end
+    RegisterNetEvent('qb-bossmenu:client:OpenMenu', function() compatOpen('job') end)
+    RegisterNetEvent('qb-gangmenu:client:OpenMenu', function() compatOpen('gang') end)
+end
