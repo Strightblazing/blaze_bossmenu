@@ -106,7 +106,7 @@ local function openMember(m, data, p)
         }
     end
     local FT = Config.features or {}
-    if FT.profiles then
+    if FT.profiles and BMC then
         table.insert(options, 1, { title = 'View profile', icon = 'fa-solid fa-id-badge', arrow = true, description = 'Hours, rank history and record',
             onSelect = function() BMC.openProfile(m.gtype, m.name, p.citizenid, 'blaze_boss_member') end })
     end
@@ -935,7 +935,7 @@ local function buildTargets(points)
         end
         handles[#handles + 1] = Target.addPoint({ coords = coords, radius = p.radius or 1.0, options = options })
     end
-    BMC.onPoints(points) -- receptionist NPCs (client/features.lua)
+    if BMC then BMC.onPoints(points) end -- receptionist NPCs (client/features.lua)
 end
 
 RegisterNetEvent(RES .. ':client:points', function(points) buildTargets(points) end)
