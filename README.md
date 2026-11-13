@@ -107,6 +107,7 @@ The applicant's full name always comes from their character. It is never a quest
 | Option | What it does |
 |---|---|
 | `enabled` | `false` = the whole resource does nothing. Saved data stays in the database. |
+| `versionCheck` | On start, compare with the latest GitHub release and say if there's an update. |
 | `useLationUI` | `true` = menus, forms and confirms use Lation UI. Falls back to ox_lib if lation_ui isn't started. |
 | `target` | `'auto'`, `'ox_target'`, `'qb-target'` or `'none'` (walk-up `[E]` prompt). |
 | `adminAce` | Ace for `/bossmenu` and admin overrides. Framework admins also count. |

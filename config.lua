@@ -11,6 +11,9 @@ Config = {
     -- Falls back to ox_lib automatically if lation_ui isn't started. Notifications always use ox_lib.
     useLationUI = false,
 
+    -- On start, check GitHub for a newer release and say so in the console (false = don't check)
+    versionCheck = true,
+
     -- Which target script to use: 'auto' (ox_target, then qb-target, else 'none') | 'ox_target' | 'qb-target'
     -- | 'none' (walk-up zone: a "[E]" text prompt when you stand at the point, like qbx_management without target)
     target = 'auto',

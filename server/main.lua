@@ -1080,4 +1080,11 @@ CreateThread(function()
     end
     ready = true
     syncPoints()
+
+    -- "Fully started" banner (server/version.lua), after the other startup lines so it isn't buried
+    Wait(2000)
+    local jobs, gangs = 0, 0
+    for name in pairs(Config.jobs or {}) do if Bridge.GroupExists('job', name) then jobs = jobs + 1 end end
+    for name in pairs(Config.gangs or {}) do if Bridge.GroupExists('gang', name) then gangs = gangs + 1 end end
+    StartupBanner({ jobs = jobs, gangs = gangs, points = #allPoints() })
 end)
