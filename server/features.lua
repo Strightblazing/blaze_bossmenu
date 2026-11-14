@@ -814,7 +814,17 @@ if DUTY.enabled then
             and MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status IN ('new','interview')", { job }) or nil
         local eotwName = F.employeeOfWeek and MySQL.scalar.await('SELECT name FROM blaze_boss_eotw WHERE job = ? AND week = YEARWEEK(NOW(), 3)', { key }) or nil
 
-        local phone, email = Bridge.GetContact(cid, src)
+        -- phone / email only when the time clock shows them (duty.view)
+        local view = (Config.duty or {}).view or {}
+        local aboutOn = (view.sections or {}).aboutYou
+        if aboutOn == nil then aboutOn = (view.layout or 'full') == 'full' end
+        local lines = view.aboutYou or {}
+        local phone, email
+        if aboutOn and (lines.phone ~= false or lines.email ~= false) then
+            phone, email = Bridge.GetContact(cid, src)
+            if lines.phone == false then phone = nil end
+            if lines.email == false then email = nil end
+        end
 
         return {
             phone = phone, email = email,

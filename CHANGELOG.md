@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Time clock full view is configurable (`duty.view`): `layout` = `full` / `standard` / `minimal`, single sections
+  on or off, and which About you lines show. Phone and email that are turned off aren't looked up.
+
 ## 1.2.0 (first public release)
 
 **Time clock** (duty points, `duty.style = 'clock'`)

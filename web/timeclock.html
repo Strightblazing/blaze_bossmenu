@@ -132,6 +132,9 @@ body.demo{background:#2a2d33}
 .app.mini .col.info,.app.mini .announce-block,.app.mini #footNote{display:none}
 .app.mini .clock .t{font-size:26px}
 .app .col.info,.app .announce-block{animation:fadeIn .35s ease-out}
+/* sections turned off in config (duty.view); nothing on the right = one column */
+[data-sec].off{display:none!important}
+.app.onecol:not(.mini){width:min(560px,94vw)}.app.onecol .body{grid-template-columns:1fr}.app.onecol .col.info{display:none}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* ---------- compact layout ("dense", sizes under 130%); 130%+ uses the roomier layout above ---------- */
@@ -279,40 +282,40 @@ body.demo{background:#2a2d33}
         </div>
         <div class="result" id="result"></div>
       </div>
-      <div class="about-block">
+      <div class="about-block" data-sec="aboutYou">
         <div class="label">About you</div>
         <div class="facts" id="facts"></div>
       </div>
-      <div class="announce-block">
+      <div class="announce-block" data-sec="announcement">
         <div class="label">Announcement</div>
         <div class="announce" id="ann"></div>
       </div>
     </div>
 
     <div class="col info">
-      <div>
+      <div data-sec="shift">
         <div class="label">Your shift <span id="shiftNote"></span></div>
         <div class="stats">
           <div class="stat"><small>This shift</small><b id="shift">0:00:00</b></div>
           <div class="stat"><small>This week</small><b id="weekH"></b></div>
           <div class="stat"><small id="monthLabel">Last 31 days</small><b id="monthH"></b></div>
         </div>
-        <div class="tags" id="tags"></div>
+        <div class="tags" id="tags" data-sec="tags"></div>
       </div>
-      <div>
+      <div data-sec="week">
         <div class="label">This week <span id="lastShift"></span></div>
         <div class="week" id="week"></div>
       </div>
-      <div>
+      <div data-sec="nextRank">
         <div class="label">Next rank <span id="nextRank"></span></div>
         <div class="prog" id="prog"><i id="progBar"></i></div>
         <div class="sub" id="progText"></div>
       </div>
-      <div>
+      <div data-sec="department">
         <div class="label">Department</div>
         <div class="stats" id="deptStats"></div>
       </div>
-      <div>
+      <div data-sec="onDuty">
         <div class="label">On duty <span id="dutyCount"></span></div>
         <div class="people" id="duty"></div>
       </div>
@@ -423,6 +426,23 @@ function msg(text, cls) {
 }
 
 // ---------- render ----------
+// Which parts of the full view show (Config.duty.view, sent with openClock)
+const LAYOUTS = {
+  full: ['shift', 'tags', 'week', 'nextRank', 'department', 'onDuty', 'aboutYou', 'announcement'],
+  standard: ['shift', 'tags', 'week', 'nextRank', 'onDuty', 'announcement'],
+  minimal: ['shift', 'onDuty'],
+};
+const FACT_KEY = { Rank: 'rank', Callsign: 'callsign', Phone: 'phone', Email: 'email', Department: 'department', Employed: 'employed', Pay: 'pay', Record: 'record' };
+let VIEW = { on: {}, about: {} };
+function setView(v) {
+  v = v || {};
+  const on = {}; (LAYOUTS[v.layout] || LAYOUTS.full).forEach(k => on[k] = true);
+  for (const k in (v.sections || {})) if (v.sections[k] != null) on[k] = !!v.sections[k];
+  VIEW = { on, about: v.aboutYou || {} };
+  document.querySelectorAll('[data-sec]').forEach(el => el.classList.toggle('off', !on[el.dataset.sec]));
+  $('#app').classList.toggle('onecol', !['shift', 'week', 'nextRank', 'department', 'onDuty'].some(k => on[k]));
+}
+
 function render() {
   $('#dept').textContent = D.dept; $('#cardDept').textContent = D.dept;
   $('#deptFull').textContent = D.fullName || '';
@@ -436,7 +456,7 @@ function render() {
   facts.push(['Employed', D.employedDays != null ? (D.employedDays === 0 ? 'Started today' : D.employedDays + ' day' + (D.employedDays === 1 ? '' : 's')) + (D.employedSince ? '<small>since ' + esc(D.employedSince) + '</small>' : '') : 'Before records began']);
   if (D.pay) facts.push(['Pay', money(D.pay) + '<small>per paycheck</small>']);
   if (D.record) facts.push(['Record', D.record.commendations + ' commendation' + (D.record.commendations === 1 ? '' : 's') + ' · ' + D.record.writeups + ' write-up' + (D.record.writeups === 1 ? '' : 's')]);
-  $('#facts').innerHTML = facts.map(f => '<span class="k">' + f[0] + '</span><span class="v">' + f[1] + '</span>').join('');
+  $('#facts').innerHTML = facts.filter(f => VIEW.about[FACT_KEY[f[0]]] !== false).map(f => '<span class="k">' + f[0] + '</span><span class="v">' + f[1] + '</span>').join('');
   $('#cName').textContent = D.name; $('#cRank').textContent = D.rank; $('#cRank').title = D.rank;
   $('#cCall').textContent = D.callsign ? ' · ' + D.callsign : '';
   $('#cId').textContent = D.id; $('#cPin').textContent = D.pin; $('#ini').textContent = initials(D.name);
@@ -674,6 +694,7 @@ window.addEventListener('message', e => {
   if (d.action === 'openClock') {
     D = d.data || D;
     if (d.size) { defaultScale = d.size; if (!savedScale()) UI_SCALE = d.size; }
+    setView(d.view);
     methods = (d.methods && d.methods.length) ? d.methods.filter(m => NAME[m]) : ['tap', 'swipe', 'keypad'];
     clockedAt = D.onDuty ? Date.now() - (D.shiftSeconds || 0) * 1000 : null;
     busy = false; $('#result').textContent = '';
@@ -689,14 +710,15 @@ $('#flip').onclick = () => { $('#app').classList.add('mini'); D.onDuty = !D.onDu
 if (isFiveM) document.body.classList.add('game');
 else { document.body.classList.add('demo'); $('#wrap').classList.add('show'); }
 setMethod(methods[0]); render(); tick(); requestAnimationFrame(fitScale);
-// demo states for screenshots: timeclock.html#pin, #swipe, #duty, #full
+// demo states for screenshots: timeclock.html#pin, #swipe, #duty, #full (#full-standard / #full-minimal = layouts)
 if (!isFiveM) {
   const h = location.hash.slice(1);
   if (h === 'pin') setMethod('keypad');
   if (h === 'swipe') setMethod('swipe');
   if (h === 'duty') { $('#flip').click(); }
   if (h) { document.body.classList.add('shot'); document.querySelector('.demobar').style.display = 'none'; } // screenshot mode: no animations, no demo bar
-  if (h === 'full') { // straight to the full view, already clocked in
+  if (h.startsWith('full-')) setView({ layout: h.slice(5) });
+  if (h.startsWith('full')) { // straight to the full view, already clocked in
     D.onDuty = true; clockedAt = Date.now() - (1 * 3600 + 47 * 60) * 1000;
     $('#app').classList.remove('mini'); render(); updateStage();
     $('#result').innerHTML = '<span class="dot in"></span><b>Clocked in at ' + new Date(clockedAt).toTimeString().slice(0, 5) + '.</b> Have a good shift.';

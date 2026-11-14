@@ -282,7 +282,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `features.myJobCommand` / `jobBoardCommand` | `/myjob` and `/jobs` command names, or `false`. |
 | `features.phoneMail` | Send application results by sd-phone mail. |
 | `features.receptionist` | NPC at applications points: `enabled`, `model`, `scenario`, `greet`. |
-| `duty.*` | Duty points: `enabled`, `style` (`'clock'` screen / `'instant'` toggle), `methods` (`'tap'`, `'swipe'`, `'keypad'`), `size` (starting size of the time clock; players change their own). |
+| `duty.*` | Duty points: `enabled`, `style` (`'clock'` screen / `'instant'` toggle), `methods` (`'tap'`, `'swipe'`, `'keypad'`), `size` (starting size of the time clock; players change their own), `view` (what the full time clock shows: `layout` = `'full'` / `'standard'` / `'minimal'`, `sections` to turn single parts on or off, `aboutYou` to pick the About you lines; phone / email turned off aren't looked up). |
 | `outfits.*` | Job outfits: `enabled`, `appearance` (`'auto'` = illenium-appearance if running, `'native'`), `maxPerJob`. |
 | `contact.*` | Phone + email on the time clock and in profiles: `enabled`, `phone` (`'auto'` or a resource name), optional `getPhone` / `getEmail` functions. Auto-detects sd-phone, lb-phone, high-phone, qs-smartphone-pro, qs-smartphone, 17mov_Phone, npwd, then the character's own phone. |
 | `managerPlacement.*` | Managers place their own job's points: `enabled`, `types`, `teleport`. |

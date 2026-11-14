@@ -229,6 +229,26 @@ Config = {
         -- Starting size of the time clock (1.0 = normal, 1.25 = 25% larger). Each player can change their own
         -- with the - / + buttons on the clock (saved on their PC). It always shrinks to fit small screens.
         size = 1.25,
+        -- What the full time clock view shows after clocking in.
+        view = {
+            -- 'full'     = everything
+            -- 'standard' = your shift, tags, this week, next rank, who's on duty, announcement (no About you / Department)
+            -- 'minimal'  = your shift and who's on duty
+            layout = 'full',
+            -- Turn single sections on/off on top of the layout (nil = follow the layout)
+            sections = {
+                shift = nil,        -- this shift / this week / last 31 days
+                tags = nil,         -- Employee of the week, probation, ready for promotion
+                week = nil,         -- hours per day this week
+                nextRank = nil,     -- progress to the next rank and its pay
+                department = nil,   -- on duty vs staff, applications waiting, Employee of the week
+                onDuty = nil,       -- who's on duty right now
+                aboutYou = nil,     -- the About you list (lines below)
+                announcement = nil, -- the department announcement
+            },
+            -- Lines in About you (phone / email off = not even looked up)
+            aboutYou = { rank = true, callsign = true, phone = true, email = true, department = true, employed = true, pay = true, record = true },
+        },
     },
 
     -- Job outfits: managers save what they're wearing as a job outfit (with the lowest rank allowed),
