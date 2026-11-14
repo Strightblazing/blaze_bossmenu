@@ -609,7 +609,23 @@ $('#close').onclick = close;
 $('#clockOut').onclick = () => punch(null, 'button');
 $('#smaller').onclick = () => setScale(UI_SCALE - SIZE_STEP);
 $('#bigger').onclick = () => setScale(UI_SCALE + SIZE_STEP);
-window.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#wrap').classList.contains('show')) close(); });
+/** Keyboard: Escape or Backspace closes (Backspace removes a PIN digit first); 0-9 + Enter work the keypad */
+function pressKey(label) {
+  const b = [...document.querySelectorAll('#keys button')].find(x => x.textContent === label);
+  if (b) b.click();
+}
+window.addEventListener('keydown', e => {
+  if (!$('#wrap').classList.contains('show')) return;
+  if (e.key === 'Escape') { e.preventDefault(); return close(); }
+  if (e.key === 'Backspace') {
+    e.preventDefault();
+    if (method === 'keypad' && pin.length > 0) { pin = pin.slice(0, -1); return showPin(); }
+    return close();
+  }
+  if (method !== 'keypad' || busy) return;
+  if (/^[0-9]$/.test(e.key)) { e.preventDefault(); pressKey(e.key); }
+  else if (e.key === 'Enter') { e.preventDefault(); pressKey('OK'); }
+});
 window.addEventListener('message', e => {
   const d = e.data || {};
   if (d.action === 'openClock') {

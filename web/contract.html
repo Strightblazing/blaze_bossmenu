@@ -217,8 +217,11 @@ $('#accept').onclick = () => {
   $('#paper').classList.add('stamped');
   setTimeout(() => { hide(); post('contract:result', { accepted: true, image }); }, 1100);
 };
+// Escape: close (view / preview) or decline (signing). Backspace also closes, but never declines a job offer by accident.
 window.addEventListener('keydown', e => {
-  if (e.key !== 'Escape' || !$('#wrap').classList.contains('show')) return;
+  if (!$('#wrap').classList.contains('show')) return;
+  if (e.key === 'Backspace' && mode === 'view') { e.preventDefault(); hide(); post('contract:closed'); return; }
+  if (e.key !== 'Escape') return;
   if (mode === 'view') { hide(); post('contract:closed'); } else finish({ accepted: false });
 });
 window.addEventListener('resize', () => { if (mode === 'sign') { sizePad(); clearPad(); } });

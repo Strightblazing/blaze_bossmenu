@@ -24,12 +24,23 @@ window.postNui = (name, data) => {
 /** Screens call this when they close so clicks pass through again */
 window.screenClosed = name => { if (frames[name]) frames[name].classList.remove('on'); };
 
+// Keys pressed while this page has focus go to the open screen
+window.addEventListener('keydown', e => {
+  const f = Object.values(frames).find(x => x.classList.contains('on'));
+  if (!f) return;
+  e.preventDefault();
+  try { f.contentWindow.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, bubbles: true })); } catch (err) {}
+});
+
 window.addEventListener('message', e => {
   const d = e.data || {};
   if (!d.action) return;
   if (Object.values(frames).some(f => f.contentWindow === e.source)) return; // only messages from the game
   const target = d.action.indexOf('Clock') !== -1 ? 'timeclock' : 'contract';
-  if (/^open/.test(d.action)) Object.entries(frames).forEach(([k, f]) => f.classList.toggle('on', k === target));
+  if (/^open/.test(d.action)) {
+    Object.entries(frames).forEach(([k, f]) => f.classList.toggle('on', k === target));
+    try { frames[target].focus(); frames[target].contentWindow.focus(); } catch (err) {} // so keys (Escape, Backspace, PIN) reach it
+  }
   if (/^close/.test(d.action)) frames[target].classList.remove('on');
   frames[target].contentWindow.postMessage(d, '*');
 });
