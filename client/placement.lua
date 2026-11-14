@@ -106,17 +106,33 @@ local function setPlacing(on)
     end
 end
 
-local function cardShow(mode, ptype, title, group, radius, resize, canExport, exportOn)
+-- Output toggle on the card (G): save the point in game, or just copy a config.lua line (Config.locations).
+-- Remembered on this PC. A real key binding (Settings > Key Bindings > FiveM), only active while placing,
+-- so it reacts to every press and G works normally the rest of the time.
+local EXPORT_KVP = 'place_export'
+local exportOn = GetResourceKvpInt(EXPORT_KVP) == 1
+local exportKey = lib.addKeybind({
+    name = 'blaze_bossmenu_place_output',
+    description = 'Boss menu placement: switch Save in game / Copy config line',
+    defaultKey = 'G',
+    disabled = true,
+    onPressed = function()
+        exportOn = not exportOn
+        SetResourceKvpInt(EXPORT_KVP, exportOn and 1 or 0)
+        SendNUIMessage({ action = 'place:export', on = exportOn })
+    end,
+})
+local function keyName()
+    local ok, k = pcall(function() return exportKey:getCurrentKey() end)
+    return (ok and k and k ~= '') and k or 'G'
+end
+
+local function cardShow(mode, ptype, title, group, radius, resize, canExport)
     setPlacing(true)
     SendNUIMessage({ action = 'place:show', mode = mode, type = ptype, title = title, group = group,
         color = ZONE_COLOR[ptype] or { 122, 162, 255 }, size = radius, resize = resize == true,
-        canExport = canExport == true, exportOn = exportOn == true })
+        canExport = canExport == true, exportOn = exportOn, exportKey = keyName() })
 end
-
--- Output toggle on the card (G): save the point in game, or just copy a config.lua line (Config.locations).
--- Remembered on this PC.
-local EXPORT_KVP = 'place_export'
-local exportOn = GetResourceKvpInt(EXPORT_KVP) == 1
 local function fmt(n) return ('%.2f'):format(n + 0.0) end
 local function exportPoint(e, coords, heading, radius)
     local line = ('{ %s = \'%s\', type = \'%s\', coords = vec3(%s, %s, %s), heading = %s, radius = %s },'):format(
@@ -136,7 +152,8 @@ AddEventHandler('onResourceStop', function(res) if res == RES then cardHide() en
 local function placeMarker(text, opts)
     opts = opts or {}
     local radius = clampRadius(opts.radius or 1.0)
-    cardShow(opts.mode or 'place', opts.ptype, opts.title or text, opts.group, radius, opts.resize, opts.export ~= nil, exportOn)
+    cardShow(opts.mode or 'place', opts.ptype, opts.title or text, opts.group, radius, opts.resize, opts.export ~= nil)
+    if opts.export then exportKey:disable(false) end
     local aimOk = true
     local ghost = ghostPed(opts.ptype)
     local chosen
@@ -151,12 +168,8 @@ local function placeMarker(text, opts)
         end
         hideHud()
         if opts.export then
-            DisableControlAction(0, 47, true) -- G
-            if IsDisabledControlJustPressed(0, 47) then
-                exportOn = not exportOn
-                SetResourceKvpInt(EXPORT_KVP, exportOn and 1 or 0)
-                SendNUIMessage({ action = 'place:export', on = exportOn })
-            end
+            DisableControlAction(0, 47, true) -- G: no detonate / other G actions while placing (the toggle itself is the key binding)
+            DisableControlAction(0, 58, true)
         end
         local heading = GetEntityHeading(cache.ped)
         local hit, _, coords = lib.raycast.fromCamera(1 | 16, cache.ped, 15.0)
@@ -172,6 +185,7 @@ local function placeMarker(text, opts)
         if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 194) then break end
     end
     if ghost and DoesEntityExist(ghost) then DeleteEntity(ghost) end
+    exportKey:disable(true)
     cardHide()
     if not chosen then return nil end
     if opts.export and exportOn then

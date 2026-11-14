@@ -7,7 +7,7 @@
   it in); **Change size** previews the ring on the spot. A new placement card (web/place.html) replaces the ox_lib text
   prompt: type and job in its color, a live size bar, aim status and the keys. The game HUD hides while placing
   (`placementHud` in config.lua or the event `blaze_bossmenu:client:placing` for your HUD resource). **G** switches the output to copying a config.lua line instead
-  of saving (admins, remembered on the PC).
+  of saving (admins, remembered on the PC; a FiveM key binding, rebindable, only active while placing).
 - Fix: the receptionist at application points can be targeted (ox_target / qb-target), not just the floor at the point.
 - Lighter: the debug panel and debug labels no longer check once a second on every client (they start only when an
   admin turns debug on), the Discord sender only runs when a webhook is set, and the time clock stops updating while closed.
