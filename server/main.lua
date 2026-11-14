@@ -835,7 +835,7 @@ if FUNDS.enabled then
     register('getFunds', function(src, gtype, name)
         local account, err = fundsCheck(src, gtype, name)
         if not account then return nil, err end
-        local history = MySQL.query.await(("SELECT name, type, amount, reason, DATE_FORMAT(created_at, '%%Y-%%m-%%d %%H:%%i') AS at FROM blaze_boss_fund_log WHERE job = ? ORDER BY id DESC LIMIT %d")
+        local history = MySQL.query.await(("SELECT name, type, amount, reason, DATE_FORMAT(created_at, '%%m-%%d-%%Y %%H:%%i') AS at FROM blaze_boss_fund_log WHERE job = ? ORDER BY id DESC LIMIT %d")
             :format(math.max(1, math.floor(FUNDS.historyLimit or 20))), { gkey(gtype, name) }) or {}
         return { balance = Banking.getBalance(account), history = history, confirmAbove = FUNDS.confirmAbove or 5000, left = BM.withdrawLeft(src, gtype, name) }
     end)
@@ -947,8 +947,8 @@ if APPS.enabled then
         if job ~= nil and not appsOn('job', job) then return {} end
         local hours = tonumber(APPS.denyCooldownHours) or 0
         local rows = MySQL.query.await(([[SELECT id, job, status, answers, deny_reason, interview_msg, reviewed_by,
-                DATE_FORMAT(created_at, '%%Y-%%m-%%d %%H:%%i') AS created, DATE_FORMAT(updated_at, '%%Y-%%m-%%d %%H:%%i') AS updated,
-                DATE_FORMAT(updated_at + INTERVAL ? HOUR, '%%Y-%%m-%%d %%H:%%i') AS reapply_at,
+                DATE_FORMAT(created_at, '%%m-%%d-%%Y %%H:%%i') AS created, DATE_FORMAT(updated_at, '%%m-%%d-%%Y %%H:%%i') AS updated,
+                DATE_FORMAT(updated_at + INTERVAL ? HOUR, '%%m-%%d-%%Y %%H:%%i') AS reapply_at,
                 (updated_at + INTERVAL ? HOUR > NOW()) AS cooling
             FROM blaze_boss_applications WHERE citizenid = ? %s ORDER BY id DESC LIMIT 25]]):format(job and 'AND job = ?' or ''),
             job and { hours, hours, cid, job } or { hours, hours, cid }) or {}
@@ -976,7 +976,7 @@ if APPS.enabled then
         if filter == 'accepted' then where = "status = 'accepted'"
         elseif filter == 'denied' then where = "status = 'denied'"
         elseif filter == 'withdrawn' then where = "status = 'withdrawn'" end
-        return MySQL.query.await(("SELECT id, name, status, DATE_FORMAT(created_at, '%%Y-%%m-%%d %%H:%%i') AS created FROM blaze_boss_applications WHERE job = ? AND %s ORDER BY id DESC LIMIT 100"):format(where), { job }) or {}
+        return MySQL.query.await(("SELECT id, name, status, DATE_FORMAT(created_at, '%%m-%%d-%%Y %%H:%%i') AS created FROM blaze_boss_applications WHERE job = ? AND %s ORDER BY id DESC LIMIT 100"):format(where), { job }) or {}
     end)
 
     register('getApplication', function(src, job, id)

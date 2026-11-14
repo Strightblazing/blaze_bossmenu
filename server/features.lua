@@ -125,7 +125,7 @@ end
 BM.hooks.decorateStaff = function(gtype, name, members, activity)
     local key = BM.gkey(gtype, name)
     local extra = {}
-    for _, r in ipairs(MySQL.query.await([[SELECT citizenid, DATE_FORMAT(hired_at, '%Y-%m-%d') AS hired, UNIX_TIMESTAMP(hired_at) AS hired_t,
+    for _, r in ipairs(MySQL.query.await([[SELECT citizenid, DATE_FORMAT(hired_at, '%m-%d-%Y') AS hired, UNIX_TIMESTAMP(hired_at) AS hired_t,
             GREATEST(0, CEIL(TIMESTAMPDIFF(MINUTE, NOW(), probation_until) / 1440)) AS prob_days
             FROM blaze_boss_members WHERE job = ?]], { key }) or {}) do
         extra[r.citizenid] = r
@@ -190,7 +190,7 @@ local function buildProfile(gtype, name, cid)
         citizenid = cid, name = Bridge.GetNameByCitizenId(cid), grade = grade, gradeName = BM.gradeName(gtype, name, grade),
         group = label(gtype, name), gtype = gtype,
     }
-    local m = MySQL.single.await([[SELECT DATE_FORMAT(hired_at, '%Y-%m-%d') AS hired, DATE_FORMAT(probation_until, '%Y-%m-%d %H:%i') AS prob,
+    local m = MySQL.single.await([[SELECT DATE_FORMAT(hired_at, '%m-%d-%Y') AS hired, DATE_FORMAT(probation_until, '%m-%d-%Y %H:%i') AS prob,
         probation_until > NOW() AS on_prob FROM blaze_boss_members WHERE citizenid = ? AND job = ?]], { cid, key })
     if m then
         p.hiredAt = m.hired
@@ -208,7 +208,7 @@ local function buildProfile(gtype, name, cid)
         p.eotw = MySQL.scalar.await('SELECT 1 FROM blaze_boss_eotw WHERE job = ? AND citizenid = ? AND week = YEARWEEK(NOW(), 3)', { key, cid }) and true or nil
     end
     if F.records then
-        p.records = MySQL.query.await("SELECT type, text, by_name, DATE_FORMAT(created_at, '%Y-%m-%d') AS at FROM blaze_boss_records WHERE job = ? AND citizenid = ? ORDER BY id DESC LIMIT 25", { key, cid }) or {}
+        p.records = MySQL.query.await("SELECT type, text, by_name, DATE_FORMAT(created_at, '%m-%d-%Y') AS at FROM blaze_boss_records WHERE job = ? AND citizenid = ? ORDER BY id DESC LIMIT 25", { key, cid }) or {}
         local counts = MySQL.single.await("SELECT SUM(type = 'commend') AS c, SUM(type = 'warning') AS w FROM blaze_boss_records WHERE job = ? AND citizenid = ?", { key, cid }) or {}
         p.commendations, p.warnings = tonumber(counts.c) or 0, tonumber(counts.w) or 0
     end
@@ -232,7 +232,7 @@ if F.profiles then
                     local p = buildProfile(gtype, name, cid)
                     if p then
                         if F.announcements then
-                            local a = MySQL.single.await("SELECT message, by_name, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS at FROM blaze_boss_announcements WHERE job = ?", { BM.gkey(gtype, name) })
+                            local a = MySQL.single.await("SELECT message, by_name, DATE_FORMAT(created_at, '%m-%d-%Y %H:%i') AS at FROM blaze_boss_announcements WHERE job = ?", { BM.gkey(gtype, name) })
                             p.announcement = a
                         end
                         p.groupName = name
@@ -305,7 +305,7 @@ end
 if F.announcements then
     register('getAnnouncement', function(src, gtype, name)
         if not Bridge.GetPlayerGroupGrade(src, gtype, name) and not BM.actorLimit(src, gtype, name) then return nil end
-        return MySQL.single.await("SELECT message, by_name, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS at FROM blaze_boss_announcements WHERE job = ?", { BM.gkey(gtype, name) })
+        return MySQL.single.await("SELECT message, by_name, DATE_FORMAT(created_at, '%m-%d-%Y %H:%i') AS at FROM blaze_boss_announcements WHERE job = ?", { BM.gkey(gtype, name) })
     end)
 
     register('postAnnouncement', function(src, gtype, name, message)
@@ -339,7 +339,7 @@ end
 if F.auditLog then
     register('getAudit', function(src, gtype, name)
         if not BM.actorLimit(src, gtype, name) then return nil end
-        return MySQL.query.await(("SELECT actor, event, message, DATE_FORMAT(created_at, '%%m-%%d %%H:%%i') AS at FROM blaze_boss_audit WHERE job = ? ORDER BY id DESC LIMIT %d")
+        return MySQL.query.await(("SELECT actor, event, message, DATE_FORMAT(created_at, '%%m-%%d-%%Y %%H:%%i') AS at FROM blaze_boss_audit WHERE job = ? ORDER BY id DESC LIMIT %d")
             :format(math.max(1, math.floor(tonumber(F.auditShow) or 50))), { BM.gkey(gtype, name) }) or {}
     end)
     CreateThread(function()
