@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blaze Boss Menu · Time clock</title>
+<!-- Time clock for duty points. PREVIEW: open in a browser to try it (demo data). Not wired into the game yet. -->
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1318;--panel:#161b22;--panel2:#1c222b;--line:#2a313b;--text:#e8eaed;--dim:#c9ced4;--muted:#8f99a5;
+  --dept:#e5484d;--dept2:#ff7a7f;--ok:#3ddc84;--warn:#f0a93b;--blue:#5aa9ff;--gold:#f5c542;--lcd:#9dffb0;--lcdbg:#0b1a10;
+  --font:Barlow,'Segoe UI',sans-serif;--display:'Barlow Condensed',sans-serif;--mono:'Share Tech Mono',monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;font-family:var(--font);color:var(--text);user-select:none}
+body.demo{background:radial-gradient(ellipse at 30% 25%,#5e6a74,#26313a 55%,#10151a)}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(6,8,11,.5)}
+.device{width:min(1000px,96vw);background:linear-gradient(180deg,#1b2129,#12171d);border:1px solid #333c48;border-radius:22px;padding:18px;
+  box-shadow:0 30px 90px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.05);position:relative}
+.device:before{content:'';position:absolute;top:8px;left:50%;width:60px;height:4px;margin-left:-30px;border-radius:2px;background:#2b333e}
+.screw{position:absolute;width:8px;height:8px;border-radius:50%;background:#2a313b;box-shadow:inset 0 1px 1px #000}
+/* top bar */
+.top{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:10px}
+.crest{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--dept),#7a1d22);display:flex;align-items:center;justify-content:center;
+  font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.5px;color:#fff}
+.brand b{display:block;font-family:var(--display);font-size:20px;letter-spacing:.5px;line-height:1}
+.brand small{color:var(--muted);font-size:12px;letter-spacing:1.5px;text-transform:uppercase}
+.lcd{background:var(--lcdbg);border:1px solid #1d3a24;border-radius:10px;padding:8px 16px;display:flex;align-items:center;gap:18px;
+  box-shadow:inset 0 0 18px rgba(0,0,0,.7);font-family:var(--mono);color:var(--lcd);text-shadow:0 0 8px rgba(157,255,176,.45)}
+.lcd .time{font-size:34px;letter-spacing:2px;line-height:1}
+.lcd .date{font-size:13px;opacity:.75;line-height:1.3}
+.lcd .msg{margin-left:auto;font-size:18px;letter-spacing:2px;text-align:right}
+.lcd .msg.err{color:#ff8a8a;text-shadow:0 0 8px rgba(255,120,120,.5)}
+.chip{font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);white-space:nowrap}
+.chip.on{border-color:rgba(61,220,132,.5);color:var(--ok);background:rgba(61,220,132,.08)}
+.chip.off{color:var(--muted)}
+.chip i{display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;margin-right:7px;vertical-align:1px}
+.chip.on i{animation:pulse 1.6s infinite}@keyframes pulse{50%{opacity:.3}}
+/* body */
+.body{display:grid;grid-template-columns:1.05fr 1fr;gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.panel h5{margin:0 0 10px;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:8px}
+.panel h5 span{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600}
+/* left: card + reader */
+.left{display:flex;flex-direction:column;gap:14px}
+.stage{position:relative;height:300px;border-radius:14px;background:radial-gradient(ellipse at 50% 120%,#1f2630,#14191f);border:1px solid var(--line);overflow:hidden}
+.hint{position:absolute;left:14px;top:12px;font-size:12.5px;color:var(--muted)}
+.hint b{color:var(--dim)}
+/* the ID card */
+.card{position:absolute;width:236px;height:150px;left:22px;top:110px;border-radius:12px;padding:12px 14px;cursor:grab;touch-action:none;
+  background:linear-gradient(135deg,#f4f5f7,#d9dde3);color:#1a1f26;box-shadow:0 12px 30px rgba(0,0,0,.55);transition:transform .25s,box-shadow .25s;z-index:5}
+.card.drag{cursor:grabbing;transition:none;box-shadow:0 20px 44px rgba(0,0,0,.6);transform:rotate(-3deg) scale(1.03)}
+.card .band{position:absolute;left:0;right:0;top:0;height:30px;border-radius:12px 12px 0 0;background:linear-gradient(90deg,var(--dept),#8f2328)}
+.card .org{position:relative;color:#fff;font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:1px;margin-top:-4px}
+.card .virt{position:absolute;right:12px;top:7px;font-size:9px;font-weight:700;letter-spacing:1px;color:#fff;opacity:.85;border:1px solid rgba(255,255,255,.6);border-radius:4px;padding:1px 4px}
+.card .row{display:flex;gap:10px;margin-top:14px}
+.card .photo{width:52px;height:62px;border-radius:6px;background:linear-gradient(160deg,#9aa6b3,#5d6a78);display:flex;align-items:center;justify-content:center;
+  color:#fff;font-family:var(--display);font-size:22px;font-weight:700}
+.card .nm{font-weight:700;font-size:15px;line-height:1.1}
+.card .rk{font-size:12px;color:#4a5260}
+.card .meta{font-size:11px;color:#4a5260;margin-top:6px;font-family:var(--mono)}
+.card .chipcard{position:absolute;right:14px;bottom:14px;width:30px;height:22px;border-radius:4px;background:linear-gradient(135deg,#e7c76a,#b28b2c)}
+.card .stripe{display:none;position:absolute;left:0;right:0;bottom:26px;height:14px;background:#22272e}
+.swipe .card .stripe{display:block}.swipe .card .chipcard{display:none}
+/* readers */
+.reader{position:absolute;display:none}
+.tap .reader.pad{display:flex;right:30px;top:70px;width:170px;height:170px;border-radius:50%;border:2px dashed #3a4554;align-items:center;justify-content:center;flex-direction:column;
+  color:var(--muted);font-size:12px;gap:6px;background:radial-gradient(circle,#1b222b,#151a20)}
+.pad .waves{width:54px;height:54px;border-radius:50%;border:3px solid #3a4554;position:relative}
+.pad .waves:before,.pad .waves:after{content:'';position:absolute;inset:-12px;border-radius:50%;border:2px solid #2d3642}
+.pad .waves:after{inset:-24px}
+.pad.hot{border-color:var(--blue);color:var(--blue)}.pad.hot .waves{border-color:var(--blue)}
+.pad.read .waves{animation:ring .5s ease-out 2}@keyframes ring{50%{box-shadow:0 0 0 14px rgba(90,169,255,.25)}}
+.swipe .reader.slot{display:block;left:20px;right:20px;top:200px;height:60px;border-radius:10px;background:#0c1014;border:1px solid #323b47;box-shadow:inset 0 6px 14px rgba(0,0,0,.8)}
+.slot .groove{position:absolute;left:12px;right:12px;top:26px;height:6px;border-radius:3px;background:#05070a}
+.slot .led{position:absolute;right:14px;top:10px;width:10px;height:10px;border-radius:50%;background:#3a2020}
+.slot .led.ok{background:var(--ok);box-shadow:0 0 10px var(--ok)}.slot .led.bad{background:#ff5a5a;box-shadow:0 0 10px #ff5a5a}
+.slot .arrow{position:absolute;left:0;right:0;top:-22px;text-align:center;font-size:12px;color:var(--muted)}
+.keypad .card{left:14px;top:96px;cursor:default;transform:scale(.8);transform-origin:left top}
+.keypad .reader.keys{display:grid;right:16px;top:38px;width:196px;grid-template-columns:repeat(3,1fr);gap:7px}
+.keypad .slip{right:auto;left:20px}
+.keys .disp{grid-column:1/-1;height:44px;border-radius:8px;background:var(--lcdbg);border:1px solid #1d3a24;font-family:var(--mono);color:var(--lcd);font-size:26px;
+  letter-spacing:10px;display:flex;align-items:center;justify-content:center}
+.keys button{height:46px;border-radius:9px;border:1px solid #333c48;background:linear-gradient(180deg,#232a34,#1a2028);color:var(--text);font-family:var(--mono);font-size:20px;cursor:pointer}
+.keys button:active{transform:translateY(1px);background:#2a323d}
+.keys button.go{background:linear-gradient(180deg,#24563a,#1b3f2b);border-color:#2f6e4a;color:#bff5d3;font-family:var(--font);font-size:14px;font-weight:700}
+.keys button.clr{font-family:var(--font);font-size:13px;color:var(--muted)}
+/* receipt slip */
+.slip{position:absolute;right:26px;bottom:-140px;width:190px;background:#fbfaf6;color:#222;border-radius:4px 4px 0 0;padding:10px 12px 14px;font-family:var(--mono);font-size:12px;
+  box-shadow:0 -6px 20px rgba(0,0,0,.4);transition:bottom .6s cubic-bezier(.2,.8,.2,1);z-index:6}
+.slip.show{bottom:-6px}
+.slip .big{font-size:24px;font-weight:700;letter-spacing:1px;margin:2px 0}
+.slip .in{color:#1d7a43}.slip .out{color:#a52828}
+.slip hr{border:0;border-top:1px dashed #bbb;margin:6px 0}
+/* right: info */
+.right{display:flex;flex-direction:column;gap:14px}
+.me{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat small{display:block;font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.stat b{display:block;font-family:var(--display);font-size:24px;line-height:1.15;font-variant-numeric:tabular-nums}
+.stat b.live{color:var(--ok)}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:86px}
+.bar{display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end}
+.bar i{width:100%;max-width:28px;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,var(--dept2),var(--dept));min-height:3px;transition:height .6s}
+.bar.today i{background:linear-gradient(180deg,#7ef0aa,var(--ok))}
+.bar span{font-size:11px;color:var(--muted)}.bar.today span{color:var(--ok);font-weight:700}
+.bar em{font-style:normal;font-size:10.5px;color:var(--dim)}
+.prog{height:9px;border-radius:5px;background:#0f1318;border:1px solid var(--line);overflow:hidden;margin:8px 0 6px}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),#ffd86b);transition:width .6s}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tag{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+.tag.gold{border-color:rgba(245,197,66,.5);color:var(--gold)}.tag.warn{border-color:rgba(240,169,59,.5);color:var(--warn)}
+.duty{display:flex;flex-wrap:wrap;gap:8px}
+.person{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 3px;font-size:12.5px}
+.person .av{width:24px;height:24px;border-radius:50%;background:#3a4554;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.person.you{border-color:rgba(61,220,132,.5)}.person.you .av{background:var(--ok);color:#0c1a12}
+.announce{font-size:13.5px;color:var(--dim);line-height:1.45;border-left:3px solid #a78bfa;padding-left:10px}
+.announce small{display:block;color:var(--muted);margin-top:4px;font-size:11.5px}
+.foot{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.foot .sp{flex:1}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:8px 16px;font-weight:700;color:var(--text);cursor:pointer;font-family:var(--font)}
+/* demo controls */
+.demobar{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#0b0e12e6;border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 16px;
+  display:none;gap:6px;align-items:center;font-size:13px;z-index:50;white-space:nowrap}
+.demo .demobar{display:flex}
+.demobar span{color:var(--muted);margin-right:6px}
+.demobar button{border:1px solid var(--line);background:#1d222a;border-radius:999px;padding:5px 12px;font-weight:700;font-size:12px;color:var(--text);cursor:pointer}
+.demobar button.on{border-color:var(--blue);color:var(--blue)}
+@media (max-width:860px){.body{grid-template-columns:1fr}.demobar{max-width:calc(100vw - 24px);overflow-x:auto}}
+</style></head>
+<body>
+<div class="demobar">
+  <span>Preview</span>
+  <button data-m="tap" class="on">Tap badge</button><button data-m="swipe">Swipe</button><button data-m="keypad">Keypad PIN</button>
+  <button id="flip">Start: off duty</button>
+</div>
+
+<div id="wrap">
+<div class="device">
+  <i class="screw" style="left:10px;top:10px"></i><i class="screw" style="right:10px;top:10px"></i>
+  <i class="screw" style="left:10px;bottom:10px"></i><i class="screw" style="right:10px;bottom:10px"></i>
+  <div class="top">
+    <div class="brand"><div class="crest" id="crest">EMS</div><div><b id="dept">EMS</b><small>Time clock</small></div></div>
+    <div class="lcd"><div class="time" id="clock">18:42</div><div class="date" id="date"></div><div class="msg" id="lcd">READY</div></div>
+    <div class="chip off" id="chip"><i></i>Off duty</div>
+  </div>
+
+  <div class="body">
+    <div class="left">
+      <div class="stage tap" id="stage">
+        <div class="hint" id="hint"><b>Drag your badge</b> onto the reader</div>
+        <div class="card" id="card">
+          <div class="band"></div><div class="org" id="cardOrg">EMS</div><div class="virt" id="virt">VIRTUAL ID</div>
+          <div class="row">
+            <div class="photo" id="photo">JD</div>
+            <div><div class="nm" id="cName">Jane Doe</div><div class="rk" id="cRank">Paramedic</div>
+              <div class="meta">ID <span id="cId">4B7Q2</span> · <span id="cCall">E-14</span><br>PIN <span id="cPin">4821</span></div></div>
+          </div>
+          <div class="chipcard"></div><div class="stripe"></div>
+        </div>
+        <div class="reader pad" id="pad"><div class="waves"></div><div>Tap badge here</div></div>
+        <div class="reader slot" id="slot"><div class="arrow">Swipe left → right</div><div class="groove"></div><div class="led" id="led"></div></div>
+        <div class="reader keys" id="keys">
+          <div class="disp" id="pinDisp">····</div>
+        </div>
+        <div class="slip" id="slip"></div>
+      </div>
+      <div class="panel">
+        <h5>📢 Department announcement</h5>
+        <div class="announce" id="ann">Training night Thursday 8pm at Pillbox. Bring your trauma kit.<small>— Dr. Steven Blaze, Chief · 11-13-2026</small></div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="panel">
+        <h5>Your shift <span id="shiftNote" style="color:var(--muted)">Not clocked in</span></h5>
+        <div class="me">
+          <div class="stat"><small>This shift</small><b id="shift">--:--:--</b></div>
+          <div class="stat"><small>This week</small><b id="weekH">14.5 h</b></div>
+          <div class="stat"><small>Last 31 days</small><b id="monthH">52.0 h</b></div>
+        </div>
+        <div class="tags" id="tags"></div>
+      </div>
+      <div class="panel">
+        <h5>This week <span id="lastShift" style="color:var(--muted)">Last shift: yesterday · 3h 20m</span></h5>
+        <div class="week" id="week"></div>
+      </div>
+      <div class="panel">
+        <h5>Next rank <span id="nextRank" style="color:var(--gold)">Senior Paramedic</span></h5>
+        <div class="prog"><i id="progBar" style="width:72%"></i></div>
+        <div style="font-size:12.5px;color:var(--muted)" id="progText">14.5 of 20 hours on duty · pay $500 → $650 per paycheck</div>
+      </div>
+      <div class="panel">
+        <h5>On duty now <span id="dutyCount" style="color:var(--ok)">3</span></h5>
+        <div class="duty" id="duty"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><span id="footNote">Clock in to start your shift. Hours count toward promotions and pay.</span><span class="sp"></span><button class="btn" id="close">Close</button></div>
+</div>
+</div>
+
+<script>
+const isFiveM = typeof GetParentResourceName === 'function';
+const $ = s => document.querySelector(s);
+const pad2 = n => String(n).padStart(2, '0');
+// ---------- demo data (the game would send this) ----------
+const D = {
+  dept: 'EMS', name: 'Jane Doe', rank: 'Paramedic', callsign: 'E-14', id: '4B7Q2', pin: '4821', virtual: true,
+  onDuty: false, weekHours: 14.5, monthHours: 52.0, week: [2.5, 4, 0, 3.3, 4.7, 0, 0], todayIndex: 5,
+  next: { rank: 'Senior Paramedic', need: 20, payNow: 500, payNext: 650 }, tags: [['⭐ Employee of the Week', 'gold'], ['Probation · 3 days left', 'warn']],
+  onDutyList: [['SB', 'Dr. Steven Blaze', 'Chief'], ['MK', 'Mike Kerr', 'EMT'], ['AL', 'Ana Lopez', 'Paramedic']],
+};
+let method = 'tap', clockedAt = null, busy = false;
+// ---------- clock + LCD ----------
+function tickClock() {
+  const t = new Date();
+  $('#clock').textContent = pad2(t.getHours()) + ':' + pad2(t.getMinutes());
+  $('#date').innerHTML = ['SUN','MON','TUE','WED','THU','FRI','SAT'][t.getDay()] + '<br>' + pad2(t.getMonth() + 1) + '-' + pad2(t.getDate()) + '-' + t.getFullYear();
+  if (clockedAt) {
+    const s = Math.floor((Date.now() - clockedAt) / 1000);
+    $('#shift').textContent = pad2(Math.floor(s / 3600)) + ':' + pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60);
+  }
+}
+setInterval(tickClock, 1000);
+let lcdT;
+function lcd(text, err, hold) { const el = $('#lcd'); el.textContent = text; el.classList.toggle('err', !!err); clearTimeout(lcdT); if (!hold) lcdT = setTimeout(() => { el.textContent = 'READY'; el.classList.remove('err'); }, 2600); }
+// ---------- sounds ----------
+let ac;
+function beep(ok) {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const tone = (f, t0, d) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'square'; o.frequency.value = f; g.gain.value = .06;
+      o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t0); o.stop(ac.currentTime + t0 + d); };
+    if (ok) { tone(1320, 0, .09); tone(1760, .11, .12); } else { tone(300, 0, .25); }
+  } catch (e) {}
+}
+// ---------- render ----------
+function render() {
+  $('#dept').textContent = D.dept; $('#crest').textContent = D.dept.slice(0, 4).toUpperCase(); $('#cardOrg').textContent = D.dept;
+  $('#cName').textContent = D.name; $('#cRank').textContent = D.rank; $('#cCall').textContent = D.callsign; $('#cId').textContent = D.id; $('#cPin').textContent = D.pin;
+  $('#photo').textContent = D.name.split(' ').map(w => w[0]).join('').slice(0, 2);
+  $('#virt').style.display = D.virtual ? '' : 'none';
+  const chip = $('#chip'); chip.className = 'chip ' + (D.onDuty ? 'on' : 'off'); chip.innerHTML = '<i></i>' + (D.onDuty ? 'On duty' : 'Off duty');
+  $('#weekH').textContent = D.weekHours.toFixed(1) + ' h'; $('#monthH').textContent = D.monthHours.toFixed(1) + ' h';
+  $('#shiftNote').textContent = D.onDuty ? 'Clocked in at ' + new Date(clockedAt).toTimeString().slice(0, 5) : 'Not clocked in';
+  $('#shift').classList.toggle('live', D.onDuty); if (!D.onDuty) $('#shift').textContent = '--:--:--';
+  $('#tags').innerHTML = D.tags.map(t => '<span class="tag ' + t[1] + '">' + t[0] + '</span>').join('');
+  const max = Math.max(6, ...D.week);
+  $('#week').innerHTML = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d, i) =>
+    '<div class="bar' + (i === D.todayIndex ? ' today' : '') + '"><em>' + (D.week[i] ? D.week[i].toFixed(1) : '') + '</em><i style="height:' + Math.max(3, D.week[i] / max * 62) + 'px"></i><span>' + d + '</span></div>').join('');
+  const pct = Math.min(100, D.weekHours / D.next.need * 100);
+  $('#progBar').style.width = pct + '%';
+  $('#progText').textContent = pct >= 100 ? 'Ready for promotion! Ask your manager.' : D.weekHours.toFixed(1) + ' of ' + D.next.need + ' hours on duty · pay $' + D.next.payNow + ' → $' + D.next.payNext + ' per paycheck';
+  $('#nextRank').textContent = D.next.rank;
+  const list = D.onDuty ? [['JD', D.name + ' (you)', D.rank, true]].concat(D.onDutyList) : D.onDutyList;
+  $('#dutyCount').textContent = list.length;
+  $('#duty').innerHTML = list.map(p => '<span class="person' + (p[3] ? ' you' : '') + '"><span class="av">' + p[0] + '</span>' + p[1] + ' <span style="color:var(--muted)">· ' + p[2] + '</span></span>').join('');
+  $('#footNote').textContent = D.onDuty ? 'You are on duty. Clock out here when your shift ends.' : 'Clock in to start your shift. Hours count toward promotions and pay.';
+  $('#flip').textContent = 'Start: ' + (D.onDuty ? 'on duty' : 'off duty');
+}
+// ---------- the punch ----------
+function slip(html) { const s = $('#slip'); s.innerHTML = html; s.classList.add('show'); setTimeout(() => s.classList.remove('show'), 4200); }
+function punch() {
+  if (busy) return; busy = true;
+  lcd('READING...', false, true);
+  setTimeout(() => {
+    beep(true);
+    const t = new Date(), hhmm = pad2(t.getHours()) + ':' + pad2(t.getMinutes()), date = pad2(t.getMonth() + 1) + '-' + pad2(t.getDate()) + '-' + t.getFullYear();
+    if (!D.onDuty) {
+      D.onDuty = true; clockedAt = Date.now() - 4000;
+      lcd('CLOCKED IN');
+      slip('<div>' + D.dept + ' · TIME CLOCK</div><div class="big in">IN ' + hhmm + '</div><div>' + date + '</div><hr><div>' + D.name + '</div><div>' + D.rank + ' · ' + D.callsign + '</div><hr><div>Week so far: ' + D.weekHours.toFixed(1) + ' h</div><div>Have a safe shift!</div>');
+    } else {
+      const mins = Math.max(1, Math.round((Date.now() - clockedAt) / 60000)) + 192; // demo: pretend it was a long shift
+      const h = mins / 60;
+      D.onDuty = false; D.weekHours += h; D.monthHours += h; D.week[D.todayIndex] += h; clockedAt = null;
+      lcd('CLOCKED OUT');
+      slip('<div>' + D.dept + ' · TIME CLOCK</div><div class="big out">OUT ' + hhmm + '</div><div>' + date + '</div><hr><div>Shift: ' + Math.floor(h) + 'h ' + (mins % 60) + 'm</div><div>Week: ' + D.weekHours.toFixed(1) + ' h</div><div>31 days: ' + D.monthHours.toFixed(1) + ' h</div><hr><div>Thanks for your work!</div>');
+      $('#lastShift').textContent = 'Last shift: today · ' + Math.floor(h) + 'h ' + (mins % 60) + 'm';
+    }
+    render(); busy = false;
+    if (isFiveM) fetch(`https://${GetParentResourceName()}/clock:punch`, { method: 'POST', body: '{}' }).catch(() => {});
+  }, 650);
+}
+// ---------- method: drag card (tap / swipe) ----------
+const card = $('#card'), stage = $('#stage');
+let drag = null;
+function resetCard() { card.style.left = ''; card.style.top = ''; }
+card.addEventListener('pointerdown', e => {
+  if (method === 'keypad' || busy) return;
+  const r = card.getBoundingClientRect(), s = stage.getBoundingClientRect();
+  drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, s, startX: null, startT: 0 };
+  card.setPointerCapture(e.pointerId); card.classList.add('drag');
+});
+card.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const x = e.clientX - drag.s.left - drag.dx, y = e.clientY - drag.s.top - drag.dy;
+  card.style.left = Math.max(-40, Math.min(drag.s.width - 190, x)) + 'px'; card.style.top = Math.max(-20, Math.min(drag.s.height - 60, y)) + 'px';
+  if (method === 'tap') {
+    const pr = $('#pad').getBoundingClientRect(), cr = card.getBoundingClientRect();
+    const over = cr.right > pr.left + 40 && cr.left < pr.right - 40 && cr.bottom > pr.top + 30 && cr.top < pr.bottom - 30;
+    $('#pad').classList.toggle('hot', over);
+  } else if (method === 'swipe') {
+    const sl = $('#slot').getBoundingClientRect(), cr = card.getBoundingClientRect();
+    const inSlot = cr.bottom > sl.top + 10 && cr.top < sl.bottom - 10;
+    if (inSlot && drag.startX === null) { drag.startX = cr.left; drag.startT = performance.now(); }
+    if (!inSlot) drag.startX = null;
+    if (inSlot && drag.startX !== null && cr.left - drag.startX > sl.width * 0.45) {
+      const ms = performance.now() - drag.startT; drag.done = true; endDrag();
+      if (ms < 900) { $('#led').className = 'led ok'; punch(); }
+      else { $('#led').className = 'led bad'; beep(false); lcd('TOO SLOW - TRY AGAIN', true); }
+      setTimeout(() => $('#led').className = 'led', 1200);
+    }
+  }
+});
+function endDrag() {
+  if (!drag) return;
+  card.classList.remove('drag');
+  if (method === 'tap' && $('#pad').classList.contains('hot')) { $('#pad').classList.add('read'); setTimeout(() => $('#pad').classList.remove('read', 'hot'), 1000); punch(); }
+  drag = null; setTimeout(resetCard, 300);
+}
+card.addEventListener('pointerup', endDrag); card.addEventListener('pointercancel', endDrag);
+// ---------- method: keypad ----------
+let pin = '';
+function buildKeys() {
+  const k = $('#keys'); k.innerHTML = '<div class="disp" id="pinDisp">····</div>';
+  ['1','2','3','4','5','6','7','8','9','CLR','0','OK'].forEach(v => {
+    const b = document.createElement('button'); b.textContent = v; if (v === 'OK') b.className = 'go'; if (v === 'CLR') b.className = 'clr';
+    b.onclick = () => {
+      if (busy) return;
+      if (v === 'CLR') pin = '';
+      else if (v === 'OK') {
+        if (pin === D.pin) punch(); else { beep(false); lcd('WRONG PIN', true); }
+        pin = '';
+      } else if (pin.length < 4) pin += v;
+      $('#pinDisp').textContent = (pin.replace(/./g, '•') + '····').slice(0, 4);
+    };
+    k.appendChild(b);
+  });
+}
+// ---------- method switch ----------
+const HINT = { tap: '<b>Drag your badge</b> onto the reader', swipe: '<b>Drag your badge</b> through the slot, left to right, in one quick move',
+               keypad: '<b>Type your PIN</b> (it\'s on your badge), then OK' };
+function setMethod(m) {
+  method = m; stage.className = 'stage ' + m; $('#hint').innerHTML = HINT[m]; resetCard(); pin = ''; buildKeys();
+  document.querySelectorAll('.demobar [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+}
+document.querySelectorAll('.demobar [data-m]').forEach(b => b.onclick = () => setMethod(b.dataset.m));
+$('#flip').onclick = () => { D.onDuty = !D.onDuty; clockedAt = D.onDuty ? Date.now() - 2 * 3600e3 - 14 * 60e3 : null; render(); };
+$('#close').onclick = () => { if (isFiveM) fetch(`https://${GetParentResourceName()}/clock:close`, { method: 'POST', body: '{}' }).catch(() => {}); };
+if (!isFiveM) document.body.classList.add('demo');
+setMethod('tap'); render(); tickClock();
+</script>
+</body></html>
