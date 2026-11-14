@@ -131,6 +131,65 @@ body.demo{background:#2a2d33}
 .app.mini .clock .t{font-size:26px}
 .app .col.info,.app .announce-block{animation:fadeIn .35s ease-out}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- motion & glow (subtle) ---------- */
+@media (prefers-reduced-motion:no-preference){
+/* panel opens */
+#wrap.show .app{animation:appIn .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes appIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+/* status: on-duty dot breathes */
+.status.on i{animation:dotPulse 2.4s ease-in-out infinite}
+@keyframes dotPulse{50%{box-shadow:0 0 0 7px rgba(63,185,122,.05),0 0 12px rgba(63,185,122,.5)}}
+/* shift timer colon blink + soft glow */
+.stat b.live{text-shadow:0 0 18px rgba(122,162,255,.35)}
+/* the ID: lift on hover, sheen on pick-up */
+.card{overflow:hidden}
+.card:hover:not(.drag){transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.35)}
+.card:after{content:'';position:absolute;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.07),transparent);transform:skewX(-12deg);pointer-events:none}
+.card.drag:after{animation:sheen .7s ease-out}
+@keyframes sheen{to{left:130%}}
+/* reader: idle breathing, glow when the ID is over it, green ripple on success */
+.pad .ring{animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{50%{box-shadow:0 0 14px rgba(122,162,255,.18)}}
+.pad.hot{box-shadow:0 0 0 1px rgba(122,162,255,.25),0 0 34px rgba(122,162,255,.22)}
+.pad.hot .ring{animation:none;box-shadow:0 0 18px rgba(122,162,255,.55)}
+.pad.read{border-color:var(--green);color:var(--green);background:rgba(63,185,122,.08)}
+.pad.read .ring{animation:ripple .7s ease-out}
+@keyframes ripple{from{box-shadow:0 0 0 0 rgba(63,185,122,.5)}to{box-shadow:0 0 0 30px rgba(63,185,122,0)}}
+/* swipe: glowing trail */
+.slot .fill{box-shadow:0 0 10px rgba(122,162,255,.7),0 0 22px rgba(122,162,255,.35)}
+/* keypad: press glow, PIN dots pop */
+.keys button{transition:transform .08s,background .15s,box-shadow .2s,border-color .2s}
+.keys button:hover{box-shadow:0 0 0 1px rgba(122,162,255,.18),0 0 14px rgba(122,162,255,.12)}
+.keys button.press{transform:scale(.94);background:#262a30;box-shadow:0 0 0 1px rgba(122,162,255,.4),0 0 18px rgba(122,162,255,.3)}
+.keys button.go:hover{box-shadow:0 0 18px rgba(122,162,255,.45)}
+.keys button.go.press{background:var(--accent);box-shadow:0 0 22px rgba(122,162,255,.6)}
+.keys .disp{transition:box-shadow .2s,border-color .2s}
+.keys .disp.typing{border-color:rgba(122,162,255,.45);box-shadow:0 0 16px rgba(122,162,255,.18)}
+.keys .disp .d{display:inline-block;width:.6em;text-align:center}
+.keys .disp .d.on{color:var(--accent);text-shadow:0 0 10px rgba(122,162,255,.8)}
+.keys .disp .d.new{animation:pop .18s ease-out}
+@keyframes pop{from{transform:scale(1.6);opacity:.4}to{transform:none;opacity:1}}
+.keys .disp.bad{border-color:rgba(229,83,75,.6);box-shadow:0 0 18px rgba(229,83,75,.3);animation:shake .35s}
+/* whole clock-in area flashes green / red */
+.stage{transition:border-color .3s,box-shadow .3s}
+.stage.good{border-color:rgba(63,185,122,.55);box-shadow:0 0 0 1px rgba(63,185,122,.2),0 0 30px rgba(63,185,122,.14)}
+.stage.bad{border-color:rgba(229,83,75,.55);box-shadow:0 0 0 1px rgba(229,83,75,.2),0 0 30px rgba(229,83,75,.14)}
+.dot.in{box-shadow:0 0 8px rgba(63,185,122,.8)}.dot.out{box-shadow:0 0 8px rgba(229,83,75,.8)}
+/* full screen reveal: sections one after another */
+.app:not(.mini) .col.info>div,.app:not(.mini) .announce-block{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+.app:not(.mini) .col.info>div:nth-child(1){animation-delay:.05s}.app:not(.mini) .col.info>div:nth-child(2){animation-delay:.12s}
+.app:not(.mini) .col.info>div:nth-child(3){animation-delay:.19s}.app:not(.mini) .col.info>div:nth-child(4){animation-delay:.26s}
+.app:not(.mini) .announce-block{animation-delay:.3s}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.bar i{transition:height .6s cubic-bezier(.2,.8,.2,1)}
+.bar.today i{box-shadow:0 0 14px rgba(122,162,255,.45)}
+.prog i{position:relative;overflow:hidden;transition:width .9s cubic-bezier(.2,.8,.2,1);box-shadow:0 0 10px rgba(122,162,255,.5)}
+.prog i:after{content:'';position:absolute;top:0;bottom:0;width:40%;left:-40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:shimmer 2.4s ease-in-out infinite}
+@keyframes shimmer{60%,100%{left:110%}}
+.person{animation:rise .35s ease-out both}
+.person.you .av{box-shadow:0 0 12px rgba(63,185,122,.55)}
+}
 </style></head>
 <body>
 <div class="demobar"><span>Demo</span><button id="flip">Start off duty</button></div>
@@ -271,8 +330,8 @@ function render() {
   $('#tags').innerHTML = (D.tags || []).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
   const week = D.week || [0, 0, 0, 0, 0, 0, 0], max = Math.max(6, ...week);
   $('#week').innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) =>
-    '<div class="bar' + (i === D.today ? ' today' : '') + '"><em>' + (week[i] >= 0.05 ? week[i].toFixed(1) : '') + '</em><i style="height:' +
-    Math.max(2, week[i] / max * 64) + 'px"></i><span>' + d + '</span></div>').join('');
+    '<div class="bar' + (i === D.today ? ' today' : '') + '"><em>' + (week[i] >= 0.05 ? week[i].toFixed(1) : '') + '</em><i data-h="' +
+    Math.max(2, week[i] / max * 64) + '" style="height:' + Math.max(2, week[i] / max * 64) + 'px"></i><span>' + d + '</span></div>').join('');
   $('#lastShift').textContent = D.lastShift ? 'Last shift ' + D.lastShift : 'No shifts yet';
   const n = D.next;
   if (!n) {
@@ -298,10 +357,30 @@ function render() {
   $('#flip').textContent = D.onDuty ? 'Start on duty' : 'Start off duty';
 }
 
+// ---------- little effects ----------
+function flash(cls) { const st = $('#stage'); st.classList.remove('good', 'bad'); void st.offsetWidth; st.classList.add(cls); setTimeout(() => st.classList.remove(cls), 1300); }
+function countUp(el, to, suffix) {
+  const start = performance.now(), dur = 700;
+  const step = t => { const k = Math.min(1, (t - start) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = (to * e).toFixed(1) + suffix; if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+/** The full screen opens: hours count up, week bars grow in one by one, progress bar fills */
+function reveal() {
+  countUp($('#weekH'), D.weekHours || 0, ' h'); countUp($('#monthH'), D.monthHours || 0, ' h');
+  const bars = [...document.querySelectorAll('#week i')];
+  bars.forEach(b => { b.style.transition = 'none'; b.style.height = '2px'; });
+  const bar = $('#progBar'), w = bar.style.width; bar.style.transition = 'none'; bar.style.width = '0';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    bars.forEach((b, i) => { b.style.transition = ''; b.style.transitionDelay = (0.15 + i * 0.05) + 's'; b.style.height = b.dataset.h + 'px'; });
+    bar.style.transition = ''; bar.style.width = w;
+  }));
+}
+
 // ---------- clock in / out ----------
 function done(onDuty, shift) {
   tone(true);
-  setTimeout(() => $('#app').classList.remove('mini'), 700); // show the full screen once they're clocked in/out
+  flash('good');
+  setTimeout(() => { $('#app').classList.remove('mini'); reveal(); }, 700); // show the full screen once they're clocked in/out
   const now = new Date(), hhmm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
   if (onDuty) {
     msg('<span class="dot in"></span><b>Clocked in</b> at ' + hhmm, 'ok');
@@ -311,7 +390,7 @@ function done(onDuty, shift) {
     $('#result').innerHTML = '<span class="dot out"></span><b>Clocked out at ' + hhmm + '.</b>' + (shift ? ' Shift ' + shift + ' · ' : ' ') + (D.weekHours || 0).toFixed(1) + ' h this week.';
   }
 }
-function fail(text) { tone(false); msg(esc(text), 'err'); $('#result').innerHTML = '<b>' + esc(text) + '</b>'; }
+function fail(text) { tone(false); flash('bad'); msg(esc(text), 'err'); $('#result').innerHTML = '<b>' + esc(text) + '</b>'; }
 
 function punch(pin) {
   if (busy) return; busy = true;
@@ -319,7 +398,7 @@ function punch(pin) {
   if (isFiveM) {
     post('clock:punch', { method, pin }).then(res => {
       busy = false;
-      if (!res || !res.ok) return fail((res && res.msg) || 'The time clock didn\'t respond.');
+      if (!res || !res.ok) { if (method === 'keypad') showPin(true); return fail((res && res.msg) || 'The time clock didn\'t respond.'); }
       if (res.data) D = res.data;
       clockedAt = D.onDuty ? Date.now() - (D.shiftSeconds || 0) * 1000 : null;
       render(); done(res.onDuty, res.shift);
@@ -386,17 +465,25 @@ function buildKeys() {
     if (v === 'OK') b.className = 'go'; if (v === 'Clear') b.className = 'clr';
     b.onclick = () => {
       if (busy) return;
+      b.classList.add('press'); setTimeout(() => b.classList.remove('press'), 140);
       if (v === 'Clear') pin = '';
       else if (v === 'OK') {
         const entered = pin; pin = '';
         if (isFiveM) punch(entered);                       // the server checks the PIN
-        else if (entered === D.pin) punch(); else fail('Wrong PIN. It\'s on your ID.');
+        else if (entered === D.pin) punch(); else { fail('Wrong PIN. It\'s on your ID.'); showPin(true); }
       } else if (pin.length < 4) pin += v;
-      $('#pinDisp').textContent = '•'.repeat(pin.length) + '·'.repeat(4 - pin.length);
+      showPin();
     };
     k.appendChild(b);
   });
-  $('#pinDisp').textContent = '····';
+  showPin();
+}
+/** PIN dots: typed ones glow (newest pops in); bad = red glow + shake */
+function showPin(bad) {
+  const d = $('#pinDisp'); if (!d) return;
+  d.innerHTML = [0, 1, 2, 3].map(i => '<span class="d' + (i < pin.length ? ' on' : '') + (i === pin.length - 1 ? ' new' : '') + '">' + (i < pin.length ? '•' : '·') + '</span>').join('');
+  d.classList.toggle('typing', pin.length > 0);
+  if (bad) { d.classList.remove('bad'); void d.offsetWidth; d.classList.add('bad'); setTimeout(() => d.classList.remove('bad'), 700); }
 }
 
 // ---------- tap / swipe / PIN ----------
