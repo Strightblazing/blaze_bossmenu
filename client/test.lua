@@ -109,7 +109,7 @@ end
 -- On-screen reminder while previewing, so it's never forgotten
 RegisterNetEvent(RES .. ':client:viewAs', function(v)
     if v then
-        lib.showTextUI(('👁 Previewing %s as %s  \n/%s → Stop preview'):format(v.label, v.who, Config.testCommand), { position = 'top-center', icon = 'eye' })
+        lib.showTextUI(('Previewing %s as %s  \n/%s to stop'):format(v.label, v.who, Config.testCommand), { position = 'top-center', icon = 'eye' })
     else
         lib.hideTextUI()
     end

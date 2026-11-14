@@ -153,7 +153,7 @@ Config = {
         statusCommand = 'applicationstatus',
         -- Applicants can withdraw an application that hasn't been decided yet
         allowWithdraw = true,
-        -- Managers vote 👍/👎 on applications and see the tally
+        -- Managers vote for/against applications and see the tally
         votes = true,
         -- Applicants invited to an interview can "Check in" at the review point; online managers are told
         interviewCheckIn = true,
@@ -250,7 +250,7 @@ Config = {
         inactiveDays = 7,
         -- Managers post an announcement; on-duty staff see it now, others when they clock in
         announcements = true,
-        -- Managers name an Employee of the Week (⭐ in the staff list, announced to the department)
+        -- Managers name an Employee of the Week (shown in the staff list, announced to the department)
         employeeOfWeek = true,
         -- "Activity log" in the boss menu: recent hires, fires, promotions, money moves...
         auditLog = true,

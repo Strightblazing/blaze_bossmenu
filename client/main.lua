@@ -130,7 +130,7 @@ local function openMember(m, data, p)
             end }
     end
     if FT.employeeOfWeek then
-        options[#options + 1] = { title = p.eotw and 'Employee of the Week ⭐' or 'Make Employee of the Week', icon = 'fa-solid fa-star', iconColor = '#F5C542',
+        options[#options + 1] = { title = p.eotw and 'Employee of the Week (this week)' or 'Make Employee of the Week', icon = 'fa-solid fa-star', iconColor = '#F5C542',
             disabled = p.isSelf or p.eotw == true, description = 'Announced to the whole department',
             onSelect = function()
                 local v = UI.input('Employee of the Week · ' .. p.name, { { type = 'input', label = 'Why? (optional)', maxLength = 200 } })
@@ -190,7 +190,7 @@ openStaff = function(m)
         if p.hiredAt then meta[#meta + 1] = { label = 'Hired', value = p.hiredAt } end
         if #meta == 0 then meta = nil end
         options[#options + 1] = {
-            title = (p.eotw and '⭐ ' or '') .. p.name .. (p.isSelf and ' (you)' or ''),
+            title = p.name .. (p.isSelf and ' (you)' or ''),
             description = table.concat(parts, ' · '),
             icon = p.readyForPromotion and 'fa-solid fa-arrow-up-right-dots' or (p.inactive and 'fa-solid fa-user-clock' or 'fa-solid fa-user'),
             iconColor = p.online and (p.onduty and '#3DDC84' or '#F0A93B') or '#8F99A5',
@@ -488,13 +488,13 @@ local function openApp(m, id, filter)
         local mine = a.votes.mine
         local voterMeta = {}
         for _, s in ipairs(a.votes.voters) do voterMeta[#voterMeta + 1] = s end
-        options[#options + 1] = { title = ('Team vote: 👍 %d  ·  👎 %d'):format(a.votes.up, a.votes.down), icon = 'fa-solid fa-square-poll-vertical',
-            description = mine == 1 and 'You voted 👍' or (mine == -1 and 'You voted 👎' or 'You haven\'t voted'), readOnly = true,
+        options[#options + 1] = { title = ('Team vote: %d for · %d against'):format(a.votes.up, a.votes.down), icon = 'fa-solid fa-square-poll-vertical',
+            description = mine == 1 and 'You voted for' or (mine == -1 and 'You voted against' or 'You haven\'t voted'), readOnly = true,
             metadata = #voterMeta > 0 and voterMeta or nil }
-        options[#options + 1] = { title = mine == 1 and 'Remove 👍 vote' or 'Vote 👍', icon = 'fa-solid fa-thumbs-up', iconColor = '#3DDC84', onSelect = function()
+        options[#options + 1] = { title = mine == 1 and 'Remove your vote' or 'Vote for', icon = 'fa-solid fa-thumbs-up', iconColor = '#3DDC84', onSelect = function()
             result(call('voteApplication', m.name, a.id, mine == 1 and 0 or 1)) reopen()
         end }
-        options[#options + 1] = { title = mine == -1 and 'Remove 👎 vote' or 'Vote 👎', icon = 'fa-solid fa-thumbs-down', iconColor = '#E5484D', onSelect = function()
+        options[#options + 1] = { title = mine == -1 and 'Remove your vote' or 'Vote against', icon = 'fa-solid fa-thumbs-down', iconColor = '#E5484D', onSelect = function()
             result(call('voteApplication', m.name, a.id, mine == -1 and 0 or -1)) reopen()
         end }
     end

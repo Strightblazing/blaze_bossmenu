@@ -144,7 +144,7 @@ function exportSignature() {
 function initials(s) {
   const words = String(s || '').split(/\s+/).filter(Boolean);
   if (words.length === 1) return words[0].slice(0, 4).toUpperCase();   // "EMS", "LSPD"
-  return words.slice(0, 3).map(w => w[0]).join('').toUpperCase() || '★'; // "Los Santos Fire" -> "LSF"
+  return words.slice(0, 3).map(w => w[0]).join('').toUpperCase() || 'D'; // "Los Santos Fire" -> "LSF"
 }
 // offer = { template = { title, intro, sections = [ { title, text } ] },
 //           values = { job, rank, pay, probation, employee, manager, manager_rank, date, number },

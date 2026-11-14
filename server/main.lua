@@ -1095,7 +1095,7 @@ if APPS.enabled then
             for _, v in ipairs(MySQL.query.await('SELECT citizenid, name, vote FROM blaze_boss_app_votes WHERE app_id = ?', { row.id }) or {}) do
                 if v.vote > 0 then row.votes.up = row.votes.up + 1 else row.votes.down = row.votes.down + 1 end
                 if v.citizenid == me then row.votes.mine = v.vote end
-                row.votes.voters[#row.votes.voters + 1] = ('%s %s'):format(v.vote > 0 and '👍' or '👎', v.name or '?')
+                row.votes.voters[#row.votes.voters + 1] = ('%s: %s'):format(v.vote > 0 and 'For' or 'Against', v.name or '?')
             end
         end
         row.created_at, row.updated_at = nil, nil

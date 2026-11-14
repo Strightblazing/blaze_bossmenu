@@ -305,7 +305,7 @@ if F.employeeOfWeek then
         if F.records then addRecord(gtype, name, cid, 'eotw', reason ~= '' and reason or 'Employee of the Week', Bridge.GetName(src)) end
         local gl = label(gtype, name)
         for target in pairs(onlineMembers(gtype, name)) do
-            Bridge.Notify(target, ('⭐ %s is %s\'s Employee of the Week!%s'):format(who, gl, reason ~= '' and (' ' .. reason) or ''), 'success', gl)
+            Bridge.Notify(target, ('%s is %s\'s Employee of the Week.%s'):format(who, gl, reason ~= '' and (' ' .. reason) or ''), 'success', gl)
         end
         local p = Bridge.GetPlayerByCitizenId(cid)
         if p then celebrate(p.PlayerData.source, 'EMPLOYEE OF THE WEEK', gl) end
@@ -461,7 +461,7 @@ if APPS.enabled then
             if vote == 1 or vote == -1 then
                 MySQL.query.await('INSERT INTO blaze_boss_app_votes (app_id, citizenid, name, vote) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE vote = VALUES(vote), name = VALUES(name)',
                     { id, cid, Bridge.GetName(src), vote })
-                return true, vote == 1 and 'Voted 👍' or 'Voted 👎'
+                return true, vote == 1 and 'You voted for.' or 'You voted against.'
             end
             MySQL.query.await('DELETE FROM blaze_boss_app_votes WHERE app_id = ? AND citizenid = ?', { id, cid })
             return true, 'Vote removed.'

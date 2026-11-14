@@ -19,7 +19,7 @@ local RECORD_LABEL = { commend = 'Commendation', warning = 'Write-up', rank = 'R
 --- Menu options for a profile (shared by the staff list and /myjob)
 function BMC.profileOptions(p)
     local o = {}
-    o[#o + 1] = { title = p.name .. (p.eotw and '  ⭐' or ''), description = ('%s · %s%s'):format(p.group, p.gradeName, p.callsign and (' · ' .. p.callsign) or ''),
+    o[#o + 1] = { title = p.name, description = ('%s · %s%s'):format(p.group, p.gradeName, p.callsign and (' · ' .. p.callsign) or ''),
         icon = 'fa-solid fa-id-badge', readOnly = true }
     if p.eotw then o[#o + 1] = { title = 'Employee of the Week', icon = 'fa-solid fa-star', iconColor = '#F5C542', readOnly = true } end
     o[#o + 1] = { title = 'Hired', description = p.hiredAt or 'Before records began', icon = 'fa-regular fa-calendar', readOnly = true }
@@ -64,7 +64,7 @@ end
 local function showMine(p, backMenu)
     local options = {}
     if p.announcement then
-        options[#options + 1] = { title = '📢 Announcement', description = (#p.announcement.message > 80 and (p.announcement.message:sub(1, 79) .. '…') or p.announcement.message),
+        options[#options + 1] = { title = 'Announcement', description = (#p.announcement.message > 80 and (p.announcement.message:sub(1, 79) .. '…') or p.announcement.message),
             icon = 'fa-solid fa-bullhorn', iconColor = '#A78BFA', readOnly = true,
             metadata = { { label = 'From', value = p.announcement.by_name or '?' }, { label = 'Posted', value = p.announcement.at or '' }, { label = 'Message', value = p.announcement.message } } }
     end
@@ -366,7 +366,7 @@ function BMC.signContract(offer, seconds)
         return res
     end
 
-    if not UI.confirm({ header = '📝 Employment Contract', content = contractText(offer), type = 'info', icon = 'fa-solid fa-file-signature',
+    if not UI.confirm({ header = 'Employment Contract', content = contractText(offer), type = 'info', icon = 'fa-solid fa-file-signature',
             confirm = 'Sign contract', cancel = 'Decline' }) or timedOut then
         return finish({ accepted = false })
     end
@@ -397,7 +397,7 @@ end
 ---------------------------------------------------------------------------
 RegisterNetEvent(RES .. ':client:announcement', function(groupLabel, message, by)
     PlaySoundFrontend(-1, 'Text_Arrive_Tone', 'Phone_SoundSet_Default', false)
-    lib.notify({ title = ('📢 %s announcement'):format(groupLabel), description = ('%s\n— %s'):format(message, by or 'Management'), type = 'inform', duration = 15000 })
+    lib.notify({ title = ('%s announcement'):format(groupLabel), description = ('%s\n— %s'):format(message, by or 'Management'), type = 'inform', duration = 15000 })
 end)
 
 ---------------------------------------------------------------------------

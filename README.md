@@ -38,12 +38,12 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - **Employee profiles**: hire date, probation, hours this week and this month, last check-in, rank history and record.
 - **Commendations & write-ups** on an employee's record (write-ups only for people below you). They're told right away.
 - **Probation**: new hires are on probation for `probationDays`; managers get a reminder when it ends.
-- **Badges in the staff list**: ⭐ Employee of the Week, Probation, Inactive (no duty in `inactiveDays`), Ready for promotion (`promotionHours`).
+- **Badges in the staff list**: Employee of the Week, Probation, Inactive (no duty in `inactiveDays`), Ready for promotion (`promotionHours`).
 - **Employee of the Week**: announced to the whole department, with a big on-screen message for the winner.
 - **`/myjob`**: staff see their own profile, record and the current department announcement.
 
 **Applications**
-- **Team votes**: managers vote 👍/👎 on an application and see who voted what.
+- **Team votes**: managers vote for or against an application and see who voted what.
 - **Quick replies**: ready-made deny reasons and interview messages (`applications.quickReplies`).
 - **Withdraw**: applicants can withdraw an undecided application from `/applicationstatus`.
 - **Interview check-in**: invited applicants "Check in for interview" at the review point, and online managers are told.
@@ -211,7 +211,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `funds.enabled` | `false` = no Funds anywhere. |
 | `funds.confirmAbove` | Deposits/withdrawals of this amount or more ask to confirm. |
 | `funds.historyLimit` | Transactions shown in Recent history. |
-| `applications.allowWithdraw` / `votes` / `interviewCheckIn` | Applicant withdraw, manager 👍/👎 votes, interview check-in at the review point. |
+| `applications.allowWithdraw` / `votes` / `interviewCheckIn` | Applicant withdraw, manager votes, interview check-in at the review point. |
 | `applications.quickReplies` | Ready-made `deny` and `interview` messages. |
 | `funds.bonuses` / `maxBonus` / `payroll` | Bonuses from society funds, biggest bonus per person, the Payroll page. |
 | `jobs[x].description` | Text shown on the `/jobs` board. |
