@@ -216,6 +216,9 @@ Config = {
         -- How staff can clock in on the time clock (they pick one; first = default):
         -- 'tap' = drag the ID onto the reader, 'swipe' = swipe it through the slot, 'keypad' = type the PIN on their ID
         methods = { 'tap', 'swipe', 'keypad' },
+        -- Starting size of the time clock (1.0 = normal, 1.25 = 25% larger). Each player can change their own
+        -- with the - / + buttons on the clock (saved on their PC). It always shrinks to fit small screens.
+        size = 1.25,
     },
 
     -- Job outfits: managers save what they're wearing as a job outfit (with the lowest rank allowed),

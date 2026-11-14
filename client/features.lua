@@ -707,7 +707,7 @@ function BMC.openClock(job)
     if not data then return notify(err or 'This time clock isn\'t for you.', 'error', 'Time clock') end
     clockJob = job
     SetNuiFocus(true, true)
-    SendNUIMessage({ action = 'openClock', data = data, methods = methods })
+    SendNUIMessage({ action = 'openClock', data = data, methods = methods, size = (Config.duty or {}).size })
 end
 
 RegisterNUICallback('clock:punch', function(d, cb)

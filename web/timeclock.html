@@ -163,7 +163,12 @@ body.demo{background:#2a2d33}
 .btn{padding:6px 14px;font-size:12.5px}
 .app.mini{width:min(470px,94vw)}
 
-/* size: the whole clock is scaled (about 25% larger; smaller on small screens) */
+/* size control in the footer */
+.size{display:flex;align-items:center;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+.size button{border:0;background:transparent;color:var(--muted);width:28px;height:28px;font-size:15px;cursor:pointer;font-family:var(--font)}
+.size button:hover{background:var(--surface);color:var(--text)}
+.size span{font-size:11.5px;color:var(--muted);min-width:42px;text-align:center;font-variant-numeric:tabular-nums}
+/* size: the whole clock is scaled (each player picks their size; smaller on small screens) */
 .scaler{transform:scale(var(--ui-scale,1.25));transform-origin:center;transition:transform .2s}
 
 /* ---------- motion & glow (subtle) ---------- */
@@ -285,7 +290,7 @@ body.demo{background:#2a2d33}
     </div>
   </div>
 
-  <div class="foot"><span id="footNote"></span><span class="sp"></span><button class="btn" id="close">Close</button></div>
+  <div class="foot"><span id="footNote"></span><span class="sp"></span><div class="size" title="Size of the time clock (saved for you)"><button id="smaller" aria-label="Smaller">−</button><span id="sizeLbl">125%</span><button id="bigger" aria-label="Bigger">+</button></div><button class="btn" id="close">Close</button></div>
 </div></div></div>
 
 <script>
@@ -306,13 +311,24 @@ function post(name, data) {
 }
 
 // ---------- size: up to 25% larger, but always fits the screen ----------
-const UI_SCALE = 1.25;
+// Each player picks their own size with − / + (saved on their PC). The server's default is duty.size in config.lua.
+const SIZE_MIN = 0.8, SIZE_MAX = 1.6, SIZE_STEP = 0.05;
+let defaultScale = 1.25;
+function savedScale() { try { const v = parseFloat(localStorage.getItem('blaze_bossmenu_clock_size')); return isFinite(v) ? v : null; } catch (e) { return null; } }
+let UI_SCALE = savedScale() || defaultScale;
 let S = UI_SCALE;
 function fitScale() {
   const app = $('#app');
   const w = app.offsetWidth || 780, h = app.offsetHeight || 600;
-  S = Math.max(0.6, Math.min(UI_SCALE, (innerWidth * 0.94) / w, (innerHeight * 0.92) / h));
+  S = Math.max(0.5, Math.min(UI_SCALE, (innerWidth * 0.96) / w, (innerHeight * 0.94) / h));
   document.documentElement.style.setProperty('--ui-scale', S);
+  const lbl = $('#sizeLbl'); if (lbl) lbl.textContent = Math.round(UI_SCALE * 100) + '%' + (S < UI_SCALE - 0.01 ? '*' : '');
+  if (lbl) lbl.title = S < UI_SCALE - 0.01 ? 'Shrunk to fit your screen' : '';
+}
+function setScale(v) {
+  UI_SCALE = Math.round(Math.max(SIZE_MIN, Math.min(SIZE_MAX, v)) / SIZE_STEP) * SIZE_STEP;
+  try { localStorage.setItem('blaze_bossmenu_clock_size', String(UI_SCALE)); } catch (e) {}
+  fitScale();
 }
 addEventListener('resize', fitScale);
 
@@ -553,11 +569,14 @@ function close() {
   if (!isFiveM) setTimeout(() => { $('#app').classList.add('mini'); setMethod(method); render(); $('#wrap').classList.add('show'); }, 1200); // demo: reopen
 }
 $('#close').onclick = close;
+$('#smaller').onclick = () => setScale(UI_SCALE - SIZE_STEP);
+$('#bigger').onclick = () => setScale(UI_SCALE + SIZE_STEP);
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#wrap').classList.contains('show')) close(); });
 window.addEventListener('message', e => {
   const d = e.data || {};
   if (d.action === 'openClock') {
     D = d.data || D;
+    if (d.size) { defaultScale = d.size; if (!savedScale()) UI_SCALE = d.size; }
     methods = (d.methods && d.methods.length) ? d.methods.filter(m => NAME[m]) : ['tap', 'swipe', 'keypad'];
     clockedAt = D.onDuty ? Date.now() - (D.shiftSeconds || 0) * 1000 : null;
     busy = false; $('#result').textContent = '';
