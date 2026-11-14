@@ -157,6 +157,9 @@ openPlacement = function()
                 BMC.setDebug(not BMC.debugOn())
                 openPlacement()
             end },
+            { title = 'Move debug panel', icon = 'fa-solid fa-up-down-left-right', disabled = LocalPlayer.state.bossDebugView ~= true,
+              description = 'Drag the panel where you want it (saved on this PC). Same as /' .. (Config.debugCommand or 'bossdebug') .. ' move',
+              onSelect = function() TriggerEvent(RES .. ':client:debugMove') end },
         },
     })
     UI.showMenu('blaze_boss_place')

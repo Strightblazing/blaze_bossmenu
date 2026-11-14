@@ -105,7 +105,7 @@ The boss menu itself uses ox_lib (or Lation UI) menus in game.
 
 | Command | Who | What |
 |---|---|---|
-| `/bossmenu` | Admins | Place / move / delete points, Show zones, Debug mode |
+| `/bossmenu` | Admins | Place / move / delete points, Show zones, Debug mode, Move debug panel |
 | `/bossmenutest` | Admins | Test staff and applications, View as…, previews (`testCommand`) |
 | `/bossdebug [on|off|view|move]` | Admins | Debug: live panel, labels, action logs (`debugCommand`) |
 | `/applicationstatus` | Everyone | Your job applications (`applications.statusCommand`) |
@@ -197,7 +197,7 @@ with a label, so you can see exactly where each target is and how big it is. Onl
 The live panel (top right, refreshed 4 times a second) shows your job, rank, duty, admin and View-as state, the groups
 you manage and belong to, framework / target / menu library, the nearest point (id, type, distance, radius), your last
 boss menu actions with their result and time, and your position. Point labels show id, radius and distance.
-**Debug mode** in `/bossmenu` turns the same thing on for just you. `debug = true` in config.lua turns it on for everyone.
+**Debug mode** in `/bossmenu` turns the same thing on for just you, and **Move debug panel** there drags it. `debug = true` in config.lua turns it on for everyone.
 
 Managers can place, move and delete their own job's points from the boss menu → **Locations**
 (`managerPlacement`: which types, and whether they may teleport).

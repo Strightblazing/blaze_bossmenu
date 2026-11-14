@@ -4,6 +4,7 @@
 
 - Lighter: the debug panel and debug labels no longer check once a second on every client (they start only when an
   admin turns debug on), the Discord sender only runs when a webhook is set, and the time clock stops updating while closed.
+- **Move debug panel** button in `/bossmenu` (same as `/bossdebug move`).
 - Cleanup: removed an unused variable and parameter, and the old docs/contract-preview.html redirect.
 
 ## 1.2.1
