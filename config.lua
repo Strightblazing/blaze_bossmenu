@@ -14,6 +14,10 @@ Config = {
     -- On start, check GitHub for a newer release and say so in the console (false = don't check)
     versionCheck = true,
 
+    -- Debug: log every boss menu action (name, result, time) to the server console, and draw all points with
+    -- their ids for everyone. Leave false on a live server; admins can turn debug on just for themself in /bossmenu.
+    debug = false,
+
     -- Admin test tools: fake offline staff + applications so one person can try everything, plus effect previews.
     -- "Remove all test data" in the menu cleans it all up. false = no command (recommended once you go live)
     testCommand = 'bossmenutest',

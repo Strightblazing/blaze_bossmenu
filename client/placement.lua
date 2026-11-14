@@ -146,6 +146,16 @@ openPlacement = function()
             { title = 'Add duty point', description = TYPE_DESC.duty, icon = TYPE_ICON.duty, arrow = true, disabled = not (Config.duty or {}).enabled, onSelect = function() addFlow(info, 'duty') end },
             { title = 'Add wardrobe', description = TYPE_DESC.outfits, icon = TYPE_ICON.outfits, arrow = true, disabled = not (Config.outfits or {}).enabled, onSelect = function() addFlow(info, 'outfits') end },
             { title = 'Manage points', description = ('%d points'):format(#info.points), icon = 'fa-solid fa-list', arrow = true, onSelect = function() manageFlow(info) end },
+            { title = 'Show zones: ' .. (BMC.zonesShown() and 'On' or 'Off'), icon = 'fa-solid fa-draw-polygon',
+              description = 'Draw every point on the ground with a label (only you see it)', onSelect = function()
+                BMC.setShowZones(not BMC.zonesShown() and 'all' or false)
+                openPlacement()
+            end },
+            { title = 'Debug mode: ' .. (BMC.debugOn() and 'On' or 'Off'), icon = 'fa-solid fa-bug',
+              description = 'Point ids / radius / distance, and your actions logged to F8 and the server console', onSelect = function()
+                BMC.setDebug(not BMC.debugOn())
+                openPlacement()
+            end },
         },
     })
     UI.showMenu('blaze_boss_place')
@@ -165,7 +175,14 @@ function BMC.openLocations(m)
     if not d then return result(false, 'You are not a manager here.') end
     local reopen = function() BMC.openLocations(m) end
     local teleport = m.isAdmin or (Config.managerPlacement or {}).teleport == true
-    local options = {}
+    local key = m.gtype .. ':' .. m.name
+    local options = {
+        { title = 'Show zones: ' .. (BMC.zonesShown() and 'On' or 'Off'), icon = 'fa-solid fa-draw-polygon',
+          description = ('Draw %s\'s points on the ground (only you see it)'):format(m.label), onSelect = function()
+            BMC.setShowZones(not BMC.zonesShown() and { [key] = true } or false)
+            reopen()
+        end },
+    }
     table.sort(d.types, function(a, b) return (TYPE_LABEL[a] or a) < (TYPE_LABEL[b] or b) end)
     for _, t in ipairs(d.types) do
         options[#options + 1] = { title = 'Add ' .. (TYPE_LABEL[t] or t):lower(), description = TYPE_DESC[t], icon = 'fa-solid fa-plus', onSelect = function()
@@ -188,3 +205,89 @@ function BMC.openLocations(m)
     UI.registerMenu({ id = 'blaze_boss_locations', title = 'Locations · ' .. m.label, menu = 'blaze_boss_main', options = options })
     UI.showMenu('blaze_boss_locations')
 end
+
+---------------------------------------------------------------------------
+-- Show zones + debug mode
+-- Show zones: every point drawn as a colored ring on the ground with a label (admins: all; managers: their job).
+-- Debug mode (admins): labels also show id / radius / distance, and actions are logged to F8.
+---------------------------------------------------------------------------
+local zonePoints = {}
+local showZones = false      -- false | 'all' | { ['job:ambulance'] = true }
+local debugMode = Config.debug == true
+BMC.debug = debugMode
+
+local ZONE_COLOR = {
+    boss = { 245, 197, 66 }, applications = { 90, 169, 255 }, review = { 167, 139, 250 },
+    duty = { 63, 185, 122 }, outfits = { 240, 169, 59 },
+}
+
+RegisterNetEvent(RES .. ':client:points', function(points) zonePoints = points or {} end)
+RegisterNetEvent(RES .. ':client:debugLog', function(line) print('^5[blaze_bossmenu:debug]^7 ' .. tostring(line)) end)
+
+local function draw3DText(x, y, z, text)
+    SetDrawOrigin(x, y, z, 0)
+    SetTextScale(0.0, 0.3)
+    SetTextFont(4)
+    SetTextCentre(true)
+    SetTextOutline()
+    SetTextColour(255, 255, 255, 230)
+    BeginTextCommandDisplayText('STRING')
+    AddTextComponentSubstringPlayerName(text)
+    EndTextCommandDisplayText(0.0, 0.0)
+    ClearDrawOrigin()
+end
+
+local drawing = false
+local function startDrawing()
+    if drawing then return end
+    drawing = true
+    if #zonePoints == 0 then zonePoints = call('getPoints') or {} end
+    CreateThread(function()
+        while showZones or debugMode do
+            local me = GetEntityCoords(cache.ped)
+            for _, p in ipairs(zonePoints) do
+                local key = p.gtype .. ':' .. p.group
+                if showZones == 'all' or debugMode or (type(showZones) == 'table' and showZones[key]) then
+                    local c = vec3(p.coords.x, p.coords.y, p.coords.z)
+                    local dist = #(me - c)
+                    if dist < 60.0 then
+                        local col = ZONE_COLOR[p.type] or { 200, 200, 200 }
+                        local r = (p.radius or 1.0) * 2.0
+                        DrawMarker(1, c.x, c.y, c.z - 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, r, r, 1.4, col[1], col[2], col[3], 60, false, false, 2, false, nil, nil, false)
+                        DrawMarker(28, c.x, c.y, c.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.12, 0.12, 0.12, col[1], col[2], col[3], 200, false, false, 2, false, nil, nil, false)
+                        if dist < 25.0 then
+                            local cfg = (p.gtype == 'gang' and (Config.gangs or {}) or Config.jobs)[p.group] or {}
+                            local text = ('%s · %s'):format(TYPE_LABEL[p.type] or p.type, cfg.label or p.group)
+                            if debugMode then
+                                text = text .. ('~n~#%s · r %.1f · %.1fm%s'):format(p.id, p.radius or 1.0, dist, p.fixed and (' · ' .. p.fixed) or '')
+                            end
+                            draw3DText(c.x, c.y, c.z + 0.35, text)
+                        end
+                    end
+                end
+            end
+            Wait(0)
+        end
+        drawing = false
+    end)
+end
+
+--- mode: false (off), 'all', or a table of group keys
+function BMC.setShowZones(mode)
+    showZones = mode
+    if mode then startDrawing() end
+end
+function BMC.zonesShown() return showZones ~= false end
+
+function BMC.setDebug(on)
+    local ok, msg, state = call('setDebug', on)
+    result(ok, msg)
+    if ok then
+        debugMode = state == true
+        BMC.debug = debugMode
+        if debugMode then startDrawing() end
+    end
+end
+function BMC.debugOn() return debugMode end
+
+if debugMode then CreateThread(function() Wait(3000) startDrawing() end) end

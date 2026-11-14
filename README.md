@@ -146,6 +146,11 @@ Use `/bossmenu` in game (admins only):
 - **Add duty point**: staff of that job clock in and out here.
 - **Add wardrobe**: staff of that job change into the job's outfits here (and back to their own clothes).
 
+**Show zones** (in `/bossmenu`, and in Locations for a manager's own job) draws every point as a colored ring on the ground
+with a label, so you can see exactly where each target is and how big it is. Only you see it.
+**Debug mode** (admins, `/bossmenu`) adds each point's id, radius and your distance, and logs your boss menu actions
+(with their result and time) to F8 and the server console. `debug = true` in config.lua turns this on for everyone.
+
 Managers can place, move and delete their own job's points from the boss menu → **Locations**
 (`managerPlacement`: which types, and whether they may teleport).
 - **Manage points**: everything placed, grouped by job. **Teleport** to a point, **Move** it (aim at the new spot,
@@ -196,6 +201,7 @@ The applicant's full name always comes from their character. It is never a quest
 | Option | What it does |
 |---|---|
 | `enabled` | `false` = the whole resource does nothing. Saved data stays in the database. |
+| `debug` | Log every action to the server console and draw all points for everyone (testing only). Admins can turn debug on just for themself in `/bossmenu`. |
 | `versionCheck` | On start, compare with the latest GitHub release and say if there's an update. |
 | `useLationUI` | `true` = menus, forms and confirms use Lation UI. Falls back to ox_lib if lation_ui isn't started. |
 | `target` | `'auto'`, `'ox_target'`, `'qb-target'` or `'none'` (walk-up `[E]` prompt). |
