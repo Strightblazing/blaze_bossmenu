@@ -148,8 +148,18 @@ Use `/bossmenu` in game (admins only):
 
 **Show zones** (in `/bossmenu`, and in Locations for a manager's own job) draws every point as a colored ring on the ground
 with a label, so you can see exactly where each target is and how big it is. Only you see it.
-**Debug mode** (admins, `/bossmenu`) adds each point's id, radius and your distance, and logs your boss menu actions
-(with their result and time) to F8 and the server console. `debug = true` in config.lua turns this on for everyone.
+**Debug** (admins), the same as Blaze Medical's `/blazedebug`:
+
+| Command | What it does |
+|---|---|
+| `/bossdebug` or `/bossdebug on` / `off` | Debug for everyone's boss menu actions in the server console, plus your own live panel |
+| `/bossdebug view` | Just your own live panel and point labels |
+| `/bossdebug move` | Drag your panel somewhere else (remembered on your PC; Enter = done, Esc = cancel) |
+
+The live panel (top right, refreshed 4 times a second) shows your job, rank, duty, admin and View-as state, the groups
+you manage and belong to, framework / target / menu library, the nearest point (id, type, distance, radius), your last
+boss menu actions with their result and time, and your position. Point labels show id, radius and distance.
+**Debug mode** in `/bossmenu` turns the same thing on for just you. `debug = true` in config.lua turns it on for everyone.
 
 Managers can place, move and delete their own job's points from the boss menu → **Locations**
 (`managerPlacement`: which types, and whether they may teleport).

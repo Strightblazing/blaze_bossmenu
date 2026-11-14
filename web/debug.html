@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Blaze Boss Menu · Debug</title>
+<!-- Live debug panel (/bossdebug), like Blaze Medical's. Runs inside web/index.html.
+     in:  { action: 'dbg:live', data | false } (false hides it) | { action: 'dbg:move' } (drag it; saved on this PC)
+     out: dbg:moveDone
+     Open this file in a browser for a demo. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--panel:rgba(20,21,24,.92);--surface:#1a1c20;--line:#26292e;--line2:#30343a;--text:#f2f3f5;--muted:#8b9099;--faint:#5c616a;
+  --accent:#7aa2ff;--green:#3fb97a;--red:#e5534b;--amber:#f0a93b;--font:Inter,'Segoe UI',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;font-family:var(--font);color:var(--text);user-select:none;-webkit-font-smoothing:antialiased}
+body.demo{background:#3a4048}
+.hud{position:fixed;right:18px;top:18px;width:330px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
+  box-shadow:0 14px 40px rgba(0,0,0,.4);font-size:12px;backdrop-filter:blur(6px)}
+.hud[hidden]{display:none}
+.hud.moving{outline:2px dashed var(--accent);outline-offset:4px;cursor:move}
+.hud-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.hud-h b{font-size:13px;font-weight:600}
+.tag{font-size:10px;font-weight:600;letter-spacing:.1em;color:var(--accent);border:1px solid rgba(122,162,255,.4);border-radius:5px;padding:1px 6px}
+.live{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.live i{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(63,185,122,.8);animation:p 1.6s infinite}@keyframes p{50%{opacity:.35}}
+.sec{border-top:1px solid var(--line);padding:8px 0 2px}
+.sec h4{margin:0 0 6px;font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.kv small{display:block;color:var(--faint);font-size:10.5px}.kv span{font-weight:500}
+.ok{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}.acc{color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{border:1px solid var(--line2);border-radius:999px;padding:1px 8px;font-size:11px;color:#d6d8dc}
+.chip.m{border-color:rgba(122,162,255,.45);color:#cfdcff}
+.hint{color:var(--faint);font-size:11px;margin-top:3px}
+.mono{font-family:var(--mono);font-size:11px;color:#d6d8dc}
+.log{font-family:var(--mono);font-size:10.5px;color:#cfd2d6;display:flex;flex-direction:column;gap:2px}
+.log div{display:flex;gap:6px;white-space:nowrap;overflow:hidden}
+.log .n{color:var(--accent)}.log .r{flex:1;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}.log .t{color:var(--faint)}
+.log .r.bad{color:#f3a7a2}
+.movetip{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;
+  display:flex;align-items:center;gap:10px;font-size:12px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.movetip[hidden]{display:none}
+.movetip span{color:var(--muted)}
+.btn{border:1px solid var(--line2);background:transparent;color:var(--text);border-radius:7px;padding:5px 12px;font-family:var(--font);font-size:12px;cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#0c1220}
+.k{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line2);border-radius:4px;padding:0 5px;color:var(--muted)}
+</style></head>
+<body>
+<div class="hud" id="hud" hidden></div>
+<div class="movetip" id="moveTip" hidden><b>Move the debug panel</b><span>Drag it where you want it.</span>
+  <button class="btn" id="moveReset">Reset</button><button class="btn pri" id="moveSave">Done</button><span class="k">Enter</span><span>done</span><span class="k">Esc</span><span>cancel</span></div>
+<script>
+const host = window.parent !== window ? window.parent : null;
+const isFiveM = !!(host && typeof host.GetParentResourceName === 'function');
+const post = (name, body) => (host && host.postNui) ? host.postNui(name, body) : Promise.resolve({});
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- live panel ---------- */
+function live(d) {
+  const hud = $('hud');
+  if (!d) { hud.hidden = true; return; }
+  hud.hidden = false;
+  const chips = (list, cls) => list && list.length ? '<div class="chips">' + list.map(x => '<span class="chip ' + (cls || '') + '">' + esc(x) + '</span>').join('') + '</div>' : '<div class="hint">None</div>';
+  const p = d.pos || {}, n = d.nearest;
+  hud.innerHTML =
+    '<div class="hud-h"><b>Blaze Boss Menu</b><span class="tag">DEBUG</span><span class="live"><i></i>Live</span></div>' +
+    '<div class="sec"><h4>You</h4><div class="kv">' +
+      '<div><small>Job</small><span>' + esc(d.job) + '</span></div>' +
+      '<div><small>Rank</small><span>' + esc(d.grade) + (d.gradeName ? ' · ' + esc(d.gradeName) : '') + '</span></div>' +
+      '<div><small>Duty</small><span class="' + (d.duty ? 'ok' : 'bad') + '">' + (d.duty ? 'ON' : 'OFF') + '</span></div>' +
+      '<div><small>Admin</small><span class="' + (d.admin ? 'acc' : '') + '">' + (d.admin ? 'Yes' : 'No') + '</span></div>' +
+      '<div><small>Logging</small><span class="' + (d.global ? 'warn' : '') + '">' + (d.global ? 'Everyone' : 'Just you') + '</span></div>' +
+      '<div><small>View as</small><span class="' + (d.viewAs ? 'warn' : '') + '">' + (d.viewAs ? esc(d.viewAs) : 'Off') + '</span></div>' +
+    '</div></div>' +
+    '<div class="sec"><h4>Boss menu</h4><div class="hint" style="margin:0 0 4px">Manages</div>' + chips(d.manages, 'm') +
+      '<div class="hint" style="margin:6px 0 4px">Member of</div>' + chips(d.member) + '</div>' +
+    '<div class="sec"><h4>Setup</h4><div class="kv">' +
+      '<div><small>Framework</small><span>' + esc(d.framework) + '</span></div>' +
+      '<div><small>Target</small><span>' + esc(d.target) + '</span></div>' +
+      '<div><small>Menus</small><span>' + esc(d.ui) + '</span></div>' +
+    '</div></div>' +
+    '<div class="sec"><h4>Nearby points (' + (d.nearby || 0) + ' within 30 m)</h4>' +
+      (n ? '<div class="mono">#' + esc(n.id) + ' · ' + esc(n.type) + ' · ' + esc(n.group) + ' · ' + Number(n.dist).toFixed(1) + ' m · r ' + Number(n.radius).toFixed(1) + '</div>'
+         : '<div class="hint">No points nearby</div>') +
+      '<div class="hint">Labels on every point within 25 m</div></div>' +
+    '<div class="sec"><h4>Last actions</h4>' + ((d.log && d.log.length)
+      ? '<div class="log">' + d.log.map(l => '<div><span class="n">' + esc(l.name) + '</span><span class="r' + (/ok=false|^false/.test(l.result) ? ' bad' : '') + '">' + esc(l.result) + '</span><span class="t">' + Number(l.ms || 0).toFixed(0) + ' ms</span></div>').join('') + '</div>'
+      : '<div class="hint">Nothing yet. Use the boss menu, a time clock or a desk.</div>') + '</div>' +
+    '<div class="sec"><h4>Position</h4><div class="mono">vec4(' + [p.x, p.y, p.z, p.h].map(v => (Number(v) || 0).toFixed(2)).join(', ') + ')</div></div>';
+}
+
+/* ---------- move mode: drag the panel, remembered in this PC's storage ---------- */
+const KEY = 'blaze_bossmenu_debug_panel';
+let moving = false, pos = null;
+try { pos = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { pos = null; }
+function place(x, y) {
+  const hud = $('hud'), w = hud.offsetWidth || 330;
+  x = Math.max(0, Math.min(innerWidth - w, x)); y = Math.max(0, Math.min(innerHeight - 60, y));
+  hud.style.left = x + 'px'; hud.style.top = y + 'px'; hud.style.right = 'auto';
+  return { x: x / innerWidth, y: y / innerHeight };
+}
+const applyPos = () => { if (pos && typeof pos.x === 'number') place(pos.x * innerWidth, pos.y * innerHeight); };
+addEventListener('resize', applyPos);
+function startMove() {
+  if ($('hud').hidden) return post('dbg:moveDone');
+  moving = true; $('hud').classList.add('moving'); $('moveTip').hidden = false;
+}
+function endMove(save) {
+  if (!moving) return;
+  moving = false; $('hud').classList.remove('moving'); $('moveTip').hidden = true;
+  if (save) { try { localStorage.setItem(KEY, JSON.stringify(pos)); } catch (e) {} }
+  else { try { pos = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { pos = null; } if (pos) applyPos(); else { $('hud').style.left = ''; $('hud').style.top = ''; $('hud').style.right = ''; } }
+  if (host && host.screenClosed) host.screenClosed('debug');
+  post('dbg:moveDone');
+}
+$('hud').addEventListener('mousedown', e => {
+  if (!moving) return;
+  const r = $('hud').getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+  const mv = ev => { pos = place(ev.clientX - dx, ev.clientY - dy); };
+  const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); };
+  addEventListener('mousemove', mv); addEventListener('mouseup', up);
+});
+$('moveSave').onclick = () => endMove(true);
+$('moveReset').onclick = () => { pos = null; $('hud').style.left = ''; $('hud').style.top = ''; $('hud').style.right = ''; try { localStorage.removeItem(KEY); } catch (e) {} };
+addEventListener('keydown', e => { if (!moving) return; if (e.key === 'Escape') endMove(false); else if (e.key === 'Enter') endMove(true); });
+
+addEventListener('message', e => {
+  const m = e.data || {};
+  if (m.action === 'dbg:live') { const was = $('hud').hidden; live(m.data); if (was && m.data) applyPos(); }
+  else if (m.action === 'dbg:move') startMove();
+});
+
+/* ---------- demo in a browser ---------- */
+if (!isFiveM && !host) {
+  document.body.classList.add('demo');
+  live({ job: 'ambulance', grade: 5, gradeName: 'Medical Director', duty: true, admin: true, global: false, viewAs: null,
+    manages: ['job:ambulance (EMS)'], member: ['job:ambulance'], framework: 'Qbox', target: 'ox_target', ui: 'ox_lib',
+    nearby: 3, nearest: { id: 12, type: 'Duty point', group: 'EMS', dist: 2.4, radius: 1.0 },
+    log: [{ name: 'getClockData', result: 'data', ms: 8 }, { name: 'clockPunch', result: 'ok=true', ms: 14 }, { name: 'clockPunch', result: 'ok=false "Wrong PIN. It\'s on your ID."', ms: 3 }],
+    pos: { x: 311.42, y: -593.17, z: 43.28, h: 158.7 } });
+}
+</script>
+</body></html>

@@ -108,6 +108,7 @@ end
 
 -- On-screen reminder while previewing, so it's never forgotten
 RegisterNetEvent(RES .. ':client:viewAs', function(v)
+    if BMC then BMC.viewAsLabel = v and ('%s as %s'):format(v.label, v.who) or nil end -- debug panel
     if v then
         lib.showTextUI(('Previewing %s as %s  \n/%s to stop'):format(v.label, v.who, Config.testCommand), { position = 'top-center', icon = 'eye' })
     else

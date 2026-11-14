@@ -213,8 +213,8 @@ end
 ---------------------------------------------------------------------------
 local zonePoints = {}
 local showZones = false      -- false | 'all' | { ['job:ambulance'] = true }
-local debugMode = Config.debug == true
-BMC.debug = debugMode
+-- debug: Config.debug, or this player's debug view (/bossdebug, or Debug mode in /bossmenu)
+local function debugMode() return Config.debug == true or LocalPlayer.state.bossDebugView == true end
 
 local ZONE_COLOR = {
     boss = { 245, 197, 66 }, applications = { 90, 169, 255 }, review = { 167, 139, 250 },
@@ -222,7 +222,6 @@ local ZONE_COLOR = {
 }
 
 RegisterNetEvent(RES .. ':client:points', function(points) zonePoints = points or {} end)
-RegisterNetEvent(RES .. ':client:debugLog', function(line) print('^5[blaze_bossmenu:debug]^7 ' .. tostring(line)) end)
 
 local function draw3DText(x, y, z, text)
     SetDrawOrigin(x, y, z, 0)
@@ -243,11 +242,11 @@ local function startDrawing()
     drawing = true
     if #zonePoints == 0 then zonePoints = call('getPoints') or {} end
     CreateThread(function()
-        while showZones or debugMode do
+        while showZones or debugMode() do
             local me = GetEntityCoords(cache.ped)
             for _, p in ipairs(zonePoints) do
                 local key = p.gtype .. ':' .. p.group
-                if showZones == 'all' or debugMode or (type(showZones) == 'table' and showZones[key]) then
+                if showZones == 'all' or debugMode() or (type(showZones) == 'table' and showZones[key]) then
                     local c = vec3(p.coords.x, p.coords.y, p.coords.z)
                     local dist = #(me - c)
                     if dist < 60.0 then
@@ -258,7 +257,7 @@ local function startDrawing()
                         if dist < 25.0 then
                             local cfg = (p.gtype == 'gang' and (Config.gangs or {}) or Config.jobs)[p.group] or {}
                             local text = ('%s · %s'):format(TYPE_LABEL[p.type] or p.type, cfg.label or p.group)
-                            if debugMode then
+                            if debugMode() then
                                 text = text .. ('~n~#%s · r %.1f · %.1fm%s'):format(p.id, p.radius or 1.0, dist, p.fixed and (' · ' .. p.fixed) or '')
                             end
                             draw3DText(c.x, c.y, c.z + 0.35, text)
@@ -280,14 +279,17 @@ end
 function BMC.zonesShown() return showZones ~= false end
 
 function BMC.setDebug(on)
-    local ok, msg, state = call('setDebug', on)
+    local ok, msg = call('setDebug', on)
     result(ok, msg)
-    if ok then
-        debugMode = state == true
-        BMC.debug = debugMode
-        if debugMode then startDrawing() end
-    end
 end
-function BMC.debugOn() return debugMode end
+function BMC.debugOn() return debugMode() end
+--- Points (for the debug panel's "nearest point")
+function BMC.points() return zonePoints end
 
-if debugMode then CreateThread(function() Wait(3000) startDrawing() end) end
+-- start drawing labels whenever debug turns on (the state bag can change at any time)
+CreateThread(function()
+    while true do
+        Wait(1000)
+        if debugMode() and not drawing then startDrawing() end
+    end
+end)

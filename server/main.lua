@@ -154,10 +154,12 @@ local function neighbourGrade(gtype, name, level, dir)
 end
 
 --- Register a callback with error protection. Returned values go straight to the client.
--- Debug logging: Config.debug = true for everyone, or an admin turns it on for themself in /bossmenu
+-- Debug (like Blaze Medical's): /bossdebug on|off|view|move, or Debug mode in /bossmenu.
+-- GlobalState.bossmenuDebug = log everyone's actions; an admin's own panel = their state bag 'bossDebugView'.
 local debugFor = {}
 AddEventHandler('playerDropped', function() debugFor[source] = nil end)
-local function debugOn(src) return Config.debug == true or debugFor[src] == true end
+local function viewing(src) return src and src > 0 and Player(src).state.bossDebugView == true end
+local function debugOn(src) return Config.debug == true or GlobalState.bossmenuDebug == true or debugFor[src] == true or viewing(src) end
 
 local function short(v)
     local t = type(v)
@@ -180,8 +182,8 @@ local function register(name, fn)
             local res = type(a) == 'table' and (a.ok ~= nil and ('ok=' .. tostring(a.ok) .. (a.msg and (' ' .. short(a.msg)) or '')) or 'data') or short(a)
             print(('^5[blaze_bossmenu:debug]^7 [%s] %s(%s) -> %s%s  %.1f ms'):format(src, name, table.concat(args, ', '), res,
                 b ~= nil and (', ' .. short(b)) or '', (os.clock() - started) * 1000))
-            if not Config.debug then
-                TriggerClientEvent(RES .. ':client:debugLog', src, ('%s -> %s%s'):format(name, res, b ~= nil and (', ' .. short(b)) or ''))
+            if viewing(src) then
+                TriggerClientEvent(RES .. ':client:debugLog', src, { name = name, result = res .. (b ~= nil and (', ' .. short(b)) or ''), ms = (os.clock() - started) * 1000 })
             end
         end
         return a, b, c
@@ -1243,13 +1245,41 @@ BM.canPlace, BM.typeAllowed = canPlace, typeAllowed
 
 register('getPoints', function() return allPoints() end)
 
---- Debug mode for one admin (/bossmenu): their boss menu actions are logged to the server console and their F8
+--- Debug mode for one admin (/bossmenu toggle): their live panel + their actions logged to F8 and the server console
+local function setView(src, on)
+    debugFor[src] = on == true or nil
+    Player(src).state:set('bossDebugView', on == true, true)
+end
 register('setDebug', function(src, on)
     if not isRealAdmin(src) then return false, 'Admins only.' end
-    debugFor[src] = on == true or nil
+    setView(src, on)
     print(('^5[blaze_bossmenu]^7 debug mode %s for %s'):format(on and 'ON' or 'OFF', Logs.who(src)))
-    return true, on and 'Debug mode on. Actions are logged to F8 and the server console.' or 'Debug mode off.', on == true
+    return true, on and 'Debug mode on: live panel, point labels, and your actions in F8 / server console.' or 'Debug mode off.', on == true
 end)
+
+--- /bossdebug [on|off|view|move] (same as Blaze Medical's /blazedebug)
+---   on / off : debug for everyone's actions in the server console + your panel   (no word = toggle)
+---   view     : just your own panel and labels
+---   move     : drag your panel somewhere else (remembered on your PC)
+RegisterCommand(Config.debugCommand or 'bossdebug', function(src, args)
+    local mode = args[1] and args[1]:lower()
+    if src > 0 and not isRealAdmin(src) then return notify(src, 'You don\'t have permission to use this.', 'error') end
+    if mode == 'move' then
+        if src == 0 then return end
+        return TriggerClientEvent(RES .. ':client:debugMove', src)
+    end
+    if mode == 'view' then
+        if src == 0 then return end
+        local on = Player(src).state.bossDebugView ~= true
+        setView(src, on)
+        return notify(src, ('Debug panel %s.'):format(on and 'on' or 'off'), 'inform')
+    end
+    local on
+    if mode == 'on' then on = true elseif mode == 'off' then on = false else on = GlobalState.bossmenuDebug ~= true end
+    GlobalState.bossmenuDebug = on
+    if src > 0 then setView(src, on) notify(src, ('Debug mode %s.'):format(on and 'ON' or 'OFF'), on and 'success' or 'inform') end
+    print(('^5[blaze_bossmenu]^7 debug mode %s by %s'):format(on and 'ON' or 'OFF', src == 0 and 'console' or Logs.who(src)))
+end, false)
 
 --- A manager's own group: its points + which types they may place (boss menu > Locations)
 register('getGroupPoints', function(src, gtype, name)

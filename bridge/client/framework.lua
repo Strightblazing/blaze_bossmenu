@@ -5,6 +5,13 @@ Bridge = {}
 
 Bridge.framework = GetResourceState('qbx_core') ~= 'missing' and 'qbx' or (GetResourceState('qb-core') ~= 'missing' and 'qb' or nil)
 
+--- The local player's framework data (job, gang, charinfo, metadata). Used by the debug panel.
+function Bridge.PlayerData()
+    if Bridge.framework == 'qbx' then return exports.qbx_core:GetPlayerData() or {} end
+    if Bridge.framework == 'qb' then return exports['qb-core']:GetCoreObject().Functions.GetPlayerData() or {} end
+    return {}
+end
+
 -- Fired when the local player's job/gang/character changes, so menus and targets can refresh
 local listeners = {}
 function Bridge.onGroupsChanged(fn) listeners[#listeners + 1] = fn end

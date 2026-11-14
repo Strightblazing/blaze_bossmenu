@@ -36,6 +36,8 @@ local function refreshManaged()
     if BMC and BMC.updateRadial then BMC.updateRadial(myGroups) end -- "Work" radial entry for bosses
 end
 Bridge.onGroupsChanged(refreshManaged)
+--- For the debug panel (client/debug.lua): groups you manage, groups you're in, admin
+if BMC then BMC.mine = function() return myGroups, member, isAdmin end end
 
 local openGroup -- forward
 

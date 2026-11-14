@@ -15,8 +15,11 @@ Config = {
     versionCheck = true,
 
     -- Debug: log every boss menu action (name, result, time) to the server console, and draw all points with
-    -- their ids for everyone. Leave false on a live server; admins can turn debug on just for themself in /bossmenu.
+    -- their ids for everyone. Leave false on a live server. Admins use /bossdebug instead (like Blaze Medical's
+    -- /blazedebug): on / off (everyone's actions in the console + your panel), view (just your panel), move.
     debug = false,
+    -- Admin debug command name
+    debugCommand = 'bossdebug',
 
     -- Admin test tools: fake offline staff + applications so one person can try everything, plus effect previews.
     -- "Remove all test data" in the menu cleans it all up. false = no command (recommended once you go live)

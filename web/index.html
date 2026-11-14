@@ -1,19 +1,24 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <title>blaze_bossmenu</title>
-<!-- The resource's one NUI page. It hosts the two screens (employment contract, time clock) and passes
+<!-- The resource's one NUI page. It hosts the screens (employment contract, time clock, debug panel) and passes
      messages between them and the game: SendNUIMessage -> the right screen, screen -> NUI callbacks. -->
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:transparent}
 iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:transparent;visibility:hidden;pointer-events:none}
 iframe.on{visibility:visible;pointer-events:auto}
+/* the debug panel is always drawn but never takes clicks, except while it's being moved */
+iframe#debug{visibility:visible;z-index:5}
+iframe#debug.grab{pointer-events:auto}
 </style></head>
 <body>
 <iframe id="contract" src="contract.html" allowtransparency="true"></iframe>
 <iframe id="timeclock" src="timeclock.html" allowtransparency="true"></iframe>
+<iframe id="debug" src="debug.html" allowtransparency="true"></iframe>
 <script>
 const RES = typeof GetParentResourceName === 'function' ? GetParentResourceName() : null;
-const frames = { contract: document.getElementById('contract'), timeclock: document.getElementById('timeclock') };
+const frames = { contract: document.getElementById('contract'), timeclock: document.getElementById('timeclock'), debug: document.getElementById('debug') };
+const screens = ['contract', 'timeclock']; // the ones that open and close (the debug panel is an overlay)
 
 /** Called by the screens: send to the game, return its JSON answer */
 window.postNui = (name, data) => {
@@ -22,11 +27,14 @@ window.postNui = (name, data) => {
     .then(r => r.json()).catch(() => ({}));
 };
 /** Screens call this when they close so clicks pass through again */
-window.screenClosed = name => { if (frames[name]) frames[name].classList.remove('on'); };
+window.screenClosed = name => {
+  if (name === 'debug') return frames.debug.classList.remove('grab');
+  if (frames[name]) frames[name].classList.remove('on');
+};
 
-// Keys pressed while this page has focus go to the open screen
+// Keys pressed while this page has focus go to the open screen (or the debug panel while moving it)
 window.addEventListener('keydown', e => {
-  const f = Object.values(frames).find(x => x.classList.contains('on'));
+  const f = frames.debug.classList.contains('grab') ? frames.debug : screens.map(k => frames[k]).find(x => x.classList.contains('on'));
   if (!f) return;
   e.preventDefault();
   try { f.contentWindow.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, bubbles: true })); } catch (err) {}
@@ -36,9 +44,13 @@ window.addEventListener('message', e => {
   const d = e.data || {};
   if (!d.action) return;
   if (Object.values(frames).some(f => f.contentWindow === e.source)) return; // only messages from the game
+  if (/^dbg:/.test(d.action)) {
+    if (d.action === 'dbg:move') { frames.debug.classList.add('grab'); try { frames.debug.focus(); frames.debug.contentWindow.focus(); } catch (err) {} }
+    return frames.debug.contentWindow.postMessage(d, '*');
+  }
   const target = d.action.indexOf('Clock') !== -1 ? 'timeclock' : 'contract';
   if (/^open/.test(d.action)) {
-    Object.entries(frames).forEach(([k, f]) => f.classList.toggle('on', k === target));
+    screens.forEach(k => frames[k].classList.toggle('on', k === target));
     try { frames[target].focus(); frames[target].contentWindow.focus(); } catch (err) {} // so keys (Escape, Backspace, PIN) reach it
   }
   if (/^close/.test(d.action)) frames[target].classList.remove('on');

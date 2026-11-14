@@ -31,14 +31,16 @@ client_scripts {
     'client/main.lua',
     'client/placement.lua',
     'client/test.lua',
+    'client/debug.lua',   -- live debug panel (/bossdebug)
 }
 
--- Web screens: web/index.html hosts the employment contract (signed with the mouse) and the time clock
+-- Web screens: web/index.html hosts the employment contract (signed with the mouse), the time clock and the debug panel
 ui_page 'web/index.html'
 files {
     'web/index.html',
     'web/contract.html',
     'web/timeclock.html',
+    'web/debug.html',
 }
 
 -- ox_target / qb-target / lation_ui are optional and detected at runtime
