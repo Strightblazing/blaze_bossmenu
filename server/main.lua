@@ -1142,6 +1142,44 @@ register('removePoint', function(src, id)
     return false, 'Point not found.'
 end)
 
+--- Move a placed point (same job, type and size). coords = new spot, heading = admin's heading.
+register('movePoint', function(src, id, coords, heading)
+    if not isAdmin(src) then return false, 'Admins only.' end
+    id = tonumber(id)
+    if not id then return false, 'Built-in points can\'t be moved in game. Change them in config.lua.' end
+    if type(coords) ~= 'table' and type(coords) ~= 'vector3' then return false, 'Invalid position.' end
+    local x, y, z = tonumber(coords.x), tonumber(coords.y), tonumber(coords.z)
+    if not x or not y or not z then return false, 'Invalid position.' end
+    for _, p in ipairs(points) do
+        if p.id == id then
+            local c = { x = math.floor(x * 100) / 100, y = math.floor(y * 100) / 100, z = math.floor(z * 100) / 100 }
+            heading = (tonumber(heading) or p.heading or 0.0) % 360
+            MySQL.update.await('UPDATE blaze_boss_points SET coords = ?, heading = ? WHERE id = ?', { json.encode(c), heading, id })
+            p.coords, p.heading = c, heading
+            syncPoints()
+            Logs.log('placement', src, ('%s moved %s point #%d for %s'):format(Logs.who(src), p.type, id, groupLabel(p.gtype, p.group)), { Group = gkey(p.gtype, p.group), Id = id, Coords = json.encode(c) })
+            return true, 'Point moved.'
+        end
+    end
+    return false, 'Point not found.'
+end)
+
+register('resizePoint', function(src, id, radius)
+    if not isAdmin(src) then return false, 'Admins only.' end
+    id = tonumber(id)
+    if not id then return false, 'Built-in points can\'t be changed in game. Change them in config.lua.' end
+    radius = math.min(5.0, math.max(0.5, tonumber(radius) or 1.0))
+    for _, p in ipairs(points) do
+        if p.id == id then
+            MySQL.update.await('UPDATE blaze_boss_points SET radius = ? WHERE id = ?', { radius, id })
+            p.radius = radius
+            syncPoints()
+            return true, ('Size set to %.1f m.'):format(radius)
+        end
+    end
+    return false, 'Point not found.'
+end)
+
 RegisterCommand('bossmenu', function(src)
     if src == 0 then return print('[blaze_bossmenu] /bossmenu is an in-game command.') end
     if not isAdmin(src) then return notify(src, 'You don\'t have permission to use this.', 'error') end

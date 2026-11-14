@@ -118,8 +118,9 @@ Use `/bossmenu` in game (admins only):
 - **Add applications point**: same, but only for jobs with applications on.
 - **Add application review point**: where managers review that job's applications (for example an HR office),
   without needing the boss desk. Only that job's managers (and admins) see it.
-- **Manage points**: everything placed, grouped by job. Teleport to a point or delete it.
-  Points from `Config.locations`, or added by other scripts, can't be deleted in game.
+- **Manage points**: everything placed, grouped by job. **Teleport** to a point, **Move** it (aim at the new spot,
+  press E; it keeps its job, type and size), **Change size**, or **Delete** it.
+  Points from `Config.locations`, or added by other scripts, can't be changed in game.
 
 Boss desks and review points only show to that job's managers (and admins). Application points show to everyone.
 

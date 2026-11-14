@@ -66,8 +66,8 @@ local function manageFlow(info)
     local options = {}
     for _, k in ipairs(order) do
         for _, p in ipairs(byGroup[k]) do
-            local fixed = p.fixed == 'config' and 'From config.lua (can\'t be deleted in game)'
-                or p.fixed == 'script' and 'Added by another script (can\'t be deleted in game)' or nil
+            local fixed = p.fixed == 'config' and 'From config.lua (can\'t be changed in game)'
+                or p.fixed == 'script' and 'Added by another script (can\'t be changed in game)' or nil
             options[#options + 1] = {
                 title = ('%s · %s'):format(labels[k] or k, TYPE_LABEL[p.type] or p.type),
                 description = fixed or ('#%s · %.1f, %.1f, %.1f'):format(p.id, p.coords.x, p.coords.y, p.coords.z),
@@ -78,6 +78,18 @@ local function manageFlow(info)
                         options = {
                             { title = 'Teleport', icon = 'fa-solid fa-location-arrow', onSelect = function()
                                 SetEntityCoords(cache.ped, p.coords.x, p.coords.y, p.coords.z, false, false, false, false)
+                            end },
+                            { title = 'Move', icon = 'fa-solid fa-up-down-left-right', disabled = p.fixed ~= nil,
+                              description = fixed or 'Aim at the new spot and press E. Same job, type and size.', onSelect = function()
+                                local coords, heading = placeMarker(('Move: %s · %s'):format(labels[k] or k, TYPE_LABEL[p.type] or p.type))
+                                if coords then result(call('movePoint', p.id, { x = coords.x, y = coords.y, z = coords.z }, heading)) end
+                                openPlacement()
+                            end },
+                            { title = 'Change size', icon = 'fa-solid fa-expand', disabled = p.fixed ~= nil,
+                              description = fixed or ('Now %.1f m'):format(p.radius or 1.0), onSelect = function()
+                                local v = UI.input('Point size', { { type = 'number', label = 'Radius (0.5 - 5.0 m)', default = p.radius or 1.0, min = 0.5, max = 5.0, required = true } })
+                                if v and v[1] then result(call('resizePoint', p.id, v[1])) end
+                                openPlacement()
                             end },
                             { title = 'Delete', icon = 'fa-solid fa-trash', iconColor = '#E5484D', disabled = p.fixed ~= nil,
                               description = fixed, onSelect = function()
