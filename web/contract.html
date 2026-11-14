@@ -94,14 +94,17 @@ button.ghost{background:transparent}
 <div class="toast" id="toast"></div>
 
 <script>
-const isFiveM = typeof GetParentResourceName === 'function';
-const RES = isFiveM ? GetParentResourceName() : 'demo';
+// In game this page runs inside web/index.html, which passes messages to and from the game
+const host = window.parent !== window ? window.parent : null;
+const isFiveM = !!(host && typeof host.GetParentResourceName === 'function') || typeof GetParentResourceName === 'function';
+const RES = isFiveM ? (host && host.GetParentResourceName ? host.GetParentResourceName() : GetParentResourceName()) : 'demo';
 const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 let mode = 'sign', busy = false, timerId = null, left = 0;
 
 function post(name, data) {
   if (!isFiveM) return demoResult(name, data);
+  if (host && host.postNui) return host.postNui(name, data);
   return fetch(`https://${RES}/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: JSON.stringify(data || {}) }).catch(() => {});
 }
 
@@ -201,7 +204,7 @@ function open(d) {
     }, 1000);
   } else $('#timer').textContent = '';
 }
-function hide() { clearInterval(timerId); $('#wrap').classList.remove('show'); }
+function hide() { clearInterval(timerId); $('#wrap').classList.remove('show'); if (host && host.screenClosed) host.screenClosed('contract'); }
 function finish(res) { if (busy && !res.accepted) return; hide(); post('contract:result', res); }
 
 $('#clear').onclick = clearPad;

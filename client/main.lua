@@ -936,9 +936,11 @@ local function buildTargets(points)
             } }
         elseif p.type == 'duty' then
             options = { {
-                name = 'blaze_boss_duty', label = 'Clock in / out · ' .. label, icon = 'fa-solid fa-clock',
+                name = 'blaze_boss_duty', label = 'Time clock · ' .. label, icon = 'fa-solid fa-clock',
                 canInteract = function() return member[p.gtype .. ':' .. p.group] == true end,
                 onSelect = function()
+                    -- 'clock' = the time clock screen, 'instant' = just toggle duty
+                    if (Config.duty or {}).style ~= 'instant' and BMC and BMC.openClock then return BMC.openClock(p.group) end
                     local ok, msg, onDuty = call('toggleDuty', p.group)
                     lib.notify({ title = label, description = msg or (ok and 'Done.' or 'That didn\'t work.'), type = ok and (onDuty and 'success' or 'inform') or 'error' })
                 end,

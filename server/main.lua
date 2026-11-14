@@ -410,7 +410,8 @@ local function checkOut(src)
     clockedIn[src] = nil
     local now = os.time()
     if (now - c.time) / 60 < (ACT.minOnDutyMinutes or 30) then return end
-    MySQL.insert('INSERT INTO `player_jobs_activity` (`citizenid`, `job`, `last_checkin`, `last_checkout`) VALUES (?, ?, ?, ?)',
+    -- awaited so the time clock shows the new totals right after clocking out
+    MySQL.insert.await('INSERT INTO `player_jobs_activity` (`citizenid`, `job`, `last_checkin`, `last_checkout`) VALUES (?, ?, ?, ?)',
         { c.citizenid, c.job, c.time, now })
 end
 

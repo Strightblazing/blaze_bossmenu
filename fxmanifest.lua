@@ -33,10 +33,12 @@ client_scripts {
     'client/test.lua',
 }
 
--- The only web page: the employment contract new hires sign with the mouse (Config.contract.style = 'paper')
-ui_page 'web/contract.html'
+-- Web screens: web/index.html hosts the employment contract (signed with the mouse) and the time clock
+ui_page 'web/index.html'
 files {
+    'web/index.html',
     'web/contract.html',
+    'web/timeclock.html',
 }
 
 -- ox_target / qb-target / lation_ui are optional and detected at runtime

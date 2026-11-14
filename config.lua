@@ -210,6 +210,12 @@ Config = {
     -- Duty points: staff clock in / out at a placed duty point (feeds the duty hours too)
     duty = {
         enabled = true,
+        -- 'clock' = time clock screen (their virtual ID, shift timer, hours this week, next rank, who's on duty,
+        --           the announcement); 'instant' = just toggle duty with a notification
+        style = 'clock',
+        -- How staff can clock in on the time clock (they pick one; first = default):
+        -- 'tap' = drag the ID onto the reader, 'swipe' = swipe it through the slot, 'keypad' = type the PIN on their ID
+        methods = { 'tap', 'swipe', 'keypad' },
     },
 
     -- Job outfits: managers save what they're wearing as a job outfit (with the lowest rank allowed),

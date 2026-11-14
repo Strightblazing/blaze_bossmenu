@@ -1,7 +1,7 @@
 # blaze_bossmenu
 
 Boss menu + job application system for **any job** (EMS, fire, police, mechanic, …) and gangs.
-Runs on **Qbox** and **QBCore**. Menus use **ox_lib** by default, with optional **Lation UI**. Menus use no web page of their own; the one exception is the employment contract, signed with the mouse.
+Runs on **Qbox** and **QBCore**. Menus use **ox_lib** by default, with optional **Lation UI**. Menus use ox_lib (or Lation UI); the employment contract and the time clock are small web screens (`web/`).
 
 It is a fork of [qbx_management](https://github.com/Qbox-project/qbx_management) (GPL-3.0) and replaces it:
 everything qbx_management did is here, plus applications, funds, callsigns and in-game placement. See `NOTICE.md`.
@@ -25,7 +25,12 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - **Gangs**: members, hire, promote/demote, kick, rank editor, optional funds.
 - **Placement**: `/bossmenu` lets admins place boss desks, application, review, duty and wardrobe points where they're looking.
   Managers can do the same for their own job from the boss menu (**Locations**): add, move, resize, delete, set a waypoint.
-- **Duty points**: staff clock in / out at a placed point (feeds duty hours).
+- **Time clock**: at a duty point, staff get a clean time clock screen with their virtual ID (name, rank, callsign, ID,
+  personal PIN). They clock in by tapping the ID on the reader, swiping it, or typing the PIN (`duty.methods`). It shows
+  a live shift timer, hours this week and the last 31 days, a bar per day, their last shift, progress to the next rank
+  (`promotionHours` and real pay), tags (Employee of the week, probation, ready for promotion), who's on duty and the
+  department announcement. Green / red shows on or off duty. The server checks they're at that job's duty point and the PIN.
+  `duty.style = 'instant'` just toggles duty instead.
 - **Job outfits**: managers save what they're wearing as a uniform with the lowest rank allowed; staff change at a **wardrobe** point.
   Uses illenium-appearance automatically when it's running; male and female outfits are separate; face and hair are never changed.
 - **Radial menu**: bosses get a **Work** entry (ox_lib radial, works with qbx_radialmenu) with their boss menu, applications and My job.
@@ -225,7 +230,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `features.myJobCommand` / `jobBoardCommand` | `/myjob` and `/jobs` command names, or `false`. |
 | `features.phoneMail` | Send application results by sd-phone mail. |
 | `features.receptionist` | NPC at applications points: `enabled`, `model`, `scenario`, `greet`. |
-| `duty.enabled` | Duty points (clock in / out). |
+| `duty.*` | Duty points: `enabled`, `style` (`'clock'` screen / `'instant'` toggle), `methods` (`'tap'`, `'swipe'`, `'keypad'`). |
 | `outfits.*` | Job outfits: `enabled`, `appearance` (`'auto'` = illenium-appearance if running, `'native'`), `maxPerJob`. |
 | `managerPlacement.*` | Managers place their own job's points: `enabled`, `types`, `teleport`. |
 | `radial.*` | "Work" radial entry for bosses: `enabled`, `label`, `icon`. |

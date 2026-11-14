@@ -709,3 +709,118 @@ if OUT.enabled then
         return (n or 0) > 0, (n or 0) > 0 and 'Outfit deleted.' or 'Outfit not found.'
     end)
 end
+
+---------------------------------------------------------------------------
+-- Time clock (Config.duty.style = 'clock'): everything the clock screen shows, from the boss menu's own data
+---------------------------------------------------------------------------
+if DUTY.enabled then
+    --- 4-digit PIN that belongs to a character (shown on their virtual ID)
+    local function pinOf(cid)
+        local h = 7
+        for i = 1, #cid do h = (h * 31 + cid:byte(i)) % 10000 end
+        return ('%04d'):format(h)
+    end
+
+    local function fmtDuration(sec)
+        sec = math.max(0, math.floor(sec or 0))
+        return ('%dh %dm'):format(sec // 3600, (sec // 60) % 60)
+    end
+
+    --- Is the player standing at one of this job's duty points?
+    local function atDutyPoint(src, job)
+        local pos = GetEntityCoords(GetPlayerPed(src))
+        for _, p in ipairs(BM.allPoints()) do
+            if p.type == 'duty' and p.gtype == 'job' and p.group == job then
+                if #(pos - vec3(p.coords.x, p.coords.y, p.coords.z)) <= (p.radius or 1.0) + 3.0 then return true end
+            end
+        end
+        return false
+    end
+
+    local function clockData(src, job)
+        local cid = Bridge.GetCitizenId(src)
+        local grade = Bridge.GetPlayerGroupGrade(src, 'job', job)
+        if not cid or not grade then return nil end
+        local c = BM.groupCfg('job', job) or {}
+        local current = Bridge.GetJob(src) or {}
+        local onDuty = current.name == job and current.onduty == true
+        local session = BM.clockedIn[src]
+        local live = (session and session.job == job) and (os.time() - session.time) or 0
+
+        -- hours: this week by day (Mon = 1), last 31 days, last finished shift
+        local week, weekTotal = { 0, 0, 0, 0, 0, 0, 0 }, 0
+        for _, r in ipairs(MySQL.query.await([[SELECT WEEKDAY(FROM_UNIXTIME(last_checkin)) AS d, SUM(last_checkout - last_checkin) / 3600 AS h
+            FROM player_jobs_activity WHERE citizenid = ? AND job = ? AND last_checkin >= UNIX_TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY))
+            GROUP BY d]], { cid, job }) or {}) do
+            local d = tonumber(r.d)
+            if d then week[d + 1] = tonumber(r.h) or 0 weekTotal = weekTotal + week[d + 1] end
+        end
+        local today = tonumber(MySQL.scalar.await('SELECT WEEKDAY(CURDATE())')) or 0
+        week[today + 1] = week[today + 1] + live / 3600
+        weekTotal = weekTotal + live / 3600
+        local a = BM.activityFor(job)[cid]
+        local month = (a and a.hours or 0) + live / 3600
+        local last = MySQL.single.await([[SELECT last_checkout - last_checkin AS len, DATE_FORMAT(FROM_UNIXTIME(last_checkout), '%m-%d-%Y') AS at
+            FROM player_jobs_activity WHERE citizenid = ? AND job = ? ORDER BY last_checkout DESC LIMIT 1]], { cid, job })
+
+        -- next rank and what it takes (jobs[x].promotionHours over the last activity.keepDays days)
+        local grades = Bridge.GetGrades('job', job)
+        local mine, nextG = nil, nil
+        for i, g in ipairs(grades) do if g.level == grade then mine = g nextG = grades[i + 1] end end
+        local need = type(c.promotionHours) == 'table' and c.promotionHours[grade] or nil
+
+        -- tags
+        local tags = {}
+        local key = BM.gkey('job', job)
+        if F.employeeOfWeek and MySQL.scalar.await('SELECT 1 FROM blaze_boss_eotw WHERE job = ? AND citizenid = ? AND week = YEARWEEK(NOW(), 3)', { key, cid }) then
+            tags[#tags + 1] = 'Employee of the week'
+        end
+        local prob = MySQL.scalar.await('SELECT CEIL(TIMESTAMPDIFF(MINUTE, NOW(), probation_until) / 1440) FROM blaze_boss_members WHERE citizenid = ? AND job = ? AND probation_until > NOW()', { cid, key })
+        if prob then tags[#tags + 1] = ('Probation · %d day%s left'):format(prob, prob == 1 and '' or 's') end
+        if need and month >= need and nextG then tags[#tags + 1] = 'Ready for promotion' end
+
+        -- who's on duty (not you: the screen adds you while you're clocked in)
+        local list = {}
+        for other in pairs(Bridge.GetPlayers() or {}) do
+            local j = Bridge.GetJob(other) or {}
+            if other ~= src and j.name == job and j.onduty then
+                list[#list + 1] = { Bridge.GetName(other), BM.gradeName('job', job, j.grade) }
+            end
+        end
+        table.sort(list, function(x, y) return x[1] < y[1] end)
+
+        local ann = F.announcements and MySQL.single.await("SELECT message, by_name, DATE_FORMAT(created_at, '%m-%d-%Y') AS at FROM blaze_boss_announcements WHERE job = ?", { key }) or nil
+
+        return {
+            dept = label('job', job), name = Bridge.GetName(src), rank = mine and mine.name or tostring(grade),
+            callsign = MySQL.scalar.await('SELECT callsign FROM blaze_boss_callsigns WHERE citizenid = ? AND job = ?', { cid, job }),
+            id = cid:sub(-5):upper(), pin = pinOf(cid), virtual = true,
+            onDuty = onDuty, shiftSeconds = onDuty and live or 0,
+            weekHours = weekTotal, monthHours = month, week = week, today = today, keepDays = (Config.activity or {}).keepDays or 31,
+            lastShift = last and last.len and (last.at .. ' · ' .. fmtDuration(last.len)) or nil,
+            next = nextG and { rank = nextG.name, need = need, payNow = mine and mine.payment or 0, payNext = nextG.payment or 0 } or nil,
+            tags = tags, onDutyList = list,
+            announcement = ann and { message = ann.message, by = ann.by_name, at = ann.at } or nil,
+        }
+    end
+
+    register('getClockData', function(src, job)
+        if not BM.groupCfg('job', job) then return nil, 'That job isn\'t configured.' end
+        if not Bridge.GetPlayerGroupGrade(src, 'job', job) then return nil, 'This time clock is for ' .. label('job', job) .. ' staff.' end
+        return clockData(src, job), nil, DUTY.methods or { 'tap', 'swipe', 'keypad' }
+    end)
+
+    --- Clock in / out from the time clock screen
+    register('clockPunch', function(src, job, method, pin)
+        if not Bridge.GetPlayerGroupGrade(src, 'job', job) then return { ok = false, msg = 'This time clock is for ' .. label('job', job) .. ' staff.' } end
+        if not atDutyPoint(src, job) then return { ok = false, msg = 'Stand at the time clock.' } end
+        if method == 'keypad' and tostring(pin or '') ~= pinOf(Bridge.GetCitizenId(src)) then return { ok = false, msg = 'Wrong PIN. It\'s on your ID.' } end
+        local session = BM.clockedIn[src]
+        local shift = (session and session.job == job) and (os.time() - session.time) or nil
+        local current = Bridge.GetJob(src) or {}
+        local goingOn = not (current.name == job and current.onduty)
+        local state, why = Bridge.SetDuty(src, job, goingOn)
+        if state == nil then return { ok = false, msg = why } end
+        return { ok = true, onDuty = state, shift = (not state and shift) and fmtDuration(shift) or nil, data = clockData(src, job) }
+    end)
+end

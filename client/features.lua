@@ -696,3 +696,31 @@ end
 AddEventHandler('onResourceStop', function(res)
     if res == RES and radialShown and lib.removeRadialItem then lib.removeRadialItem('blaze_boss_work') end
 end)
+
+---------------------------------------------------------------------------
+-- Time clock screen (web/timeclock.html): opened from a duty point when Config.duty.style = 'clock'
+---------------------------------------------------------------------------
+local clockJob -- job of the clock that's open
+
+function BMC.openClock(job)
+    local data, err, methods = call('getClockData', job)
+    if not data then return notify(err or 'This time clock isn\'t for you.', 'error', 'Time clock') end
+    clockJob = job
+    SetNuiFocus(true, true)
+    SendNUIMessage({ action = 'openClock', data = data, methods = methods })
+end
+
+RegisterNUICallback('clock:punch', function(d, cb)
+    if not clockJob then return cb({ ok = false, msg = 'The time clock is closed.' }) end
+    cb(call('clockPunch', clockJob, d and d.method, d and d.pin) or { ok = false, msg = 'The time clock didn\'t respond.' })
+end)
+
+RegisterNUICallback('clock:close', function(_, cb)
+    cb(1)
+    clockJob = nil
+    SetNuiFocus(false, false)
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    if res == RES and clockJob then SetNuiFocus(false, false) end
+end)

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Blaze Boss Menu · Time clock</title>
-<!-- Time clock for duty points. PREVIEW: open in a browser to try it (demo data). Not wired into the game yet. -->
+<!-- Time clock for duty points (Config.duty.style = 'clock'). Data comes from the server; open this file in a browser for a demo. -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -117,31 +117,34 @@ body.demo{background:#2a2d33}
 .demobar button{border:0;background:transparent;color:var(--muted);border-radius:7px;padding:6px 12px;font-family:var(--font);font-size:12.5px;font-weight:500;cursor:pointer}
 .demobar button.on{background:var(--raised);color:var(--text)}
 @media (max-width:860px){.body{grid-template-columns:1fr}.col+.col{border-left:0;border-top:1px solid var(--line)}}
+/* tap / swipe / PIN switcher */
+.seg{display:flex;gap:2px;margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg button{border:0;background:transparent;color:var(--muted);border-radius:6px;padding:4px 10px;font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;text-transform:none;letter-spacing:0}
+.seg button.on{background:var(--raised);color:var(--text)}
+.game #wrap{display:none}.game #wrap.show{display:flex}
+.empty{font-size:13px;color:var(--faint)}
 </style></head>
 <body>
-<div class="demobar"><span>Preview</span>
-  <button data-m="tap" class="on">Tap</button><button data-m="swipe">Swipe</button><button data-m="keypad">PIN</button>
-  <span>·</span><button id="flip">Start off duty</button>
-</div>
+<div class="demobar"><span>Demo</span><button id="flip">Start off duty</button></div>
 
 <div id="wrap"><div class="app">
   <div class="head">
-    <div class="dept"><small>Time clock</small><b id="dept">EMS</b></div>
-    <div class="clock"><div class="t" id="clock">18:42</div><div class="d" id="date"></div></div>
+    <div class="dept"><small>Time clock</small><b id="dept"></b></div>
+    <div class="clock"><div class="t" id="clock"></div><div class="d" id="date"></div></div>
     <div class="status" id="status"><i></i><span>Off duty</span></div>
   </div>
 
   <div class="body">
     <div class="col">
       <div>
-        <div class="label">Clock in <span id="methodName">Tap your ID</span></div>
+        <div class="label">Clock in <div class="seg" id="seg"></div></div>
         <div class="stage tap" id="stage">
-          <div class="msg" id="msg">Drag your ID onto the reader</div>
+          <div class="msg" id="msg"></div>
           <div class="card" id="card">
-            <div class="top"><span id="cardDept">EMS</span><span class="virt" id="virt">Virtual ID</span></div>
-            <div class="who"><div class="av" id="ini">JD</div><div><div class="nm" id="cName">Jane Doe</div><div class="rk" id="cRank">Paramedic · E-14</div></div></div>
+            <div class="top"><span id="cardDept"></span><span class="virt" id="virt">Virtual ID</span></div>
+            <div class="who"><div class="av" id="ini"></div><div><div class="nm" id="cName"></div><div class="rk" id="cRank"></div></div></div>
             <div class="strip"></div>
-            <div class="ids"><span>ID <span id="cId">4B7Q2</span></span><span>PIN <span id="cPin">4821</span></span></div>
+            <div class="ids"><span>ID <span id="cId"></span></span><span>PIN <span id="cPin"></span></span></div>
           </div>
           <div class="reader pad" id="pad"><div class="ring"></div><div>Reader</div></div>
           <div class="reader slot" id="slot"><div class="cap">Swipe left to right</div><div class="line"></div><div class="fill" id="fill"></div></div>
@@ -151,55 +154,67 @@ body.demo{background:#2a2d33}
       </div>
       <div>
         <div class="label">Announcement</div>
-        <div class="announce" id="ann">Training night Thursday 8pm at Pillbox. Bring your trauma kit.<small>Dr. Steven Blaze, Chief · 11-13-2026</small></div>
+        <div class="announce" id="ann"></div>
       </div>
     </div>
 
     <div class="col">
       <div>
-        <div class="label">Your shift <span id="shiftNote">Not clocked in</span></div>
+        <div class="label">Your shift <span id="shiftNote"></span></div>
         <div class="stats">
           <div class="stat"><small>This shift</small><b id="shift">0:00:00</b></div>
-          <div class="stat"><small>This week</small><b id="weekH">14.5 h</b></div>
-          <div class="stat"><small>Last 31 days</small><b id="monthH">52.0 h</b></div>
+          <div class="stat"><small>This week</small><b id="weekH"></b></div>
+          <div class="stat"><small id="monthLabel">Last 31 days</small><b id="monthH"></b></div>
         </div>
         <div class="tags" id="tags"></div>
       </div>
       <div>
-        <div class="label">This week <span id="lastShift">Last shift yesterday · 3h 20m</span></div>
+        <div class="label">This week <span id="lastShift"></span></div>
         <div class="week" id="week"></div>
       </div>
       <div>
-        <div class="label">Next rank <span id="nextRank">Senior Paramedic</span></div>
-        <div class="prog"><i id="progBar"></i></div>
+        <div class="label">Next rank <span id="nextRank"></span></div>
+        <div class="prog" id="prog"><i id="progBar"></i></div>
         <div class="sub" id="progText"></div>
       </div>
       <div>
-        <div class="label">On duty <span id="dutyCount">3</span></div>
+        <div class="label">On duty <span id="dutyCount"></span></div>
         <div class="people" id="duty"></div>
       </div>
     </div>
   </div>
 
-  <div class="foot"><span id="footNote">Hours on duty count toward promotions.</span><span class="sp"></span><button class="btn" id="close">Close</button></div>
+  <div class="foot"><span id="footNote"></span><span class="sp"></span><button class="btn" id="close">Close</button></div>
 </div></div>
 
 <script>
-const isFiveM = typeof GetParentResourceName === 'function';
+// In game this page runs inside web/index.html, which passes messages to and from the game
+const host = window.parent !== window ? window.parent : null;
+const isFiveM = !!(host && typeof host.GetParentResourceName === 'function') || typeof GetParentResourceName === 'function';
 const $ = s => document.querySelector(s);
 const pad2 = n => String(n).padStart(2, '0');
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const initials = s => String(s || '').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+const money = n => '$' + Math.round(n || 0).toLocaleString('en-US');
 
-// ---------- demo data (in game this comes from the server) ----------
-const D = {
+function post(name, data) {
+  if (host && host.postNui) return host.postNui(name, data);
+  if (typeof GetParentResourceName === 'function')
+    return fetch('https://' + GetParentResourceName() + '/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: JSON.stringify(data || {}) }).then(r => r.json()).catch(() => ({}));
+  return Promise.resolve({});
+}
+
+// ---------- data: from the server in game, demo values in a browser ----------
+let D = {
   dept: 'EMS', name: 'Jane Doe', rank: 'Paramedic', callsign: 'E-14', id: '4B7Q2', pin: '4821', virtual: true,
-  onDuty: false, weekHours: 14.5, monthHours: 52.0, week: [2.5, 4, 0, 3.3, 4.7, 0, 0], today: 5,
-  next: { rank: 'Senior Paramedic', need: 20, payNow: 500, payNext: 650 },
+  onDuty: false, shiftSeconds: 0, weekHours: 14.5, monthHours: 52.0, week: [2.5, 4, 0, 3.3, 4.7, 0, 0], today: 5, keepDays: 31,
+  lastShift: '11-13-2026 · 3h 20m',
+  next: { rank: 'Senior Paramedic', need: 60, payNow: 500, payNext: 650 },
   tags: ['Employee of the week', 'Probation · 3 days left'],
   onDutyList: [['Dr. Steven Blaze', 'Chief'], ['Mike Kerr', 'EMT'], ['Ana Lopez', 'Paramedic']],
+  announcement: { message: 'Training night Thursday 8pm at Pillbox. Bring your trauma kit.', by: 'Dr. Steven Blaze', at: '11-13-2026' },
 };
-let method = 'tap', clockedAt = null, busy = false;
+let methods = ['tap', 'swipe', 'keypad'], method = 'tap', clockedAt = null, busy = false;
 
 // ---------- clock ----------
 function tick() {
@@ -227,11 +242,11 @@ function tone(ok) {
 }
 
 const HINT = { tap: 'Drag your ID onto the reader', swipe: 'Drag your ID through the slot in one quick move', keypad: '' };
-const NAME = { tap: 'Tap your ID', swipe: 'Swipe your ID', keypad: 'Enter your PIN' };
+const NAME = { tap: 'Tap', swipe: 'Swipe', keypad: 'PIN' };
 let msgT;
 function msg(text, cls) {
   const el = $('#msg'); el.innerHTML = text; el.className = 'msg ' + (cls || '');
-  clearTimeout(msgT); if (cls) msgT = setTimeout(() => { el.innerHTML = HINT[method]; el.className = 'msg'; }, 2400);
+  clearTimeout(msgT); if (cls) msgT = setTimeout(() => { el.innerHTML = HINT[method]; el.className = 'msg'; }, 2600);
 }
 
 // ---------- render ----------
@@ -241,49 +256,78 @@ function render() {
   $('#cId').textContent = D.id; $('#cPin').textContent = D.pin; $('#ini').textContent = initials(D.name);
   $('#virt').style.display = D.virtual ? '' : 'none';
   $('#status').className = 'status' + (D.onDuty ? ' on' : ''); $('#status span').textContent = D.onDuty ? 'On duty' : 'Off duty';
-  $('#weekH').textContent = D.weekHours.toFixed(1) + ' h'; $('#monthH').textContent = D.monthHours.toFixed(1) + ' h';
-  $('#shift').classList.toggle('live', D.onDuty); if (!D.onDuty) $('#shift').textContent = '0:00:00';
-  $('#shiftNote').textContent = D.onDuty ? 'Since ' + new Date(clockedAt).toTimeString().slice(0, 5) : 'Not clocked in';
-  $('#tags').innerHTML = D.tags.map(t => '<span class="tag">' + esc(t) + '</span>').join('');
-  const max = Math.max(6, ...D.week);
+  $('#weekH').textContent = (D.weekHours || 0).toFixed(1) + ' h'; $('#monthH').textContent = (D.monthHours || 0).toFixed(1) + ' h';
+  $('#monthLabel').textContent = 'Last ' + (D.keepDays || 31) + ' days';
+  $('#shift').classList.toggle('live', !!D.onDuty); if (!D.onDuty) $('#shift').textContent = '0:00:00';
+  $('#shiftNote').textContent = D.onDuty && clockedAt ? 'Since ' + new Date(clockedAt).toTimeString().slice(0, 5) : 'Not clocked in';
+  $('#tags').innerHTML = (D.tags || []).map(t => '<span class="tag">' + esc(t) + '</span>').join('');
+  const week = D.week || [0, 0, 0, 0, 0, 0, 0], max = Math.max(6, ...week);
   $('#week').innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) =>
-    '<div class="bar' + (i === D.today ? ' today' : '') + '"><em>' + (D.week[i] ? D.week[i].toFixed(1) : '') + '</em><i style="height:' +
-    Math.max(2, D.week[i] / max * 64) + 'px"></i><span>' + d + '</span></div>').join('');
-  const pct = Math.min(100, D.weekHours / D.next.need * 100);
-  $('#progBar').style.width = pct + '%'; $('#nextRank').textContent = D.next.rank;
-  $('#progText').innerHTML = pct >= 100 ? '<b>Ready for promotion.</b> Talk to your manager.'
-    : '<b>' + D.weekHours.toFixed(1) + '</b> of ' + D.next.need + ' hours · pay $' + D.next.payNow + ' → $' + D.next.payNext + ' per paycheck';
-  const list = (D.onDuty ? [[D.name, D.rank, true]] : []).concat(D.onDutyList);
+    '<div class="bar' + (i === D.today ? ' today' : '') + '"><em>' + (week[i] >= 0.05 ? week[i].toFixed(1) : '') + '</em><i style="height:' +
+    Math.max(2, week[i] / max * 64) + 'px"></i><span>' + d + '</span></div>').join('');
+  $('#lastShift').textContent = D.lastShift ? 'Last shift ' + D.lastShift : 'No shifts yet';
+  const n = D.next;
+  if (!n) {
+    $('#nextRank').textContent = 'Top rank'; $('#prog').style.display = 'none'; $('#progText').textContent = 'You hold the highest rank.';
+  } else {
+    $('#nextRank').textContent = n.rank; $('#prog').style.display = n.need ? '' : 'none';
+    const pay = n.payNext ? ' · pay ' + money(n.payNow) + ' → ' + money(n.payNext) + ' per paycheck' : '';
+    if (n.need) {
+      const pct = Math.min(100, (D.monthHours || 0) / n.need * 100);
+      $('#progBar').style.width = pct + '%';
+      $('#progText').innerHTML = pct >= 100 ? '<b>Ready for promotion.</b> Talk to your manager.' + pay
+        : '<b>' + (D.monthHours || 0).toFixed(1) + '</b> of ' + n.need + ' hours in the last ' + (D.keepDays || 31) + ' days' + pay;
+    } else $('#progText').innerHTML = 'Promotions are decided by management' + pay;
+  }
+  const list = (D.onDuty ? [[D.name, D.rank, true]] : []).concat(D.onDutyList || []);
   $('#dutyCount').textContent = list.length;
-  $('#duty').innerHTML = list.map(p => '<div class="person' + (p[2] ? ' you' : '') + '"><span class="av">' + initials(p[0]) + '</span>' + esc(p[0]) +
-    (p[2] ? ' <span style="color:var(--faint)">(you)</span>' : '') + '<span class="rk">' + esc(p[1]) + '</span></div>').join('');
+  $('#duty').innerHTML = list.length ? list.map(p => '<div class="person' + (p[2] ? ' you' : '') + '"><span class="av">' + initials(p[0]) + '</span>' + esc(p[0]) +
+    (p[2] ? ' <span style="color:var(--faint)">(you)</span>' : '') + '<span class="rk">' + esc(p[1]) + '</span></div>').join('')
+    : '<div class="empty">Nobody is on duty.</div>';
+  const a = D.announcement;
+  $('#ann').innerHTML = a ? esc(a.message) + '<small>' + esc(a.by || 'Management') + (a.at ? ' · ' + esc(a.at) : '') + '</small>' : '<span class="empty">No announcement.</span>';
   $('#footNote').textContent = D.onDuty ? 'Clock out here when your shift ends.' : 'Hours on duty count toward promotions.';
   $('#flip').textContent = D.onDuty ? 'Start on duty' : 'Start off duty';
 }
 
 // ---------- clock in / out ----------
-function punch() {
+function done(onDuty, shift) {
+  tone(true);
+  const now = new Date(), hhmm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+  if (onDuty) {
+    msg('<span class="dot in"></span><b>Clocked in</b> at ' + hhmm, 'ok');
+    $('#result').innerHTML = '<span class="dot in"></span><b>Clocked in at ' + hhmm + '.</b> Have a good shift.';
+  } else {
+    msg('<span class="dot out"></span><b>Clocked out</b> at ' + hhmm, 'ok');
+    $('#result').innerHTML = '<span class="dot out"></span><b>Clocked out at ' + hhmm + '.</b>' + (shift ? ' Shift ' + shift + ' · ' : ' ') + (D.weekHours || 0).toFixed(1) + ' h this week.';
+  }
+}
+function fail(text) { tone(false); msg(esc(text), 'err'); $('#result').innerHTML = '<b>' + esc(text) + '</b>'; }
+
+function punch(pin) {
   if (busy) return; busy = true;
   msg('Reading…', 'ok');
-  setTimeout(() => {
-    tone(true);
-    const now = new Date(), hhmm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
-    if (!D.onDuty) {
-      D.onDuty = true; clockedAt = Date.now() - 3000;
-      msg('<span class="dot in"></span><b>Clocked in</b> at ' + hhmm, 'ok');
-      $('#result').innerHTML = '<span class="dot in"></span><b>Clocked in at ' + hhmm + '.</b> Have a good shift.';
-    } else {
-      const mins = Math.max(1, Math.round((Date.now() - clockedAt) / 60000)) + 192, h = mins / 60; // demo: pretend it was a long shift
+  if (isFiveM) {
+    post('clock:punch', { method, pin }).then(res => {
+      busy = false;
+      if (!res || !res.ok) return fail((res && res.msg) || 'The time clock didn\'t respond.');
+      if (res.data) D = res.data;
+      clockedAt = D.onDuty ? Date.now() - (D.shiftSeconds || 0) * 1000 : null;
+      render(); done(res.onDuty, res.shift);
+    });
+    return;
+  }
+  setTimeout(() => { // demo
+    let shift = null;
+    if (!D.onDuty) { D.onDuty = true; clockedAt = Date.now() - 3000; }
+    else {
+      const mins = Math.max(1, Math.round((Date.now() - clockedAt) / 60000)) + 192, h = mins / 60;
       D.onDuty = false; D.weekHours += h; D.monthHours += h; D.week[D.today] += h; clockedAt = null;
-      msg('<span class="dot out"></span><b>Clocked out</b> at ' + hhmm, 'ok');
-      $('#result').innerHTML = '<span class="dot out"></span><b>Clocked out at ' + hhmm + '.</b> Shift ' + Math.floor(h) + 'h ' + (mins % 60) + 'm · ' + D.weekHours.toFixed(1) + ' h this week.';
-      $('#lastShift').textContent = 'Last shift today · ' + Math.floor(h) + 'h ' + (mins % 60) + 'm';
+      shift = Math.floor(h) + 'h ' + (mins % 60) + 'm'; D.lastShift = 'today · ' + shift;
     }
-    render(); busy = false;
-    if (isFiveM) fetch(`https://${GetParentResourceName()}/clock:punch`, { method: 'POST', body: '{}' }).catch(() => {});
+    busy = false; render(); done(D.onDuty, shift);
   }, 600);
 }
-function fail(text) { tone(false); msg(text, 'err'); }
 
 // ---------- tap / swipe: drag the ID ----------
 const card = $('#card'), stage = $('#stage');
@@ -308,9 +352,9 @@ card.addEventListener('pointermove', e => {
     const inSlot = cr.bottom > sl.top + 8 && cr.top < sl.bottom - 8;
     if (inSlot && drag.startX === null) { drag.startX = cr.left; drag.startT = performance.now(); }
     if (!inSlot) { drag.startX = null; $('#fill').style.width = '0'; return; }
-    const done = (cr.left - drag.startX) / (sl.width * 0.45);
-    $('#fill').style.width = Math.max(0, Math.min(1, done)) * (sl.width - 28) + 'px';
-    if (done >= 1) {
+    const prog = (cr.left - drag.startX) / (sl.width * 0.45);
+    $('#fill').style.width = Math.max(0, Math.min(1, prog)) * (sl.width - 28) + 'px';
+    if (prog >= 1) {
       const ms = performance.now() - drag.startT; endDrag();
       if (ms < 900) punch(); else fail('Too slow. Try one quick move.');
     }
@@ -334,8 +378,11 @@ function buildKeys() {
     b.onclick = () => {
       if (busy) return;
       if (v === 'Clear') pin = '';
-      else if (v === 'OK') { if (pin === D.pin) punch(); else { tone(false); $('#result').innerHTML = '<b>Wrong PIN.</b> It\'s on your ID.'; } pin = ''; }
-      else if (pin.length < 4) pin += v;
+      else if (v === 'OK') {
+        const entered = pin; pin = '';
+        if (isFiveM) punch(entered);                       // the server checks the PIN
+        else if (entered === D.pin) punch(); else fail('Wrong PIN. It\'s on your ID.');
+      } else if (pin.length < 4) pin += v;
       $('#pinDisp').textContent = '•'.repeat(pin.length) + '·'.repeat(4 - pin.length);
     };
     k.appendChild(b);
@@ -343,16 +390,38 @@ function buildKeys() {
   $('#pinDisp').textContent = '····';
 }
 
-// ---------- method switch (each duty point has one set; the demo bar switches them) ----------
+// ---------- tap / swipe / PIN ----------
 function setMethod(m) {
-  method = m; stage.className = 'stage ' + m; $('#methodName').textContent = NAME[m]; resetCard(); pin = ''; buildKeys();
+  method = m; stage.className = 'stage ' + m; resetCard(); pin = ''; buildKeys();
   msg(HINT[m]); $('#result').textContent = '';
-  document.querySelectorAll('.demobar [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  $('#seg').innerHTML = methods.length > 1 ? methods.map(x => '<button data-m="' + x + '" class="' + (x === m ? 'on' : '') + '">' + NAME[x] + '</button>').join('') : '';
+  $('#seg').querySelectorAll('button').forEach(b => b.onclick = () => setMethod(b.dataset.m));
 }
-document.querySelectorAll('.demobar [data-m]').forEach(b => b.onclick = () => setMethod(b.dataset.m));
+
+// ---------- open / close ----------
+function close() {
+  $('#wrap').classList.remove('show');
+  if (host && host.screenClosed) host.screenClosed('timeclock');
+  post('clock:close');
+}
+$('#close').onclick = close;
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#wrap').classList.contains('show')) close(); });
+window.addEventListener('message', e => {
+  const d = e.data || {};
+  if (d.action === 'openClock') {
+    D = d.data || D;
+    methods = (d.methods && d.methods.length) ? d.methods.filter(m => NAME[m]) : ['tap', 'swipe', 'keypad'];
+    clockedAt = D.onDuty ? Date.now() - (D.shiftSeconds || 0) * 1000 : null;
+    busy = false; $('#result').textContent = '';
+    setMethod(methods[0]); render(); tick();
+    $('#wrap').classList.add('show');
+  }
+  if (d.action === 'closeClock') $('#wrap').classList.remove('show');
+});
 $('#flip').onclick = () => { D.onDuty = !D.onDuty; clockedAt = D.onDuty ? Date.now() - (2 * 3600 + 14 * 60) * 1000 : null; $('#result').textContent = ''; render(); };
-$('#close').onclick = () => { if (isFiveM) fetch(`https://${GetParentResourceName()}/clock:close`, { method: 'POST', body: '{}' }).catch(() => {}); };
-if (!isFiveM) document.body.classList.add('demo');
-setMethod('tap'); render(); tick();
+
+if (isFiveM) document.body.classList.add('game');
+else { document.body.classList.add('demo'); $('#wrap').classList.add('show'); }
+setMethod(methods[0]); render(); tick();
 </script>
 </body></html>
