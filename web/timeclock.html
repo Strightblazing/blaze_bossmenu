@@ -7,6 +7,7 @@
 :root{
   --panel:#141518;--surface:#1a1c20;--raised:#202328;--line:#26292e;--line2:#30343a;
   --text:#f2f3f5;--muted:#8b9099;--faint:#5c616a;--accent:#7aa2ff;--accent-soft:rgba(122,162,255,.12);
+  --green:#3fb97a;--red:#e5534b;
   --font:Inter,'Segoe UI',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
 }
 *{box-sizing:border-box}
@@ -22,9 +23,12 @@ body.demo{background:#2a2d33}
 .clock .t{font-size:34px;font-weight:300;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
 .clock .d{font-size:12px;color:var(--muted);margin-top:4px}
 .status{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--muted);border:1px solid var(--line2);border-radius:999px;padding:7px 14px}
-.status i{width:7px;height:7px;border-radius:50%;background:var(--faint)}
-.status.on{color:var(--text);border-color:rgba(122,162,255,.35)}
-.status.on i{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.status i{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 0 4px rgba(229,83,75,.14)}
+.status.on{color:var(--text)}
+.status.on i{background:var(--green);box-shadow:0 0 0 4px rgba(63,185,122,.16)}
+/* small green / red dot before clock-in / clock-out messages */
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px;vertical-align:1px}
+.dot.in{background:var(--green)}.dot.out{background:var(--red)}
 /* body */
 .body{display:grid;grid-template-columns:1fr 1fr}
 .col{padding:20px 24px;display:flex;flex-direction:column;gap:22px}
@@ -99,7 +103,7 @@ body.demo{background:#2a2d33}
 .person:first-child{border-top:0;padding-top:0}
 .person .av{width:28px;height:28px;font-size:11px}
 .person .rk{margin-left:auto;color:var(--muted);font-size:12.5px}
-.person.you .av{background:var(--accent);color:#0c1220}
+.person.you .av{background:var(--green);color:#0b1a12}
 /* footer */
 .foot{display:flex;align-items:center;gap:12px;padding:14px 24px;border-top:1px solid var(--line);font-size:12.5px;color:var(--faint)}
 .foot .sp{flex:1}
@@ -266,13 +270,13 @@ function punch() {
     const now = new Date(), hhmm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
     if (!D.onDuty) {
       D.onDuty = true; clockedAt = Date.now() - 3000;
-      msg('<b>Clocked in</b> at ' + hhmm, 'ok');
-      $('#result').innerHTML = '<b>Clocked in at ' + hhmm + '.</b> Have a good shift.';
+      msg('<span class="dot in"></span><b>Clocked in</b> at ' + hhmm, 'ok');
+      $('#result').innerHTML = '<span class="dot in"></span><b>Clocked in at ' + hhmm + '.</b> Have a good shift.';
     } else {
       const mins = Math.max(1, Math.round((Date.now() - clockedAt) / 60000)) + 192, h = mins / 60; // demo: pretend it was a long shift
       D.onDuty = false; D.weekHours += h; D.monthHours += h; D.week[D.today] += h; clockedAt = null;
-      msg('<b>Clocked out</b> at ' + hhmm, 'ok');
-      $('#result').innerHTML = '<b>Clocked out at ' + hhmm + '.</b> Shift ' + Math.floor(h) + 'h ' + (mins % 60) + 'm · ' + D.weekHours.toFixed(1) + ' h this week.';
+      msg('<span class="dot out"></span><b>Clocked out</b> at ' + hhmm, 'ok');
+      $('#result').innerHTML = '<span class="dot out"></span><b>Clocked out at ' + hhmm + '.</b> Shift ' + Math.floor(h) + 'h ' + (mins % 60) + 'm · ' + D.weekHours.toFixed(1) + ' h this week.';
       $('#lastShift').textContent = 'Last shift today · ' + Math.floor(h) + 'h ' + (mins % 60) + 'm';
     }
     render(); busy = false;
