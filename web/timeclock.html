@@ -164,6 +164,12 @@ body.demo{background:#2a2d33}
 .dense .btn{padding:6px 14px;font-size:12.5px}
 .dense .app.mini{width:min(470px,94vw)}
 
+/* the clock-in area title is a heading, not a side note */
+.label #stageTitle{margin-left:0;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:500}
+/* Clock out button: only in the full screen while on duty */
+.btn.out{display:none;border-color:rgba(229,83,75,.45);color:#f3c1bd}
+.btn.out:hover{background:rgba(229,83,75,.1);box-shadow:0 0 14px rgba(229,83,75,.25)}
+.app.onduty:not(.mini) .btn.out{display:inline-block}
 /* size control in the footer */
 .size{display:flex;align-items:center;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
 .size button{border:0;background:transparent;color:var(--muted);width:28px;height:28px;font-size:15px;cursor:pointer;font-family:var(--font)}
@@ -244,7 +250,7 @@ body.demo{background:#2a2d33}
   <div class="body">
     <div class="col">
       <div>
-        <div class="label">Clock in <div class="seg" id="seg"></div></div>
+        <div class="label"><span id="stageTitle">Clock in</span> <div class="seg" id="seg"></div></div>
         <div class="stage tap" id="stage">
           <div class="msg" id="msg"></div>
           <div class="card" id="card">
@@ -291,7 +297,7 @@ body.demo{background:#2a2d33}
     </div>
   </div>
 
-  <div class="foot"><span id="footNote"></span><span class="sp"></span><div class="size" title="Size of the time clock (saved for you)"><button id="smaller" aria-label="Smaller">−</button><span id="sizeLbl">125%</span><button id="bigger" aria-label="Bigger">+</button></div><button class="btn" id="close">Close</button></div>
+  <div class="foot"><span id="footNote"></span><span class="sp"></span><button class="btn out" id="clockOut">Clock out</button><div class="size" title="Size of the time clock (saved for you)"><button id="smaller" aria-label="Smaller">−</button><span id="sizeLbl">125%</span><button id="bigger" aria-label="Bigger">+</button></div><button class="btn" id="close">Close</button></div>
 </div></div></div>
 
 <script>
@@ -377,10 +383,18 @@ function tone(ok) {
 
 const HINT = { tap: 'Drag your ID onto the reader', swipe: 'Drag your ID through the slot in one quick move', keypad: '' };
 const NAME = { tap: 'Tap', swipe: 'Swipe', keypad: 'PIN' };
+const expanded = () => !$('#app').classList.contains('mini');
+/** What the clock-in area is for right now: clock in / open (already on duty) / clock out */
+function stageState() {
+  if (!D.onDuty) return { title: 'Clock in', hint: HINT[method] };
+  if (!expanded()) return { title: 'On duty · scan to open', hint: method === 'tap' ? 'You are on duty. Tap your ID to open your time clock' : method === 'swipe' ? 'You are on duty. Swipe your ID to open your time clock' : '' };
+  return { title: 'Clock out', hint: method === 'keypad' ? '' : 'Scan again, or press Clock out, to end your shift' };
+}
+function updateStage() { const st = stageState(); $('#stageTitle').textContent = st.title; const el = $('#msg'); if (!el.classList.contains('ok') && !el.classList.contains('err')) el.innerHTML = st.hint; }
 let msgT;
 function msg(text, cls) {
   const el = $('#msg'); el.innerHTML = text; el.className = 'msg ' + (cls || '');
-  clearTimeout(msgT); if (cls) msgT = setTimeout(() => { el.innerHTML = HINT[method]; el.className = 'msg'; }, 2600);
+  clearTimeout(msgT); if (cls) msgT = setTimeout(() => { el.className = 'msg'; el.innerHTML = stageState().hint; }, 2600);
 }
 
 // ---------- render ----------
@@ -390,6 +404,7 @@ function render() {
   $('#cCall').textContent = D.callsign ? ' · ' + D.callsign : '';
   $('#cId').textContent = D.id; $('#cPin').textContent = D.pin; $('#ini').textContent = initials(D.name);
   $('#virt').style.display = D.virtual ? '' : 'none';
+  $('#app').classList.toggle('onduty', !!D.onDuty);
   $('#status').className = 'status' + (D.onDuty ? ' on' : ''); $('#status span').textContent = D.onDuty ? 'On duty' : 'Off duty';
   $('#weekH').textContent = (D.weekHours || 0).toFixed(1) + ' h'; $('#monthH').textContent = (D.monthHours || 0).toFixed(1) + ' h';
   $('#monthLabel').textContent = 'Last ' + (D.keepDays || 31) + ' days';
@@ -423,6 +438,7 @@ function render() {
   $('#ann').innerHTML = a ? esc(a.message) + '<small>' + esc(a.by || 'Management') + (a.at ? ' · ' + esc(a.at) : '') + '</small>' : '<span class="empty">No announcement.</span>';
   $('#footNote').textContent = D.onDuty ? 'Clock out here when your shift ends.' : 'Hours on duty count toward promotions.';
   $('#flip').textContent = D.onDuty ? 'Start on duty' : 'Start off duty';
+  updateStage();
 }
 
 // ---------- little effects ----------
@@ -451,7 +467,7 @@ function done(onDuty, shift) {
   if (onDuty) {
     // clocked in: open the full screen
     flash('good');
-    setTimeout(() => { $('#app').classList.remove('mini'); reveal(); setTimeout(fitScale, 380); }, 700);
+    setTimeout(() => { $('#app').classList.remove('mini'); reveal(); updateStage(); setTimeout(fitScale, 380); }, 700);
     msg('<span class="dot in"></span><b>Clocked in</b> at ' + hhmm, 'ok');
     $('#result').innerHTML = '<span class="dot in"></span><b>Clocked in at ' + hhmm + '.</b> Have a good shift.';
   } else {
@@ -464,20 +480,34 @@ function done(onDuty, shift) {
 }
 function fail(text) { tone(false); flash('bad'); msg(esc(text), 'err'); $('#result').innerHTML = '<b>' + esc(text) + '</b>'; }
 
-function punch(pin) {
+/** Already on duty and the scan checked out: open the full screen, duty unchanged */
+function opened() {
+  tone(true); flash('good');
+  const since = clockedAt ? new Date(clockedAt).toTimeString().slice(0, 5) : '';
+  msg('<span class="dot in"></span><b>On duty</b>' + (since ? ' since ' + since : ''), 'ok');
+  $('#result').innerHTML = '<span class="dot in"></span><b>Welcome back.</b> You\'re on duty' + (since ? ' since ' + since : '') + '.';
+  setTimeout(() => { $('#app').classList.remove('mini'); reveal(); updateStage(); setTimeout(fitScale, 380); }, 500);
+}
+
+function punch(pin, how) {
   if (busy) return; busy = true;
-  msg('Reading…', 'ok');
+  const m = how || method;
+  const access = D.onDuty && !expanded() && m !== 'button'; // on duty: the scan just opens the clock
+  msg(access ? 'Checking…' : 'Reading…', 'ok');
   if (isFiveM) {
-    post('clock:punch', { method, pin }).then(res => {
+    post(access ? 'clock:access' : 'clock:punch', { method: m, pin }).then(res => {
       busy = false;
-      if (!res || !res.ok) { if (method === 'keypad') showPin(true); return fail((res && res.msg) || 'The time clock didn\'t respond.'); }
+      if (!res || !res.ok) { if (m === 'keypad') showPin(true); return fail((res && res.msg) || 'The time clock didn\'t respond.'); }
       if (res.data) D = res.data;
       clockedAt = D.onDuty ? Date.now() - (D.shiftSeconds || 0) * 1000 : null;
-      render(); done(res.onDuty, res.shift);
+      render();
+      if (access) return opened();
+      done(res.onDuty, res.shift);
     });
     return;
   }
   setTimeout(() => { // demo
+    if (access) { busy = false; return opened(); }
     let shift = null;
     if (!D.onDuty) { D.onDuty = true; clockedAt = Date.now() - 3000; }
     else {
@@ -563,7 +593,7 @@ function showPin(bad) {
 // ---------- tap / swipe / PIN ----------
 function setMethod(m) {
   method = m; stage.className = 'stage ' + m; resetCard(); pin = ''; buildKeys();
-  msg(HINT[m]); $('#result').textContent = '';
+  msg(stageState().hint); $('#result').textContent = '';
   $('#seg').innerHTML = methods.length > 1 ? methods.map(x => '<button data-m="' + x + '" class="' + (x === m ? 'on' : '') + '">' + NAME[x] + '</button>').join('') : '';
   $('#seg').querySelectorAll('button').forEach(b => b.onclick = () => setMethod(b.dataset.m));
 }
@@ -576,6 +606,7 @@ function close() {
   if (!isFiveM) setTimeout(() => { $('#app').classList.add('mini'); setMethod(method); render(); $('#wrap').classList.add('show'); }, 1200); // demo: reopen
 }
 $('#close').onclick = close;
+$('#clockOut').onclick = () => punch(null, 'button');
 $('#smaller').onclick = () => setScale(UI_SCALE - SIZE_STEP);
 $('#bigger').onclick = () => setScale(UI_SCALE + SIZE_STEP);
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#wrap').classList.contains('show')) close(); });

@@ -715,6 +715,12 @@ RegisterNUICallback('clock:punch', function(d, cb)
     cb(call('clockPunch', clockJob, d and d.method, d and d.pin) or { ok = false, msg = 'The time clock didn\'t respond.' })
 end)
 
+-- already on duty: the scan only opens the full screen
+RegisterNUICallback('clock:access', function(d, cb)
+    if not clockJob then return cb({ ok = false, msg = 'The time clock is closed.' }) end
+    cb(call('clockAccess', clockJob, d and d.method, d and d.pin) or { ok = false, msg = 'The time clock didn\'t respond.' })
+end)
+
 RegisterNUICallback('clock:close', function(_, cb)
     cb(1)
     clockJob = nil

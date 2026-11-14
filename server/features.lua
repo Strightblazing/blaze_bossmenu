@@ -811,14 +811,33 @@ if DUTY.enabled then
     end)
 
     --- Clock in / out from the time clock screen
-    register('clockPunch', function(src, job, method, pin)
+    --- Shared checks for a scan / button press at the clock. Returns nil or an error result.
+    local function checkScan(src, job, method, pin)
         if not Bridge.GetPlayerGroupGrade(src, 'job', job) then return { ok = false, msg = 'This time clock is for ' .. label('job', job) .. ' staff.' } end
         if not atDutyPoint(src, job) then return { ok = false, msg = 'Stand at the time clock.' } end
         if method == 'keypad' and tostring(pin or '') ~= pinOf(Bridge.GetCitizenId(src)) then return { ok = false, msg = 'Wrong PIN. It\'s on your ID.' } end
+    end
+
+    local function isOnDuty(src, job)
+        local current = Bridge.GetJob(src) or {}
+        return current.name == job and current.onduty == true
+    end
+
+    --- Already on duty: a scan just opens the full screen (checks the scan, doesn't change duty)
+    register('clockAccess', function(src, job, method, pin)
+        local bad = checkScan(src, job, method, pin)
+        if bad then return bad end
+        return { ok = true, onDuty = isOnDuty(src, job), data = clockData(src, job) }
+    end)
+
+    --- Clock in / out. method 'button' = the Clock out button on the open clock (only clocks out).
+    register('clockPunch', function(src, job, method, pin)
+        local bad = checkScan(src, job, method, pin)
+        if bad then return bad end
         local session = BM.clockedIn[src]
         local shift = (session and session.job == job) and (os.time() - session.time) or nil
-        local current = Bridge.GetJob(src) or {}
-        local goingOn = not (current.name == job and current.onduty)
+        local goingOn = not isOnDuty(src, job)
+        if method == 'button' and goingOn then return { ok = false, msg = 'Scan your ID to clock in.' } end
         local state, why = Bridge.SetDuty(src, job, goingOn)
         if state == nil then return { ok = false, msg = why } end
         return { ok = true, onDuty = state, shift = (not state and shift) and fmtDuration(shift) or nil, data = clockData(src, job) }
