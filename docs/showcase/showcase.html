@@ -1,0 +1,131 @@
+<!-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md) -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Blaze Boss Menu showcase</title>
+<!-- Release images. Render one card per hash: #hero (1600x900), #clock, #contract, #admin (1200x675).
+     Edge: msedge --headless=new --screenshot=out.png --window-size=1600,900 showcase.html#hero -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0e13;--ink:#eef1f6;--muted:#8d96a6;--line:rgba(255,255,255,.08);--accent:#6c9cff;--green:#34c77b}
+*{box-sizing:border-box;margin:0}
+html,body{background:var(--bg);color:var(--ink);font-family:Inter,"Segoe UI",system-ui,sans-serif;overflow:hidden}
+.card{display:none;position:relative;overflow:hidden;
+  background:radial-gradient(70% 60% at 50% 105%,rgba(108,156,255,.22),transparent 70%),
+             radial-gradient(40% 40% at 0% 0%,rgba(52,199,123,.07),transparent 70%),
+             linear-gradient(180deg,#10141b,#0b0e13)}
+.card.show{display:block}
+/* soft dot texture and an inner frame */
+.card::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.05) 1px,transparent 1px);background-size:22px 22px;
+  -webkit-mask-image:radial-gradient(80% 70% at 50% 40%,#000,transparent);mask-image:radial-gradient(80% 70% at 50% 40%,#000,transparent)}
+.card::after{content:"";position:absolute;inset:14px;border-radius:22px;border:1px solid var(--line);box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),inset 0 -60px 120px -60px rgba(108,156,255,.25);pointer-events:none}
+.hero{width:1600px;height:900px}.feat{width:1200px;height:675px}
+
+/* brand */
+.brand{position:absolute;display:flex;align-items:center;gap:16px;z-index:5}
+.mark{width:58px;height:58px;border-radius:15px;background:linear-gradient(145deg,#f4f6fa,#c9d1de);display:grid;place-items:center;
+  color:#0d1117;font-weight:800;font-size:26px;letter-spacing:-1px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.mark i{display:block;width:6px;height:6px;border-radius:50%;background:var(--green);margin:16px 0 0 1px;box-shadow:0 0 10px var(--green)}
+.mark span{display:flex;align-items:flex-start}
+.brand h1{font-size:44px;font-weight:800;letter-spacing:-1.4px;line-height:1}
+.brand h1 b{color:var(--accent);font-weight:800}
+.brand p{color:var(--muted);font-size:15px;margin-top:8px;font-weight:500}
+.chips{position:absolute;display:flex;gap:8px;z-index:5}
+.chip{font-size:13px;font-weight:600;color:#c7cfdc;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.04);backdrop-filter:blur(6px)}
+.chip.free{color:#0d1117;background:var(--green);border-color:transparent}
+
+/* screenshot crops */
+.shot{position:absolute;border-radius:14px;background-repeat:no-repeat;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07)}
+.shot.paper{border-radius:6px}
+.glow{position:absolute;border-radius:50%;filter:blur(60px);background:rgba(108,156,255,.28);z-index:0}
+.lbl{position:absolute;z-index:6;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#c7cfdc;
+  padding:6px 11px;border-radius:8px;background:rgba(11,14,19,.78);border:1px solid var(--line);backdrop-filter:blur(6px)}
+
+/* feature cards */
+.feat .side{position:absolute;left:58px;top:64px;width:360px;z-index:5}
+.feat .k{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.feat h2{font-size:38px;font-weight:800;letter-spacing:-1.2px;line-height:1.08;margin-top:12px}
+.feat .lead{color:var(--muted);font-size:15.5px;line-height:1.55;margin-top:14px}
+.feat ul{list-style:none;padding:0;margin-top:22px;display:grid;gap:11px}
+.feat li{font-size:14.5px;color:#d6dce6;display:flex;gap:10px;align-items:flex-start;line-height:1.4}
+.feat li::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--green);margin-top:7px;box-shadow:0 0 8px rgba(52,199,123,.7)}
+.foot{position:absolute;left:58px;bottom:44px;z-index:5;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;font-weight:500}
+.foot .mark{width:28px;height:28px;border-radius:8px;font-size:13px;box-shadow:none}.foot .mark i{width:4px;height:4px;margin-top:8px}
+</style></head>
+<body>
+
+<!-- HERO -->
+<div class="card hero" id="hero">
+  <div class="brand" style="left:70px;top:64px">
+    <div class="mark"><span>B<i></i></span></div>
+    <div><h1>Blaze <b>Boss Menu</b></h1><p>Boss menu · Applications · Time clock · Contracts — for any job</p></div>
+  </div>
+  <div class="chips" style="right:70px;top:78px"><span class="chip">Qbox</span><span class="chip">QBCore</span><span class="chip">ox_lib</span><span class="chip free">Free · GPL-3.0</span></div>
+  <div class="glow" style="left:420px;top:420px;width:760px;height:420px"></div>
+  <div class="shot paper" data-crop="contract-sign 580 78 760 924" data-w="380" style="left:120px;top:250px;transform:rotate(-5deg);z-index:1"></div>
+  <div class="shot" data-crop="timeclock-pin 668 281 584 518" data-w="400" style="right:110px;top:220px;transform:rotate(4deg);z-index:1"></div>
+  <div class="shot" data-crop="debug-panel 0 0 368 540" data-w="230" style="right:96px;top:540px;transform:rotate(-2deg);z-index:3"></div>
+  <div class="shot" data-crop="timeclock-full 474 82 972 916" data-w="700" style="left:450px;top:205px;z-index:2"></div>
+  <span class="lbl" style="left:142px;top:236px;transform:rotate(-5deg)">Employment contract</span>
+  <span class="lbl" style="left:470px;top:184px">Time clock</span>
+  <span class="lbl" style="right:116px;top:205px;transform:rotate(4deg)">PIN · tap · swipe</span>
+</div>
+
+<!-- TIME CLOCK -->
+<div class="card feat" id="clock">
+  <div class="side">
+    <div class="k">Time clock</div>
+    <h2>Clock in like it's a real workplace.</h2>
+    <p class="lead">Duty points open a small reader. Tap the virtual ID, swipe it, or type the PIN — then the full view opens.</p>
+    <ul><li>Live shift timer, week and 31-day hours</li><li>Next rank progress with pay</li><li>Who's on duty, the announcement</li><li>Adjustable size, keyboard friendly</li></ul>
+  </div>
+  <div class="glow" style="left:560px;top:300px;width:560px;height:320px"></div>
+  <div class="shot" data-crop="timeclock-tap 668 281 584 518" data-w="300" style="left:440px;top:370px;transform:rotate(-4deg);z-index:1"></div>
+  <div class="shot" data-crop="timeclock-full 474 82 972 916" data-w="560" style="left:590px;top:70px;z-index:2"></div>
+  <div class="foot"><div class="mark"><span>B<i></i></span></div>Blaze Boss Menu</div>
+</div>
+
+<!-- CONTRACT -->
+<div class="card feat" id="contract">
+  <div class="side">
+    <div class="k">Employment contract</div>
+    <h2>New hires sign on the line.</h2>
+    <p class="lead">A real-looking agreement, filled in for you and signed with the mouse.</p>
+    <ul><li>Job, rank, pay and probation filled in</li><li>Hiring manager's name and rank</li><li>Per-job templates edited in game</li><li>Signed copies kept on the record</li></ul>
+  </div>
+  <div class="glow" style="left:560px;top:320px;width:560px;height:320px"></div>
+  <div class="shot paper" data-crop="contract-sign 580 78 760 924" data-w="380" style="left:520px;top:80px;transform:rotate(-4deg);z-index:1"></div>
+  <div class="shot paper" data-crop="contract-signed 580 78 760 924" data-w="400" style="left:740px;top:60px;transform:rotate(3deg);z-index:2"></div>
+  <div class="foot"><div class="mark"><span>B<i></i></span></div>Blaze Boss Menu</div>
+</div>
+
+<!-- ADMIN -->
+<div class="card feat" id="admin">
+  <div class="side">
+    <div class="k">Admin &amp; setup</div>
+    <h2>Set it up in game, see what it's doing.</h2>
+    <p class="lead">Place every point by aiming and pressing E. Managers move their own job's points.</p>
+    <ul><li><b>/bossdebug</b> live panel and action logs</li><li>Show zones, View as any rank</li><li>Discord logs (webhook only in server.cfg)</li><li>Drop-in for qbx_management</li></ul>
+  </div>
+  <div class="glow" style="left:600px;top:280px;width:520px;height:320px"></div>
+  <div class="shot" data-crop="timeclock-swipe 668 281 584 518" data-w="400" style="left:500px;top:250px;transform:rotate(-3deg);z-index:1"></div>
+  <div class="shot" data-crop="debug-panel 0 0 368 540" data-w="330" style="left:820px;top:62px;transform:rotate(2deg);z-index:2"></div>
+  <div class="foot"><div class="mark"><span>B<i></i></span></div>Blaze Boss Menu</div>
+</div>
+
+<script>
+// crop a region (x y w h, in the 1920x1080 screenshot) and show it at width data-w
+const FULL = { 'debug-panel': [368, 540] };
+document.querySelectorAll('[data-crop]').forEach(el => {
+  const [name, x, y, w, h] = el.dataset.crop.split(' '), k = +el.dataset.w / +w, [iw, ih] = FULL[name] || [1920, 1080];
+  Object.assign(el.style, {
+    width: +w * k + 'px', height: +h * k + 'px',
+    backgroundImage: `url(../screenshots/${name}.png)`,
+    backgroundSize: iw * k + 'px ' + ih * k + 'px',
+    backgroundPosition: -x * k + 'px ' + -y * k + 'px',
+  });
+});
+const id = location.hash.slice(1) || 'hero';
+(document.getElementById(id) || document.getElementById('hero')).classList.add('show');
+</script>
+</body></html>

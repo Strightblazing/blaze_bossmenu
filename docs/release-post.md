@@ -9,7 +9,7 @@ contracts, funds, outfits, profiles and admin tools, all configurable and all ch
 
 Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib** (optional **Lation UI**).
 
-![Time clock: clock in](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/timeclock-tap.png)
+![Blaze Boss Menu](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/showcase.png)
 
 <!-- optional: add an in-game screenshot or GIF of the boss menu here -->
 
@@ -33,15 +33,13 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 - Live shift timer, hours this week and month, next rank progress with pay, who's on duty, the announcement
 - Clean modern design, adjustable size, scans while on duty just open it; Clock out button
 
-![Time clock: on duty](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/timeclock-full.png)
-![Time clock: PIN](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/timeclock-pin.png)
+![Time clock](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/showcase-clock.png)
 
 **Employment contract**
 - New hires sign a real-looking contract with the mouse, filled in automatically (job, rank, pay, probation, hiring manager)
 - Per-job templates edited in game; signed copies kept on the employee's record
 
-![Employment contract](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/contract-sign.png)
-![Signed contract](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/contract-signed.png)
+![Employment contract](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/showcase-contract.png)
 
 **And more**
 - Duty points, job outfits and wardrobes (illenium-appearance), starter items (ox_inventory)
@@ -50,7 +48,7 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 - Console, ox_lib logger and Discord logs (webhook only in server.cfg)
 - Drop-in for qbx_management / qb-bossmenu: keeps their tables, exports and events
 
-![Debug panel](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/debug-panel.png)
+![Admin and setup](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/showcase-admin.png)
 
 ## Requirements
 - ox_lib, oxmysql
