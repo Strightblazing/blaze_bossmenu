@@ -215,7 +215,8 @@ end
 local zonePoints = {}
 local showZones = false      -- false | 'all' | { ['job:ambulance'] = true }
 -- debug: Config.debug, or this player's debug view (/bossdebug, or Debug mode in /bossmenu)
-local function debugMode() return Config.debug == true or LocalPlayer.state.bossDebugView == true end
+local debugView = LocalPlayer.state.bossDebugView == true
+local function debugMode() return Config.debug == true or debugView end
 
 local ZONE_COLOR = {
     boss = { 245, 197, 66 }, applications = { 90, 169, 255 }, review = { 167, 139, 250 },
@@ -248,7 +249,8 @@ local function startDrawing()
             for _, p in ipairs(zonePoints) do
                 local key = p.gtype .. ':' .. p.group
                 if showZones == 'all' or debugMode() or (type(showZones) == 'table' and showZones[key]) then
-                    local c = vec3(p.coords.x, p.coords.y, p.coords.z)
+                    local c = p.v
+                    if not c then c = vec3(p.coords.x, p.coords.y, p.coords.z) p.v = c end
                     local dist = #(me - c)
                     if dist < 60.0 then
                         local col = ZONE_COLOR[p.type] or { 200, 200, 200 }
@@ -287,10 +289,12 @@ function BMC.debugOn() return debugMode() end
 --- Points (for the debug panel's "nearest point")
 function BMC.points() return zonePoints end
 
--- start drawing labels whenever debug turns on (the state bag can change at any time)
+-- start drawing labels when debug turns on (no polling: the state bag tells us)
+AddStateBagChangeHandler('bossDebugView', ('player:%s'):format(cache.serverId), function(_, _, value)
+    debugView = value == true
+    if debugView then CreateThread(startDrawing) end
+end)
 CreateThread(function()
-    while true do
-        Wait(1000)
-        if debugMode() and not drawing then startDrawing() end
-    end
+    Wait(1000)
+    if debugMode() then startDrawing() end
 end)

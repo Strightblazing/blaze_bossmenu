@@ -6,7 +6,9 @@ if not Config.enabled then return end
 local RES = GetCurrentResourceName()
 local TYPE_LABEL = { boss = 'Boss desk', applications = 'Applications point', review = 'Review point', duty = 'Duty point', outfits = 'Wardrobe' }
 
-local function viewing() return LocalPlayer.state.bossDebugView == true end
+-- this player's debug view (state bag set by the server); kept in a local so the change handler can start the panel
+local isViewing = LocalPlayer.state.bossDebugView == true
+local function viewing() return isViewing end
 
 -- last few boss menu actions (sent by the server while you're viewing), also printed to F8
 local log = {}
@@ -60,20 +62,25 @@ local function liveData()
     }
 end
 
--- live panel: 4 times a second (lighter than every frame)
-local panelShown = false
-CreateThread(function()
-    while true do
-        if viewing() then
+-- live panel: 4 times a second while the debug view is on; no loop at all otherwise
+local panelRunning = false
+local function startPanel()
+    if panelRunning then return end
+    panelRunning = true
+    CreateThread(function()
+        while isViewing do
             SendNUIMessage({ action = 'dbg:live', data = liveData() })
-            panelShown = true
             Wait(250)
-        else
-            if panelShown then SendNUIMessage({ action = 'dbg:live', data = false }) panelShown = false end
-            Wait(1000)
         end
-    end
+        SendNUIMessage({ action = 'dbg:live', data = false })
+        panelRunning = false
+    end)
+end
+AddStateBagChangeHandler('bossDebugView', ('player:%s'):format(cache.serverId), function(_, _, value)
+    isViewing = value == true
+    if isViewing then startPanel() end
 end)
+if isViewing then startPanel() end
 
 -- Move mode (/bossdebug move): drag the panel; the spot is remembered on this PC
 local movingPanel = false

@@ -883,7 +883,6 @@ register('hire', function(src, gtype, name, target, grade)
     if grade >= limit then return false, 'You can only hire up to the rank below yours.' end
     local label = groupLabel(gtype, name)
     local g = Bridge.GetGrade(gtype, name, grade) or {}
-    local c = groupCfg(gtype, name) or {}
     local days = gtype == 'job' and tonumber((Config.features or {}).probationDays) or 0
     -- the contract fills itself in: job label, rank, pay, probation, the new hire, and who is hiring (+ their rank)
     local myGrade = Bridge.GetPlayerGroupGrade(src, gtype, name)

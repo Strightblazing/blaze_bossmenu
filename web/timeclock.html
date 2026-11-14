@@ -394,7 +394,7 @@ function tick() {
     $('#shift').textContent = Math.floor(s / 3600) + ':' + pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60);
   }
 }
-setInterval(tick, 1000);
+setInterval(() => { if ($('#wrap').classList.contains('show')) tick(); }, 1000); // only while the clock is on screen
 
 // ---------- a single soft tone ----------
 let ac;

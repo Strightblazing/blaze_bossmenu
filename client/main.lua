@@ -823,7 +823,7 @@ exports('openApplication', openApplication)
 local STATUS_COLOR = { new = '#5AA9FF', interview = '#F0A93B', accepted = '#3DDC84', denied = '#E5484D', withdrawn = '#8F99A5' }
 local openMyApplications
 
-local function openMyApplication(a, list, job)
+local function openMyApplication(a, job)
     local options = {
         { title = a.statusLabel or a.status, description = a.message, icon = STATUS_ICON[a.status] or 'fa-solid fa-file',
           iconColor = STATUS_COLOR[a.status], readOnly = true },
@@ -870,7 +870,7 @@ openMyApplications = function(job)
         options[#options + 1] = {
             title = a.jobLabel, description = ('%s · %s'):format(a.statusLabel or a.status, a.created or ''),
             icon = STATUS_ICON[a.status] or 'fa-solid fa-file', iconColor = STATUS_COLOR[a.status], arrow = true,
-            onSelect = function() openMyApplication(a, list, job) end,
+            onSelect = function() openMyApplication(a, job) end,
         }
     end
     if #options == 0 then

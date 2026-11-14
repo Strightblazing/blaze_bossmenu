@@ -41,7 +41,7 @@ local function flush()
     end, 'POST', json.encode({ username = 'Blaze Boss Menu', embeds = batch }), { ['Content-Type'] = 'application/json' })
 end
 
-if cfg.discord then
+if cfg.discord and webhook ~= '' then
     CreateThread(function()
         while true do
             Wait(3000)
@@ -49,9 +49,9 @@ if cfg.discord then
             if #queue > 200 then for _ = 1, #queue - 200 do table.remove(queue, 1) end end
         end
     end)
-    if webhook == '' then
-        print('^3[blaze_bossmenu]^7 Discord logging is on but no webhook is set. Add to server.cfg: set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."')
-    end
+end
+if cfg.discord and webhook == '' then
+    print('^3[blaze_bossmenu]^7 Discord logging is on but no webhook is set. Add to server.cfg: set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."')
 end
 
 --- Log one event.
