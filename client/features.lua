@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- Client extras: profiles, /myjob, /jobs board, announcements, celebrations, hire handshake, receptionist NPC.
 -- Loaded before client/main.lua, which uses BMC.* for the profile and points.
 if not Config.enabled then return end
@@ -117,6 +118,7 @@ local function openJobBoard()
             metadata = j.description and { { label = 'About', value = j.description } } or nil,
             disabled = not spot,
             onSelect = function()
+                if not spot then return end
                 SetNewWaypoint(spot.x, spot.y)
                 notify(('Waypoint set to the %s application point.'):format(j.label), 'success', 'Now hiring')
             end,

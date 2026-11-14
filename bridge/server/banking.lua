@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- Society account bridge. Auto-detects the same banking resources Blaze Medical supports:
 -- Renewed-Banking, qb-banking, okokBanking, qb-management. Withdraw checks the balance first.
 -- If none is started, Funds are treated as off (one console warning).

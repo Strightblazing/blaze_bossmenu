@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- /bossmenu (admins): place boss desks, application, review, duty and wardrobe points in game.
 -- Managers get the same tools for their own job in the boss menu (Locations). The server checks every action.
 if not Config.enabled then return end

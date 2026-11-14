@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- UI wrapper: menus, forms and confirm popups go through here (ox_lib by default, Lation UI optional).
 -- client/main.lua and client/placement.lua only call UI.*; notifications always use lib.notify.
 -- Note: if the server runs Lation's ox_lib fork, ox_lib itself forwards to lation_ui while it is started.

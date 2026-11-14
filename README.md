@@ -1,7 +1,10 @@
 # blaze_bossmenu
 
 Boss menu + job application system for **any job** (EMS, fire, police, mechanic, …) and gangs.
-Runs on **Qbox** and **QBCore**. Menus use **ox_lib** by default, with optional **Lation UI**. Menus use ox_lib (or Lation UI); the employment contract and the time clock are small web screens (`web/`).
+Runs on **Qbox** and **QBCore**. Menus use **ox_lib** by default, with optional **Lation UI**; the employment contract,
+the time clock and the debug panel are small web screens (`web/`).
+
+Free and open source under **GPL-3.0** (see [License & credits](#license--credits)).
 
 It is a fork of [qbx_management](https://github.com/Qbox-project/qbx_management) (GPL-3.0) and replaces it:
 everything qbx_management did is here, plus applications, funds, callsigns and in-game placement. See `NOTICE.md`.
@@ -13,7 +16,8 @@ It does **not** need Blaze Medical or any other Blaze resource.
   hours worked and last check-in. Promote, demote, set callsign and fire.
 - **Rank rules** (checked on the server): you only manage people *below* your rank, only promote up to the rank
   just below yours, and can't act on yourself (except your own callsign). Admins can manage any configured job.
-- **Hire**: nearby players or by server ID. The person gets an **Accept / Decline** popup first.
+- **Hire**: nearby players or by server ID. The person signs an **employment contract** first (or a simple
+  Accept / Decline popup with `contract.enabled = false`).
 - **Applications**: anyone applies at an application point. Managers review, invite to interview, accept & hire
   (picking the starting rank), or deny with a reason. Applicants are told right away, or on their next login.
   Managers can also review at a separate **application review point**, and applicants check theirs with `/applicationstatus`.
@@ -83,6 +87,19 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - **Announcements**: on-duty staff see them now (with a sound), others when they clock in.
 - **Activity log**: recent hires, fires, promotions, money moves and more, right in the boss menu.
 
+## Commands
+
+| Command | Who | What |
+|---|---|---|
+| `/bossmenu` | Admins | Place / move / delete points, Show zones, Debug mode |
+| `/bossmenutest` | Admins | Test staff and applications, View as…, previews (`testCommand`) |
+| `/bossdebug [on|off|view|move]` | Admins | Debug: live panel, labels, action logs (`debugCommand`) |
+| `/applicationstatus` | Everyone | Your job applications (`applications.statusCommand`) |
+| `/myjob` | Staff | Your profile, record and the department announcement (`features.myJobCommand`) |
+| `/jobs` | Everyone | "Now hiring" board with waypoints (`features.jobBoardCommand`) |
+
+The boss menu itself opens at a boss desk or from the radial menu (**Work**) for bosses.
+
 ## Requirements
 
 - [ox_lib](https://github.com/overextended/ox_lib)
@@ -90,11 +107,15 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - Qbox (`qbx_core`) **or** QBCore (`qb-core`)
 - `ox_target` or `qb-target` (optional: without one, points use a walk-up `[E]` prompt)
 - For Funds: one of Renewed-Banking, qb-banking, okokBanking or qb-management
-- Optional: `lation_ui`
+- Optional, used automatically when running:
+  - `lation_ui` (menus), `illenium-appearance` (job outfits), `ox_inventory` (starter items)
+  - a phone resource for phone number / email: sd-phone, lb-phone, high-phone, qs-smartphone(-pro), 17mov_Phone, npwd
+  - sd-phone for application results by phone mail
 
 ## Install
 
-1. Put `blaze_bossmenu` in your resources (for example `resources/[standalone]/blaze_bossmenu`).
+1. Download the latest release and put the folder in your resources (for example `resources/[standalone]/blaze_bossmenu`).
+   Keep the folder name **blaze_bossmenu**: other scripts call it as `exports.blaze_bossmenu`.
 2. If you used **qbx_management**, stop it. blaze_bossmenu replaces it.
    Keep the folder, but move it somewhere that isn't ensured (for example `resources/[disabled]/qbx_management`).
    Scripts such as illenium-appearance check that the folder exists and then call `exports.qbx_management:…`;
@@ -145,10 +166,13 @@ Use `/bossmenu` in game (admins only):
   without needing the boss desk. Only that job's managers (and admins) see it.
 - **Add duty point**: staff of that job clock in and out here.
 - **Add wardrobe**: staff of that job change into the job's outfits here (and back to their own clothes).
+- **Manage points**: everything placed, grouped by job. **Teleport** to a point, **Move** it (aim at the new spot,
+  press E; it keeps its job, type and size), **Change size**, or **Delete** it.
+  Points from `Config.locations`, or added by other scripts, can't be changed in game.
 
 **Show zones** (in `/bossmenu`, and in Locations for a manager's own job) draws every point as a colored ring on the ground
 with a label, so you can see exactly where each target is and how big it is. Only you see it.
-**Debug** (admins), the same as Blaze Medical's `/blazedebug`:
+**Debug** (admins):
 
 | Command | What it does |
 |---|---|
@@ -163,9 +187,6 @@ boss menu actions with their result and time, and your position. Point labels sh
 
 Managers can place, move and delete their own job's points from the boss menu → **Locations**
 (`managerPlacement`: which types, and whether they may teleport).
-- **Manage points**: everything placed, grouped by job. **Teleport** to a point, **Move** it (aim at the new spot,
-  press E; it keeps its job, type and size), **Change size**, or **Delete** it.
-  Points from `Config.locations`, or added by other scripts, can't be changed in game.
 
 Boss desks and review points only show to that job's managers (and admins). Application points show to everyone.
 
@@ -212,6 +233,8 @@ The applicant's full name always comes from their character. It is never a quest
 |---|---|
 | `enabled` | `false` = the whole resource does nothing. Saved data stays in the database. |
 | `debug` | Log every action to the server console and draw all points for everyone (testing only). Admins can turn debug on just for themself in `/bossmenu`. |
+| `debugCommand` | Admin debug command (default `bossdebug`). |
+| `testCommand` | Admin test tools command (default `bossmenutest`), or `false` once you go live. |
 | `versionCheck` | On start, compare with the latest GitHub release and say if there's an update. |
 | `useLationUI` | `true` = menus, forms and confirms use Lation UI. Falls back to ox_lib if lation_ui isn't started. |
 | `target` | `'auto'`, `'ox_target'`, `'qb-target'` or `'none'` (walk-up `[E]` prompt). |
@@ -249,7 +272,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `features.myJobCommand` / `jobBoardCommand` | `/myjob` and `/jobs` command names, or `false`. |
 | `features.phoneMail` | Send application results by sd-phone mail. |
 | `features.receptionist` | NPC at applications points: `enabled`, `model`, `scenario`, `greet`. |
-| `duty.*` | Duty points: `enabled`, `style` (`'clock'` screen / `'instant'` toggle), `methods` (`'tap'`, `'swipe'`, `'keypad'`). |
+| `duty.*` | Duty points: `enabled`, `style` (`'clock'` screen / `'instant'` toggle), `methods` (`'tap'`, `'swipe'`, `'keypad'`), `size` (starting size of the time clock; players change their own). |
 | `outfits.*` | Job outfits: `enabled`, `appearance` (`'auto'` = illenium-appearance if running, `'native'`), `maxPerJob`. |
 | `contact.*` | Phone + email on the time clock and in profiles: `enabled`, `phone` (`'auto'` or a resource name), optional `getPhone` / `getEmail` functions. Auto-detects sd-phone, lb-phone, high-phone, qs-smartphone-pro, qs-smartphone, 17mov_Phone, npwd, then the character's own phone. |
 | `managerPlacement.*` | Managers place their own job's points: `enabled`, `types`, `teleport`. |
@@ -270,7 +293,8 @@ The applicant's full name always comes from their character. It is never a quest
 Set `set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."` in `server.cfg`.
 The webhook is **never** read from a file, so it can't end up in the repo. Logs are batched to stay under Discord's rate limit.
 Events: hire, fire, promote, demote, callsign, accept, deny, interview, deposit, withdraw, toggle, formEdit,
-formReset, placement, gradeEdit, record, eotw, announce, bonus, withdrawApp, checkin. Turn single events off in `Config.logs.events`.
+formReset, placement, gradeEdit, record, eotw, announce, bonus, withdrawApp, checkin, contractEdit, outfit.
+Turn single events off in `Config.logs.events`.
 
 ## Lation UI
 
@@ -317,6 +341,11 @@ Events `qb-bossmenu:client:OpenMenu` and `qb-gangmenu:client:OpenMenu` open the 
 `blaze_boss_announcements`, `blaze_boss_eotw`, `blaze_boss_app_votes`, `blaze_boss_contract_templates`, `blaze_boss_contracts`, `blaze_boss_outfits`, plus `player_jobs_activity` and `management_groups`
 (the same tables qbx_management used).
 
-## License
+## License & credits
 
-GPL-3.0. See `LICENSE` and `NOTICE.md`.
+blaze_bossmenu is free software under the **GNU General Public License v3.0** (`LICENSE`).
+It is a fork of [qbx_management](https://github.com/Qbox-project/qbx_management) by the **Qbox Project**, also GPL-3.0;
+`NOTICE.md` lists what came from it and what changed. If you share a modified version, keep it under GPL-3.0 and share
+its source code. Fonts on the web screens load from Google Fonts (SIL OFL 1.1 / Apache 2.0) and aren't bundled.
+
+See `CHANGELOG.md` for what's new.

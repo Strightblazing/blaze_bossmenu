@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- blaze_bossmenu server.
 -- Fork of qbx_management (Qbox Project, GPL-3.0): staff list, hire with consent, promote/demote, fire,
 -- duty hours, grade editor, gang menus and the qbx_management/qb-bossmenu compatibility hooks.

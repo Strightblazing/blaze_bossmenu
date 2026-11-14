@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- Startup banner + version check (same style as Blaze Medical).
 -- The banner prints once everything has loaded (called from server/main.lua), so it means "fully started".
 -- The check reads 'repository' from fxmanifest.lua ('owner/name' on GitHub) and compares this version with

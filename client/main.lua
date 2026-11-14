@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- blaze_bossmenu client menus. All menus/forms/confirms go through UI.* (client/ui.lua).
 -- Boss menu flow forked from qbx_management (Qbox Project, GPL-3.0).
 if not Config.enabled then

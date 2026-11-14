@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- Client bridge: framework events + a small Target layer (ox_target, qb-target, or a walk-up zone with [E]).
 if not Config.enabled then return end
 

@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- /bossmenutest (admins): fake staff and applications so one person can try the boss menu alone.
 -- Test characters are real offline characters with citizen IDs starting 'BMTEST' and the license
 -- 'blaze_bossmenu_test', so nobody can log in as them. "Remove all test data" deletes every trace.

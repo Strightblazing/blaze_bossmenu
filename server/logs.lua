@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- Logging: console, ox_lib logger and Discord, each switched in Config.logs.
 -- Discord webhook comes ONLY from server.cfg:  set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."
 if not Config.enabled then return end

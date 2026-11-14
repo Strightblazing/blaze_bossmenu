@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- /bossmenutest (admins): add/remove test staff and applications, and preview the effects you'd
 -- otherwise need a second player for. The server checks admin on every action.
 if not Config.enabled or not Config.testCommand then return end

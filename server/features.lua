@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- Extra features on top of the boss menu: profiles, records, probation, inactivity, promotion readiness,
 -- announcements, Employee of the Week, activity log, payroll, bonuses, application votes/withdraw/check-in,
 -- job board, phone mail, celebrations, handshake and starter items. Every switch is in Config.features

@@ -1,11 +1,13 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 fx_version 'cerulean'
 game 'gta5'
 lua54 'yes'
 
 name 'blaze_bossmenu'
 author 'Blaze'
-description 'Boss menu + job applications for any job (Qbox / QBCore, ox_lib, optional Lation UI)'
-version '1.1.0'
+description 'Boss menu, job applications, time clock and employment contracts for any job (Qbox / QBCore, ox_lib)'
+version '1.2.0'
+license 'GPL-3.0' -- fork of qbx_management by the Qbox Project (see LICENSE and NOTICE.md)
 repository 'Strightblazing/blaze_bossmenu' -- used by the startup version check (server/version.lua)
 
 shared_scripts {

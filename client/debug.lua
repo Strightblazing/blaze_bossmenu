@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- Debug (like Blaze Medical's): the live panel (web/debug.html) for admins who turned debug on
 -- (/bossdebug, or Debug mode in /bossmenu). Point labels are drawn by client/placement.lua (Show zones).
 if not Config.enabled then return end

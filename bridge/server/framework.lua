@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- Framework bridge (server): Qbox (qbx_core) or QBCore. Nothing else in this resource talks to the framework.
 -- Group functions take a group type: 'job' or 'gang'.
 -- Based on the group handling in qbx_management (Qbox Project, GPL-3.0); QBCore support added.
@@ -282,7 +283,14 @@ function Bridge.SetDuty(src, job, onDuty)
         local ok = exports.qbx_core:SetPlayerPrimaryJob(p.PlayerData.citizenid, job)
         if not ok then return nil, 'Could not switch to that job.' end
     end
-    if QBX then exports.qbx_core:SetJobDuty(src, onDuty) else p.Functions.SetJobDuty(onDuty) end
+    if QBX then
+        exports.qbx_core:SetJobDuty(src, onDuty) -- also fires QBCore:Server:SetDuty (duty hours) itself
+    else
+        -- QBCore's SetJobDuty doesn't fire the duty events, so fire them here (duty hours, other scripts)
+        p.Functions.SetJobDuty(onDuty)
+        TriggerEvent('QBCore:Server:SetDuty', src, onDuty)
+        TriggerClientEvent('QBCore:Client:SetDuty', src, onDuty)
+    end
     return onDuty
 end
 

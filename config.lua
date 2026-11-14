@@ -1,3 +1,4 @@
+-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
 -- blaze_bossmenu configuration. Server owner only: nothing here can be changed in game.
 -- The Discord webhook is NOT set here. Put it in server.cfg:
 --   set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."
