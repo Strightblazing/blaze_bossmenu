@@ -44,10 +44,11 @@ body.demo{background:#2a2d33}
 .card .virt{font-size:10px;letter-spacing:.08em;color:var(--faint)}
 .card .who{display:flex;gap:12px;align-items:center;margin-top:16px}
 .av{width:40px;height:40px;border-radius:50%;background:#2a2e35;color:var(--text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:none}
-.card .nm{font-size:15px;font-weight:600}
-.card .rk{font-size:12.5px;color:var(--muted);margin-top:1px}
+.card .who>div:last-child{min-width:0;flex:1}
+.card .nm{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .rk{font-size:12.5px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card .ids{position:absolute;left:16px;right:16px;bottom:12px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint)}
-.card .strip{display:none;position:absolute;left:0;right:0;bottom:34px;height:10px;background:#111215}
+.card .strip{display:none;position:absolute;left:0;right:0;bottom:30px;height:8px;background:#111215}
 .swipe .card .strip{display:block}
 .reader{position:absolute;display:none}
 .tap .reader.pad{display:flex;right:22px;top:50px;width:150px;height:150px;border-radius:50%;border:1px solid var(--line2);align-items:center;justify-content:center;
@@ -132,36 +133,36 @@ body.demo{background:#2a2d33}
 .app .col.info,.app .announce-block{animation:fadeIn .35s ease-out}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-/* ---------- compact: the full view sits in the middle, it doesn't fill the screen ---------- */
+/* ---------- compact layout ("dense", sizes under 130%); 130%+ uses the roomier layout above ---------- */
 #wrap{background:rgba(8,9,11,.22)}
-.app{width:min(780px,94vw);border-radius:14px}
-.head{padding:14px 18px;gap:12px}
-.dept b{font-size:15px}
-.clock .t{font-size:26px}.clock .d{font-size:11px;margin-top:3px}
-.status{padding:5px 11px;font-size:12px}
-.col{padding:14px 18px;gap:14px}
-.label{margin-bottom:8px;font-size:10.5px}
-.stage{height:200px;border-radius:10px}
-.card{top:46px;width:196px;height:122px;padding:12px 14px}
-.card .who{margin-top:12px}.card .nm{font-size:14px}.card .rk{font-size:12px}
-.av{width:34px;height:34px;font-size:12px}
-.tap .reader.pad{top:38px;width:132px;height:132px}
-.keypad .card{top:44px;transform:scale(.8)}
-.keypad .reader.keys{top:12px;width:176px;gap:5px}
-.keys .disp{height:32px;font-size:16px}.keys button{height:32px;font-size:14px}
-.swipe .card{top:22px}.swipe .reader.slot{bottom:18px;height:38px}.slot .line,.slot .fill{top:18px}
-.msg{top:14px;left:16px;font-size:12.5px}
-.result{margin-top:8px;font-size:12.5px;min-height:18px}
-.announce{font-size:13px}
-.stat{padding:9px 12px}.stat small{font-size:11px}.stat b{font-size:18px;margin-top:2px}
-.tags{margin-top:8px}.tag{font-size:11px;padding:2px 9px}
-.week{height:70px;gap:8px}.bar em{font-size:10px}.bar span{font-size:10.5px}
-.prog{margin:2px 0 8px}.sub{font-size:12px}
-.person{padding:6px 0;font-size:12.5px}.person .av{width:24px;height:24px;font-size:10px}.person .rk{font-size:11.5px}
-.people{max-height:150px;overflow-y:auto}
-.foot{padding:10px 18px;font-size:12px}
-.btn{padding:6px 14px;font-size:12.5px}
-.app.mini{width:min(470px,94vw)}
+.dense .app{width:min(780px,94vw);border-radius:14px}
+.dense .head{padding:14px 18px;gap:12px}
+.dense .dept b{font-size:15px}
+.dense .clock .t{font-size:26px}.dense .clock .d{font-size:11px;margin-top:3px}
+.dense .status{padding:5px 11px;font-size:12px}
+.dense .col{padding:14px 18px;gap:14px}
+.dense .label{margin-bottom:8px;font-size:10.5px}
+.dense .stage{height:200px;border-radius:10px}
+.dense .card{top:46px;width:196px;height:122px;padding:12px 14px}
+.dense .card .who{margin-top:12px}.dense .card .nm{font-size:14px}.dense .card .rk{font-size:12px}
+.dense .av{width:34px;height:34px;font-size:12px}
+.dense .tap .reader.pad{top:38px;width:132px;height:132px}
+.dense .keypad .card{top:44px;transform:scale(.8)}
+.dense .keypad .reader.keys{top:12px;width:176px;gap:5px}
+.dense .keys .disp{height:32px;font-size:16px}.dense .keys button{height:32px;font-size:14px}
+.dense .swipe .card{top:22px}.dense .swipe .reader.slot{bottom:18px;height:38px}.dense .slot .line,.dense .slot .fill{top:18px}
+.dense .msg{top:14px;left:16px;font-size:12.5px}
+.dense .result{margin-top:8px;font-size:12.5px;min-height:18px}
+.dense .announce{font-size:13px}
+.dense .stat{padding:9px 12px}.dense .stat small{font-size:11px}.dense .stat b{font-size:18px;margin-top:2px}
+.dense .tags{margin-top:8px}.dense .tag{font-size:11px;padding:2px 9px}
+.dense .week{height:70px;gap:8px}.dense .bar em{font-size:10px}.dense .bar span{font-size:10.5px}
+.dense .prog{margin:2px 0 8px}.dense .sub{font-size:12px}
+.dense .person{padding:6px 0;font-size:12.5px}.dense .person .av{width:24px;height:24px;font-size:10px}.dense .person .rk{font-size:11.5px}
+.dense .people{max-height:150px;overflow-y:auto}
+.dense .foot{padding:10px 18px;font-size:12px}
+.dense .btn{padding:6px 14px;font-size:12.5px}
+.dense .app.mini{width:min(470px,94vw)}
 
 /* size control in the footer */
 .size{display:flex;align-items:center;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
@@ -250,7 +251,7 @@ body.demo{background:#2a2d33}
             <div class="top"><span id="cardDept"></span><span class="virt" id="virt">Virtual ID</span></div>
             <div class="who"><div class="av" id="ini"></div><div><div class="nm" id="cName"></div><div class="rk" id="cRank"></div></div></div>
             <div class="strip"></div>
-            <div class="ids"><span>ID <span id="cId"></span></span><span>PIN <span id="cPin"></span></span></div>
+            <div class="ids"><span>ID <span id="cId"></span><span id="cCall"></span></span><span>PIN <span id="cPin"></span></span></div>
           </div>
           <div class="reader pad" id="pad"><div class="ring"></div><div>Reader</div></div>
           <div class="reader slot" id="slot"><div class="cap">Swipe left to right</div><div class="line"></div><div class="fill" id="fill"></div></div>
@@ -317,13 +318,18 @@ let defaultScale = 1.25;
 function savedScale() { try { const v = parseFloat(localStorage.getItem('blaze_bossmenu_clock_size')); return isFinite(v) ? v : null; } catch (e) { return null; } }
 let UI_SCALE = savedScale() || defaultScale;
 let S = UI_SCALE;
+const ROOMY_AT = 1.3;     // from this size up, switch to the roomier layout
+const ROOMY_RATIO = 1.23; // the roomy layout is naturally ~23% bigger, so it's scaled less
 function fitScale() {
   const app = $('#app');
+  const dense = UI_SCALE < ROOMY_AT - 0.001;
+  if (document.body.classList.contains('dense') !== dense) { document.body.classList.toggle('dense', dense); render(); }
+  const want = dense ? UI_SCALE : UI_SCALE / ROOMY_RATIO;
   const w = app.offsetWidth || 780, h = app.offsetHeight || 600;
-  S = Math.max(0.5, Math.min(UI_SCALE, (innerWidth * 0.96) / w, (innerHeight * 0.94) / h));
+  S = Math.max(0.5, Math.min(want, (innerWidth * 0.96) / w, (innerHeight * 0.94) / h));
   document.documentElement.style.setProperty('--ui-scale', S);
-  const lbl = $('#sizeLbl'); if (lbl) lbl.textContent = Math.round(UI_SCALE * 100) + '%' + (S < UI_SCALE - 0.01 ? '*' : '');
-  if (lbl) lbl.title = S < UI_SCALE - 0.01 ? 'Shrunk to fit your screen' : '';
+  const lbl = $('#sizeLbl'); if (lbl) lbl.textContent = Math.round(UI_SCALE * 100) + '%' + (S < want - 0.01 ? '*' : '');
+  if (lbl) lbl.title = S < want - 0.01 ? 'Shrunk to fit your screen' : (dense ? 'Compact layout' : 'Roomy layout');
 }
 function setScale(v) {
   UI_SCALE = Math.round(Math.max(SIZE_MIN, Math.min(SIZE_MAX, v)) / SIZE_STEP) * SIZE_STEP;
@@ -380,7 +386,8 @@ function msg(text, cls) {
 // ---------- render ----------
 function render() {
   $('#dept').textContent = D.dept; $('#cardDept').textContent = D.dept;
-  $('#cName').textContent = D.name; $('#cRank').textContent = D.rank + (D.callsign ? ' · ' + D.callsign : '');
+  $('#cName').textContent = D.name; $('#cRank').textContent = D.rank; $('#cRank').title = D.rank;
+  $('#cCall').textContent = D.callsign ? ' · ' + D.callsign : '';
   $('#cId').textContent = D.id; $('#cPin').textContent = D.pin; $('#ini').textContent = initials(D.name);
   $('#virt').style.display = D.virtual ? '' : 'none';
   $('#status').className = 'status' + (D.onDuty ? ' on' : ''); $('#status span').textContent = D.onDuty ? 'On duty' : 'Off duty';
@@ -392,7 +399,7 @@ function render() {
   const week = D.week || [0, 0, 0, 0, 0, 0, 0], max = Math.max(6, ...week);
   $('#week').innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) =>
     '<div class="bar' + (i === D.today ? ' today' : '') + '"><em>' + (week[i] >= 0.05 ? week[i].toFixed(1) : '') + '</em><i data-h="' +
-    Math.max(2, week[i] / max * 40) + '" style="height:' + Math.max(2, week[i] / max * 40) + 'px"></i><span>' + d + '</span></div>').join('');
+    Math.max(2, week[i] / max * (document.body.classList.contains('dense') ? 40 : 64)) + '" style="height:' + Math.max(2, week[i] / max * (document.body.classList.contains('dense') ? 40 : 64)) + 'px"></i><span>' + d + '</span></div>').join('');
   $('#lastShift').textContent = D.lastShift ? 'Last shift ' + D.lastShift : 'No shifts yet';
   const n = D.next;
   if (!n) {
