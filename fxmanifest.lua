@@ -6,7 +6,7 @@ lua54 'yes'
 name 'blaze_bossmenu'
 author 'Blaze'
 description 'Boss menu, job applications, time clock and employment contracts for any job (Qbox / QBCore, ox_lib)'
-version '1.2.0'
+version '1.2.1'
 license 'GPL-3.0' -- fork of qbx_management by the Qbox Project (see LICENSE and NOTICE.md)
 repository 'Strightblazing/blaze_bossmenu' -- used by the startup version check (server/version.lua)
 
