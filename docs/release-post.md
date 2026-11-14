@@ -32,8 +32,10 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 - Clock in by tapping a virtual ID on the reader, swiping it, or typing your PIN
 - Live shift timer, hours this week and month, next rank progress with pay, who's on duty, the announcement
 - Clean modern design, adjustable size, scans while on duty just open it; Clock out button
+- Pick the style in config: **full**, **standard** or **minimal**, or turn single sections and About you lines on and off
 
 ![Time clock](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/showcase-clock.png)
+![Time clock styles](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/showcase-styles.png)
 
 **Employment contract**
 - New hires sign a real-looking contract with the mouse, filled in automatically (job, rank, pay, probation, hiring manager)

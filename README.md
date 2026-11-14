@@ -14,6 +14,8 @@ It does **not** need Blaze Medical or any other Blaze resource.
 
 ![Blaze Boss Menu](docs/screenshots/showcase.png)
 
+![Time clock styles: full, standard, minimal](docs/screenshots/showcase-styles.png)
+
 | Time clock (clock in) | Time clock (on duty) |
 |---|---|
 | ![Time clock: tap your ID](docs/screenshots/timeclock-tap.png) | ![Time clock: full view](docs/screenshots/timeclock-full.png) |

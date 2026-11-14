@@ -2,7 +2,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <title>Blaze Boss Menu showcase</title>
-<!-- Release images. Render one card per hash: #hero (1600x900), #clock, #contract, #admin (1200x675).
+<!-- Release images. Render one card per hash: #hero and #styles (1600x900), #clock, #contract, #admin (1200x675).
      Edge: msedge --headless=new --screenshot=out.png --window-size=1600,900 showcase.html#hero -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -49,6 +49,19 @@ html,body{background:var(--bg);color:var(--ink);font-family:Inter,"Segoe UI",sys
 .feat ul{list-style:none;padding:0;margin-top:22px;display:grid;gap:11px}
 .feat li{font-size:14.5px;color:#d6dce6;display:flex;gap:10px;align-items:flex-start;line-height:1.4}
 .feat li::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--green);margin-top:7px;box-shadow:0 0 8px rgba(52,199,123,.7)}
+/* styles card: the three time clock layouts */
+.styles .head{position:absolute;left:70px;top:62px;z-index:5}
+.styles .head h2{font-size:40px;margin-top:10px}
+.styles .head .lead{max-width:none}
+.col3{position:absolute;z-index:3}
+.col3 .name{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.col3 .name b{font-size:20px;font-weight:700;letter-spacing:-.3px}
+.col3 .name span{font-size:13.5px;color:var(--muted)}
+.col3 .shot{position:relative}
+.col3.pick .shot{box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(108,156,255,.55),0 0 40px rgba(108,156,255,.18)}
+.code{position:absolute;left:70px;right:70px;bottom:58px;z-index:5;display:flex;align-items:center;gap:22px;padding:16px 22px;border-radius:14px;
+  background:rgba(255,255,255,.035);border:1px solid var(--line);font-family:"JetBrains Mono",Consolas,monospace;font-size:14.5px;color:#c7cfdc}
+.code .c{color:#5f6878}.code .s{color:#8fd19e}.code .k{color:var(--accent)}.code .sep{width:1px;align-self:stretch;background:var(--line)}
 .foot{position:absolute;left:58px;bottom:44px;z-index:5;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;font-weight:500}
 .foot .mark{width:28px;height:28px;border-radius:8px;font-size:13px;box-shadow:none}.foot .mark i{width:4px;height:4px;margin-top:8px}
 </style></head>
@@ -69,6 +82,23 @@ html,body{background:var(--bg);color:var(--ink);font-family:Inter,"Segoe UI",sys
   <span class="lbl" style="left:142px;top:236px;transform:rotate(-5deg)">Employment contract</span>
   <span class="lbl" style="left:470px;top:184px">Time clock</span>
   <span class="lbl" style="right:116px;top:205px;transform:rotate(4deg)">PIN · tap · swipe</span>
+</div>
+
+<!-- STYLES: the three time clock layouts (duty.view) -->
+<div class="card hero styles" id="styles">
+  <div class="head feat" style="width:auto;height:auto;position:absolute;background:none">
+    <div class="k">Time clock styles</div>
+    <h2>Show as much, or as little, as you want.</h2>
+  </div>
+  <div class="glow" style="left:300px;top:420px;width:1000px;height:300px"></div>
+  <div class="col3 pick" style="left:70px;top:224px"><div class="name"><b>Full</b><span>everything</span></div>
+    <div class="shot" data-crop="timeclock-full 474 82 972 916" data-w="460"></div></div>
+  <div class="col3" style="left:570px;top:224px"><div class="name"><b>Standard</b><span>no About you / Department</span></div>
+    <div class="shot" data-crop="timeclock-standard 474 145 972 790" data-w="460"></div></div>
+  <div class="col3" style="left:1070px;top:224px"><div class="name"><b>Minimal</b><span>your shift + who's on duty</span></div>
+    <div class="shot" data-crop="timeclock-minimal 474 275 972 530" data-w="460"></div></div>
+  <div class="code"><span><span class="c">-- config.lua</span>&nbsp; duty.view.<span class="k">layout</span> = <span class="s">'full'</span> | <span class="s">'standard'</span> | <span class="s">'minimal'</span></span>
+    <span class="sep"></span><span><span class="c">-- or mix:</span>&nbsp; <span class="k">sections</span> = { department = <span class="s">true</span> }, <span class="k">aboutYou</span> = { phone = <span class="s">false</span> }</span></div>
 </div>
 
 <!-- TIME CLOCK -->
