@@ -91,21 +91,47 @@ local function moveGhost(ped, c, heading)
 end
 
 --- The placement card (web/place.html): what you're placing, its size and the keys. Never takes the mouse.
-local function cardShow(mode, ptype, title, group, radius, resize)
+-- While placing, moving or resizing, the game HUD and minimap are hidden so only the card shows (called every frame).
+-- Custom HUD resources can hide too by listening to 'blaze_bossmenu:client:placing' (true when it starts, false when it ends).
+local function hideHud() HideHudAndRadarThisFrame() end
+local placing = false
+local function setPlacing(on)
+    if placing == on then return end
+    placing = on
+    TriggerEvent(RES .. ':client:placing', on)
+end
+
+local function cardShow(mode, ptype, title, group, radius, resize, canExport, exportOn)
+    setPlacing(true)
     SendNUIMessage({ action = 'place:show', mode = mode, type = ptype, title = title, group = group,
-        color = ZONE_COLOR[ptype] or { 122, 162, 255 }, size = radius, resize = resize == true })
+        color = ZONE_COLOR[ptype] or { 122, 162, 255 }, size = radius, resize = resize == true,
+        canExport = canExport == true, exportOn = exportOn == true })
+end
+
+-- Output toggle on the card (G): save the point in game, or just copy a config.lua line (Config.locations).
+-- Remembered on this PC.
+local EXPORT_KVP = 'place_export'
+local exportOn = GetResourceKvpInt(EXPORT_KVP) == 1
+local function fmt(n) return ('%.2f'):format(n + 0.0) end
+local function exportPoint(e, coords, heading, radius)
+    local line = ('{ %s = \'%s\', type = \'%s\', coords = vec3(%s, %s, %s), heading = %s, radius = %s },'):format(
+        e.gtype == 'gang' and 'gang' or 'job', e.name, e.ptype, fmt(coords.x), fmt(coords.y), fmt(coords.z), fmt(heading), fmt(radius))
+    lib.setClipboard(line)
+    print('^5[blaze_bossmenu]^7 config.lua > locations:  ' .. line)
+    lib.notify({ title = 'Boss menu placement', description = 'Config line copied (also in F8). Paste it into config.lua > locations. Nothing was saved in game.', type = 'success', duration = 7000 })
 end
 local function cardSize(radius) SendNUIMessage({ action = 'place:size', size = radius }) end
-local function cardHide() SendNUIMessage({ action = 'place:hide' }) end
+local function cardHide() SendNUIMessage({ action = 'place:hide' }) setPlacing(false) end
 AddEventHandler('onResourceStop', function(res) if res == RES then cardHide() end end)
 
 --- Aim where the point goes and see it before placing.
---- opts = { ptype, radius, resize = true (wheel changes size), title, group, mode = 'place' | 'move', label (3D text) }
---- E = place, Backspace = cancel. Returns coords, heading, radius (or nil).
+--- opts = { ptype, radius, resize = true (wheel changes size), title, group, mode = 'place' | 'move', label (3D text),
+---         export = { gtype, name, ptype } (G switches to copying a config.lua line) }
+--- E = place, Backspace = cancel. Returns coords, heading, radius (or nil). With export on it copies the line and returns nil.
 local function placeMarker(text, opts)
     opts = opts or {}
     local radius = clampRadius(opts.radius or 1.0)
-    cardShow(opts.mode or 'place', opts.ptype, opts.title or text, opts.group, radius, opts.resize)
+    cardShow(opts.mode or 'place', opts.ptype, opts.title or text, opts.group, radius, opts.resize, opts.export ~= nil, exportOn)
     local aimOk = true
     local ghost = ghostPed(opts.ptype)
     local chosen
@@ -118,12 +144,21 @@ local function placeMarker(text, opts)
             local dir = sizeInput()
             if dir ~= 0 then radius = clampRadius(radius + dir * STEP_R) cardSize(radius) end
         end
+        hideHud()
+        if opts.export then
+            DisableControlAction(0, 47, true) -- G
+            if IsDisabledControlJustPressed(0, 47) then
+                exportOn = not exportOn
+                SetResourceKvpInt(EXPORT_KVP, exportOn and 1 or 0)
+                SendNUIMessage({ action = 'place:export', on = exportOn })
+            end
+        end
         local heading = GetEntityHeading(cache.ped)
         local hit, _, coords = lib.raycast.fromCamera(1 | 16, cache.ped, 15.0)
         local ok = (hit and coords) and true or false
         if ok ~= aimOk then aimOk = ok SendNUIMessage({ action = 'place:aim', ok = ok }) end
         if hit and coords then
-            drawPreview(coords, opts.ptype, radius, heading, opts.label)
+            drawPreview(coords, opts.ptype, radius, heading) -- the card names it, so no 3D text
             if ghost then moveGhost(ghost, coords, heading) end
             if IsDisabledControlJustPressed(0, 38) then chosen = coords break end
         elseif ghost then
@@ -134,6 +169,10 @@ local function placeMarker(text, opts)
     if ghost and DoesEntityExist(ghost) then DeleteEntity(ghost) end
     cardHide()
     if not chosen then return nil end
+    if opts.export and exportOn then
+        exportPoint(opts.export, chosen, GetEntityHeading(cache.ped), radius)
+        return nil
+    end
     return chosen, GetEntityHeading(cache.ped), radius
 end
 
@@ -150,6 +189,7 @@ local function sizeMarker(p, group)
         DisableControlAction(0, 194, true)
         local dir = sizeInput()
         if dir ~= 0 then radius = clampRadius(radius + dir * STEP_R) cardSize(radius) end
+        hideHud()
         drawPreview(c, p.type, radius, p.heading)
         if IsDisabledControlJustPressed(0, 38) then saved = radius break end
         if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 194) then break end
@@ -167,7 +207,8 @@ local function addFlow(info, ptype)
                 title = g.label, description = (g.gtype == 'gang' and 'Gang · ' or 'Job · ') .. g.name, arrow = true,
                 onSelect = function()
                     local coords, heading, radius = placeMarker(('%s · %s'):format(TYPE_LABEL[ptype], g.label),
-                        { ptype = ptype, radius = 1.0, resize = true, title = TYPE_LABEL[ptype], group = g.label, label = ('%s · %s'):format(TYPE_LABEL[ptype], g.label) })
+                        { ptype = ptype, radius = 1.0, resize = true, title = TYPE_LABEL[ptype], group = g.label, label = ('%s · %s'):format(TYPE_LABEL[ptype], g.label),
+                          export = { gtype = g.gtype, name = g.name, ptype = ptype } })
                     if coords then
                         result(call('addPoint', g.gtype, g.name, ptype, { x = coords.x, y = coords.y, z = coords.z }, heading, radius))
                     end
@@ -198,7 +239,9 @@ local function pointActions(p, groupLabel, backMenu, after, teleport)
     end }
     options[#options + 1] = { title = 'Move', icon = 'fa-solid fa-up-down-left-right', disabled = p.fixed ~= nil,
       description = fixed or 'Aim at the new spot and press E. Same job, type and size.', onSelect = function()
-        local coords, heading = placeMarker('Move: ' .. title, { ptype = p.type, radius = p.radius or 1.0, mode = 'move', title = TYPE_LABEL[p.type] or p.type, group = groupLabel, label = title })
+        -- admins (/bossmenu) can also export the moved spot as a config.lua line
+        local export = backMenu == 'blaze_boss_place_list' and { gtype = p.gtype, name = p.group, ptype = p.type } or nil
+        local coords, heading = placeMarker('Move: ' .. title, { ptype = p.type, radius = p.radius or 1.0, mode = 'move', title = TYPE_LABEL[p.type] or p.type, group = groupLabel, label = title, export = export })
         if coords then result(call('movePoint', p.id, { x = coords.x, y = coords.y, z = coords.z }, heading)) end
         after()
     end }

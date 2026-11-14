@@ -4,8 +4,8 @@
 <title>Blaze Boss Menu · Placement</title>
 <!-- Placement card shown while placing, moving or resizing a point (client/placement.lua). Runs inside web/index.html,
      never takes the mouse. Open this file in a browser for a demo.
-     in: { action: 'place:show', mode: 'place'|'move'|'size', type, title, group, color: [r,g,b], size, resize }
-         { action: 'place:size', size } | { action: 'place:aim', ok } | { action: 'place:hide' } -->
+     in: { action: 'place:show', mode: 'place'|'move'|'size', type, title, group, color: [r,g,b], size, resize, canExport, exportOn }
+         { action: 'place:size', size } | { action: 'place:aim', ok } | { action: 'place:export', on } | { action: 'place:hide' } -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 :root{--panel:rgba(20,21,24,.94);--surface:#1a1c20;--line:#26292e;--line2:#30343a;--text:#f2f3f5;--muted:#8b9099;--faint:#5c616a;
@@ -39,12 +39,25 @@ body.demo{background:radial-gradient(ellipse at 50% 30%,#55606b,#2a3138 70%)}
 .keys span{display:flex;align-items:center;gap:6px}
 .k{font-family:var(--mono);font-size:10.5px;color:var(--text);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--surface)}
 .keys .pri .k{border-color:rgba(var(--c),.6);color:rgb(var(--c))}
+/* output toggle: save in game or copy a config.lua line (G) */
+.out{margin-top:12px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}
+.out[hidden]{display:none}
+.out small{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg span{text-align:center;font-size:12px;font-weight:500;color:var(--muted);border-radius:6px;padding:4px 6px;transition:background .15s,color .15s}
+.seg span.on{background:var(--line2);color:var(--text)}
+.seg span.on.exp{background:rgba(var(--c),.18);color:rgb(var(--c))}
+.note{margin-top:8px;font-size:11.5px;color:var(--faint)}
+.note[hidden]{display:none}
 .shot .card{transition:none}
 </style></head>
 <body>
 <div class="card" id="card">
   <div class="top"><span class="dot"></span><div class="ttl"><b id="title">Duty point</b><small id="group">EMS</small></div><span class="mode" id="mode">Place</span></div>
   <div class="size"><small>Size</small><div class="track"><i id="bar"></i></div><span class="val" id="val">1.00 m</span></div>
+  <div class="out" id="out" hidden><small>Output</small>
+    <div class="seg"><span id="outSave">Save in game</span><span id="outExport" class="exp">Copy config line</span></div><span class="k">G</span></div>
+  <div class="note" id="note" hidden>Nothing is saved: the config.lua line goes to your clipboard and F8.</div>
   <div class="aim" id="aim"><i></i><span id="aimText">Aim at the spot</span></div>
   <div class="keys" id="keys"></div>
 </div>
@@ -55,8 +68,17 @@ let S = { mode: 'place', resize: true, size: 1 };
 
 function keys() {
   const k = (key, label, pri) => '<span' + (pri ? ' class="pri"' : '') + '><span class="k">' + key + '</span>' + label + '</span>';
-  const act = S.mode === 'size' ? 'Save' : (S.mode === 'move' ? 'Move here' : 'Place');
+  const act = S.exportOn ? 'Copy line' : (S.mode === 'size' ? 'Save' : (S.mode === 'move' ? 'Move here' : 'Place'));
   $('keys').innerHTML = k('E', act, true) + (S.resize ? k('Scroll / ↑↓', 'Size') : '') + k('Backspace', 'Cancel');
+}
+function output(on) {
+  S.exportOn = !!on;
+  $('out').hidden = !S.canExport;
+  $('outSave').classList.toggle('on', !S.exportOn);
+  $('outExport').classList.toggle('on', S.exportOn);
+  $('note').hidden = !(S.canExport && S.exportOn);
+  $('mode').textContent = S.exportOn ? 'Export' : (S.mode === 'size' ? 'Resize' : (S.mode === 'move' ? 'Move' : 'Place'));
+  keys();
 }
 function size(v, bump) {
   S.size = v;
@@ -76,8 +98,7 @@ function show(d) {
   document.documentElement.style.setProperty('--c', c.join(','));
   $('title').textContent = d.title || 'Point';
   $('group').textContent = d.group || '';
-  $('mode').textContent = S.mode === 'size' ? 'Resize' : (S.mode === 'move' ? 'Move' : 'Place');
-  size(S.size); aim(true); keys();
+  size(S.size); aim(true); output(S.exportOn);
   $('card').classList.add('show');
 }
 addEventListener('message', e => {
@@ -85,16 +106,18 @@ addEventListener('message', e => {
   if (d.action === 'place:show') show(d);
   else if (d.action === 'place:size') size(d.size, true);
   else if (d.action === 'place:aim') aim(!!d.ok);
+  else if (d.action === 'place:export') output(d.on);
   else if (d.action === 'place:hide') $('card').classList.remove('show');
 });
 
-/* demo in a normal browser: #move, #size, #noaim */
+/* demo in a normal browser: #move, #size, #noaim, #export (G toggles the output here too) */
 if (window.parent === window) {
   document.body.classList.add('demo');
   const h = location.hash.slice(1);
   if (h) document.body.classList.add('shot');
   show({ mode: h === 'move' ? 'move' : (h === 'size' ? 'size' : 'place'), title: h === 'size' ? 'Applications point' : 'Duty point', group: 'EMS',
-         color: h === 'size' ? [90, 169, 255] : [63, 185, 122], size: 1.25, resize: h !== 'move' });
+         color: h === 'size' ? [90, 169, 255] : [63, 185, 122], size: 1.25, resize: h !== 'move', canExport: h !== 'size', exportOn: h === 'export' });
+  addEventListener('keydown', e => { if (e.key.toLowerCase() === 'g' && S.canExport) output(!S.exportOn); });
   if (h === 'noaim') aim(false);
   if (!h) { let v = 1.25, dir = 1; setInterval(() => { v += 0.25 * dir; if (v >= 3 || v <= 0.75) dir = -dir; size(v, true); }, 900); }
 }

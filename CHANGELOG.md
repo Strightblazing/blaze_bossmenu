@@ -2,10 +2,12 @@
 
 ## Unreleased
 
-- Placing points shows a live preview: the zone ring at its real size and color, a label, the facing direction, and a
+- Placing points shows a live preview: the zone ring at its real size and color, the facing direction, and a
   see-through receptionist for application points. Size with the mouse wheel or arrow keys while aiming (no more typing
   it in); **Change size** previews the ring on the spot. A new placement card (web/place.html) replaces the ox_lib text
-  prompt: type and job in its color, a live size bar, aim status and the keys.
+  prompt: type and job in its color, a live size bar, aim status and the keys. The game HUD hides while placing
+  (event `blaze_bossmenu:client:placing` for custom HUDs). **G** switches the output to copying a config.lua line instead
+  of saving (admins, remembered on the PC).
 - Fix: the receptionist at application points can be targeted (ox_target / qb-target), not just the floor at the point.
 - Lighter: the debug panel and debug labels no longer check once a second on every client (they start only when an
   admin turns debug on), the Discord sender only runs when a webhook is set, and the time clock stops updating while closed.
