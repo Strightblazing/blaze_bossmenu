@@ -45,6 +45,14 @@ openTest = function()
                   local ok = UI.confirm({ header = 'Job offer', content = 'Test Manager wants to hire you into Test Department. Do you accept?', type = 'info', confirm = 'Accept', cancel = 'Decline' })
                   result(true, ok and 'You pressed Accept (preview only).' or 'You pressed Decline (preview only).')
               end },
+            { title = 'Preview: employment contract', icon = 'fa-solid fa-file-signature', iconColor = '#A78BFA', description = 'Read and sign it yourself (nothing is saved)',
+              onSelect = function()
+                  local C = Config.contract or {}
+                  local r = BMC.signContract({ from = 'Test Manager', group = 'Test Department', rank = 'Probationary Paramedic', pay = 500,
+                      probationDays = (Config.features or {}).probationDays, date = os.date and os.date('%m-%d-%Y') or '', terms = C.terms or {},
+                      expectedName = info.myName }, C.seconds or 90)
+                  result(r.accepted, r.accepted and ('Signed as "%s" (preview only).'):format(r.signature) or 'Not signed (preview only).')
+              end },
             { title = 'Preview: announcement popup', icon = 'fa-solid fa-bullhorn', description = 'What on-duty staff see',
               onSelect = function() TriggerEvent(RES .. ':client:announcement', 'Test Department', 'This is a test announcement. Briefing at 8pm!', 'Test Manager') end },
             { title = 'Remove all test data', icon = 'fa-solid fa-trash', iconColor = '#E5484D', description = 'Deletes every test character and everything linked to them',

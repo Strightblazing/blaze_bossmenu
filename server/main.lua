@@ -587,20 +587,40 @@ end)
 ---------------------------------------------------------------------------
 -- Hire consent (from qbx_management)
 ---------------------------------------------------------------------------
-local function askConsent(target, fromName, label)
+--- Normalise a name/signature for comparing: lowercase, single spaces
+local function plainName(s)
+    return tostring(s or ''):lower():gsub('[^%w%s%-\']', ''):gsub('%s+', ' '):gsub('^%s', ''):gsub('%s$', '')
+end
+
+--- Ask the person being hired. With Config.contract.enabled they read and sign an employment contract.
+--- Returns accepted, signature (signature only for contracts).
+local function askConsent(target, offer)
     if not Config.hireConsent then return true end
+    local C = Config.contract or {}
+    local seconds = C.enabled and (C.seconds or 90) or (Config.hireConsentSeconds or 30)
+    offer.contract = C.enabled == true
+    offer.expectedName = Bridge.GetName(target)
     local p, done = promise.new(), false
     lib.callback(RES .. ':client:confirmHire', target, function(answer)
         if done then return end
         done = true
-        p:resolve(answer == true)
-    end, fromName, label, Config.hireConsentSeconds or 30)
-    SetTimeout(((Config.hireConsentSeconds or 30) + 2) * 1000, function()
+        if type(answer) == 'table' then p:resolve(answer) else p:resolve({ accepted = answer == true }) end
+    end, offer, seconds)
+    SetTimeout((seconds + 2) * 1000, function()
         if done then return end
         done = true
-        p:resolve(false)
+        p:resolve({ accepted = false, timeout = true })
     end)
-    return Citizen.Await(p)
+    local a = Citizen.Await(p)
+    if not a.accepted then return false, nil, a.timeout and 'They didn\'t answer in time.' or 'They declined the offer.' end
+    if offer.contract then
+        -- the server checks the signature too: it must be their character's full name
+        if C.requireExactName ~= false and plainName(a.signature) ~= plainName(offer.expectedName) then
+            return false, nil, 'The contract wasn\'t signed with their full name.'
+        end
+        return true, cleanText(a.signature, 60) or offer.expectedName
+    end
+    return true
 end
 
 ---------------------------------------------------------------------------
@@ -773,15 +793,28 @@ register('hire', function(src, gtype, name, target, grade)
     if not Bridge.GetGrade(gtype, name, grade) then return false, 'That rank doesn\'t exist.' end
     if grade >= limit then return false, 'You can only hire up to the rank below yours.' end
     local label = groupLabel(gtype, name)
-    if not askConsent(target, Bridge.GetName(src), label) then return false, 'They declined the offer.' end
+    local g = Bridge.GetGrade(gtype, name, grade) or {}
+    local c = groupCfg(gtype, name) or {}
+    local days = gtype == 'job' and tonumber((Config.features or {}).probationDays) or 0
+    local accepted, signature, why = askConsent(target, {
+        from = Bridge.GetName(src), group = label, rank = g.name or tostring(grade), date = os.date('%m-%d-%Y'),
+        pay = gtype == 'job' and tonumber(g.payment) or nil, probationDays = days > 0 and days or nil,
+        terms = c.contractTerms or (Config.contract and Config.contract.terms) or {},
+    })
+    if not accepted then return false, why or 'They declined the offer.' end
+    -- they may have walked off while reading
+    if #(GetEntityCoords(GetPlayerPed(src)) - GetEntityCoords(GetPlayerPed(target))) > (Config.hireDistance or 5.0) + 5.0 then
+        return false, 'They walked away before the contract was done.'
+    end
     local cid = tp.PlayerData.citizenid
     local ok, err = Bridge.SetGroup(cid, gtype, name, grade)
     if not ok then return false, err or 'Could not hire them.' end
     local who = Bridge.GetName(target)
     Bridge.Notify(target, ('You were hired into %s as %s.'):format(label, gradeName(gtype, name, grade)), 'success')
-    hook('hired', src, cid, gtype, name, grade, target)
-    Logs.log('hire', src, ('%s hired %s into %s as %s'):format(Logs.who(src), Logs.who(target), label, gradeName(gtype, name, grade)), { Group = gkey(gtype, name), Target = cid, Grade = grade })
-    return true, ('%s was hired.'):format(who)
+    hook('hired', src, cid, gtype, name, grade, target, nil, signature)
+    Logs.log('hire', src, ('%s hired %s into %s as %s%s'):format(Logs.who(src), Logs.who(target), label, gradeName(gtype, name, grade), signature and ' (contract signed)' or ''),
+        { Group = gkey(gtype, name), Target = cid, Grade = grade })
+    return true, signature and ('%s signed the contract and was hired.'):format(who) or ('%s was hired.'):format(who)
 end)
 
 ---------------------------------------------------------------------------

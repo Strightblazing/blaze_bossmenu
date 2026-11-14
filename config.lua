@@ -37,6 +37,27 @@ Config = {
     -- Seconds they have to answer before it counts as declined
     hireConsentSeconds = 30,
 
+    -- Employment contract: instead of a plain Accept/Decline, the person being hired reads a contract
+    -- (employer, position, pay, probation, terms) and signs it by typing their character's full name.
+    -- Their character writes on a notepad while signing, and the signed contract goes on their record.
+    -- Needs hireConsent = true.
+    contract = {
+        enabled = true,
+        -- Seconds to read and sign before the offer expires
+        seconds = 90,
+        -- The signature must match their character's name (checked on the server)
+        requireExactName = true,
+        -- Notepad animation while reading/signing
+        animation = true,
+        -- Terms shown on every contract. A job can have its own with jobs[x].contractTerms = { ... }
+        terms = {
+            'Show up for your shifts and follow department rules and the chain of command.',
+            'Treat the public and your co-workers with respect.',
+            'Department vehicles, equipment and funds are for work only.',
+            'Either side may end this employment at any time.',
+        },
+    },
+
     -- Duty hours (from qbx_management): logs on/off duty time per employee and shows hours + last check-in
     -- in the staff list. Uses the same player_jobs_activity table as qbx_management, so old hours carry over.
     activity = {

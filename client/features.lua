@@ -12,9 +12,9 @@ BMC = {}
 ---------------------------------------------------------------------------
 -- Profiles
 ---------------------------------------------------------------------------
-local RECORD_ICON = { commend = 'fa-solid fa-award', warning = 'fa-solid fa-triangle-exclamation', rank = 'fa-solid fa-ranking-star', eotw = 'fa-solid fa-star' }
-local RECORD_COLOR = { commend = '#3DDC84', warning = '#E5484D', rank = '#5AA9FF', eotw = '#F5C542' }
-local RECORD_LABEL = { commend = 'Commendation', warning = 'Write-up', rank = 'Rank', eotw = 'Employee of the Week' }
+local RECORD_ICON = { commend = 'fa-solid fa-award', warning = 'fa-solid fa-triangle-exclamation', rank = 'fa-solid fa-ranking-star', eotw = 'fa-solid fa-star', contract = 'fa-solid fa-file-signature' }
+local RECORD_COLOR = { commend = '#3DDC84', warning = '#E5484D', rank = '#5AA9FF', eotw = '#F5C542', contract = '#A78BFA' }
+local RECORD_LABEL = { commend = 'Commendation', warning = 'Write-up', rank = 'Rank', eotw = 'Employee of the Week', contract = 'Contract' }
 
 --- Menu options for a profile (shared by the staff list and /myjob)
 function BMC.profileOptions(p)
@@ -124,6 +124,78 @@ end
 if Config.applications.enabled and F.jobBoardCommand then
     RegisterCommand(F.jobBoardCommand, openJobBoard, false)
     TriggerEvent('chat:addSuggestion', '/' .. F.jobBoardCommand, 'See which jobs are hiring and where to apply')
+end
+
+---------------------------------------------------------------------------
+-- Employment contract (Config.contract): read it, sign with your full name, little writing animation
+---------------------------------------------------------------------------
+local function plainName(s)
+    return (tostring(s or ''):lower():gsub('[^%w%s%-\']', ''):gsub('%s+', ' '):gsub('^%s', ''):gsub('%s$', ''))
+end
+
+local function contractText(offer)
+    local lines = {
+        ('**%s** is offering you a position with **%s**.'):format(offer.from or 'Management', offer.group or '?'),
+        '',
+        ('- **Position:** %s'):format(offer.rank or '?'),
+    }
+    if offer.pay then lines[#lines + 1] = ('- **Pay:** $%s per paycheck'):format(math.floor(offer.pay)) end
+    if offer.probationDays then lines[#lines + 1] = ('- **Probation:** %d days'):format(offer.probationDays) end
+    lines[#lines + 1] = ('- **Date:** %s'):format(offer.date or '')
+    if offer.terms and #offer.terms > 0 then
+        lines[#lines + 1] = ''
+        lines[#lines + 1] = '**Terms of employment**'
+        for i, t in ipairs(offer.terms) do lines[#lines + 1] = ('%d. %s'):format(i, t) end
+    end
+    lines[#lines + 1] = ''
+    lines[#lines + 1] = '_By signing you accept this position and agree to the terms above._'
+    return table.concat(lines, '\n')
+end
+
+--- Returns { accepted = bool, signature = string? }. preview = true never sends anything (test menu).
+function BMC.signContract(offer, seconds)
+    local C = Config.contract or {}
+    local timedOut, open = false, true
+    SetTimeout((seconds or 90) * 1000, function()
+        if not open then return end
+        timedOut = true
+        UI.closeConfirm()
+        UI.closeInput()
+    end)
+
+    -- pen and notepad while reading and signing
+    local animating = C.animation ~= false and not IsPedInAnyVehicle(cache.ped, false)
+    if animating then TaskStartScenarioInPlace(cache.ped, 'CODE_HUMAN_MEDIC_TIME_OF_DEATH', 0, true) end
+    local function finish(res)
+        open = false
+        if animating then ClearPedTasks(cache.ped) end
+        return res
+    end
+
+    if not UI.confirm({ header = '📝 Employment Contract', content = contractText(offer), type = 'info', icon = 'fa-solid fa-file-signature',
+            confirm = 'Sign contract', cancel = 'Decline' }) or timedOut then
+        return finish({ accepted = false })
+    end
+
+    local expected = offer.expectedName or ''
+    for _ = 1, 3 do
+        local v = UI.input('Sign the contract', {
+            { type = 'input', label = 'Signature', description = ('Sign with your full name: %s'):format(expected), placeholder = expected, required = true, maxLength = 60 },
+            { type = 'checkbox', label = 'I have read and agree to the terms', required = true },
+        }, { submitText = 'Sign' })
+        if not v or timedOut then return finish({ accepted = false }) end
+        if not v[2] then
+            notify('Tick the box to agree to the terms.', 'error', 'Contract')
+        elseif C.requireExactName ~= false and plainName(v[1]) ~= plainName(expected) then
+            notify(('That\'s not your name. Sign as "%s".'):format(expected), 'error', 'Contract')
+        else
+            PlaySoundFrontend(-1, 'PICK_UP', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
+            if animating then Wait(1500) end -- finish the last pen stroke
+            return finish({ accepted = true, signature = v[1] })
+        end
+    end
+    notify('Contract not signed.', 'error', 'Contract')
+    return finish({ accepted = false })
 end
 
 ---------------------------------------------------------------------------

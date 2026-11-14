@@ -51,6 +51,14 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - **Daily withdrawal limits per rank** (`jobs[x].withdrawLimits`), covering withdrawals and bonuses. Admins aren't limited.
 - **Payroll**: pay per rank, and what one paycheck costs for everyone / for staff on duty now.
 
+**Employment contract**
+- When someone is hired nearby, they get a **contract** instead of a plain Accept/Decline: employer, position, pay,
+  probation, date and the terms (`contract.terms`, or per job `jobs[x].contractTerms`).
+- They **sign by typing their character's full name** and ticking "I agree" (the server checks the name).
+  Their character writes on a notepad while reading and signing.
+- The signed contract is saved on their record, they get a "CONTRACT SIGNED" celebration, and the manager is told.
+- Try it alone with `/bossmenutest` → **Preview: employment contract**.
+
 **Flair**
 - **Celebrations**: big centre-screen message + sound for new hires, promotions, bonuses and Employee of the Week.
 - **Handshake**: manager and new hire shake hands when a nearby hire is accepted.
@@ -170,6 +178,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `adminsCanManage` | Admins can open and use any configured job's or gang's boss menu. |
 | `hireDistance` | How close (m) someone must be to be hired. |
 | `hireConsent` / `hireConsentSeconds` | Accept/Decline popup for the person being hired, and how long they have. |
+| `contract.*` | Employment contract to sign instead: `enabled`, `seconds`, `requireExactName`, `animation`, `terms`. |
 | `activity.*` | Duty hours: on/off, shortest shift saved, days kept, date format. |
 | `gradeEditor` | In-game rank editor (Qbox, also needs `qbx:enableGroupManagement "true"`). |
 | `qbxManagementCompat` | Answer qbx_management exports and qb-bossmenu events while qbx_management is stopped. |

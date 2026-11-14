@@ -46,17 +46,23 @@ end
 -- Hooks from server/main.lua
 ---------------------------------------------------------------------------
 --- Someone joined (hire or accepted application). handshakeWith = hiring manager's partner src (nearby hire).
-BM.hooks.hired = function(src, cid, gtype, name, grade, handshakeWith, onlineSrc)
+BM.hooks.hired = function(src, cid, gtype, name, grade, handshakeWith, onlineSrc, signature)
     local key = BM.gkey(gtype, name)
     local days = gtype == 'job' and tonumber(F.probationDays) or 0
     MySQL.query.await(([[INSERT INTO blaze_boss_members (citizenid, job, hired_at, probation_until, probation_done)
         VALUES (?, ?, NOW(), %s, 0) ON DUPLICATE KEY UPDATE hired_at = NOW(), probation_until = VALUES(probation_until), probation_done = 0]])
         :format(days > 0 and 'DATE_ADD(NOW(), INTERVAL ? DAY)' or 'NULL'), days > 0 and { cid, key, days } or { cid, key })
     if F.records then addRecord(gtype, name, cid, 'rank', ('Joined as %s'):format(BM.gradeName(gtype, name, grade)), Bridge.GetName(src)) end
+    -- signed employment contract (Config.contract): kept on their record
+    if signature then
+        addRecord(gtype, name, cid, 'contract', ('Employment contract signed "%s" as %s, offered by %s')
+            :format(signature, BM.gradeName(gtype, name, grade), Bridge.GetName(src)), Bridge.GetName(src))
+    end
 
     local target = onlineSrc or handshakeWith
     if target then
-        celebrate(target, ('WELCOME TO %s'):format(label(gtype, name):upper()), BM.gradeName(gtype, name, grade))
+        celebrate(target, signature and 'CONTRACT SIGNED' or ('WELCOME TO %s'):format(label(gtype, name):upper()),
+            signature and ('Welcome to %s, %s'):format(label(gtype, name), BM.gradeName(gtype, name, grade)) or BM.gradeName(gtype, name, grade))
         local c = BM.groupCfg(gtype, name)
         for _, it in ipairs(c and c.starterItems or {}) do
             if type(it) == 'table' and it.item then

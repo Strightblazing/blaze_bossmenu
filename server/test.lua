@@ -60,7 +60,7 @@ register('testInfo', function(src)
     end
     table.sort(groups, function(a, b) return a.label < b.label end)
     return {
-        groups = groups,
+        groups = groups, myName = Bridge.GetName(src),
         characters = MySQL.scalar.await('SELECT COUNT(*) FROM players WHERE citizenid LIKE ?', { PREFIX .. '%' }) or 0,
         applications = MySQL.scalar.await('SELECT COUNT(*) FROM blaze_boss_applications WHERE citizenid LIKE ?', { PREFIX .. '%' }) or 0,
     }

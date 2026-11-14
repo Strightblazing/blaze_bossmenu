@@ -120,6 +120,12 @@ function UI.confirm(data)
     return lib.alertDialog({ header = data.header, content = data.content, centered = true, cancel = true, labels = labels }) == 'confirm'
 end
 
+--- Close an open input dialog (used when a contract times out)
+function UI.closeInput()
+    if useLation then return pcall(function() exports.lation_ui:closeInput() end) end
+    return lib.closeInputDialog()
+end
+
 --- Close an open confirm popup (used when a hire offer times out)
 function UI.closeConfirm()
     if useLation then return pcall(function() exports.lation_ui:closeAlert() end) end

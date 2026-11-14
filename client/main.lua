@@ -206,7 +206,9 @@ end
 local function doHire(m, target, name)
     local grade = pickRank(m, 'Hire ' .. (name or ('ID ' .. target)))
     if not grade then return end
-    if Config.hireConsent then notify('Waiting for them to accept the offer…', 'inform') end
+    if Config.hireConsent then
+        notify((Config.contract or {}).enabled and 'Contract sent. Waiting for them to read and sign it…' or 'Waiting for them to accept the offer…', 'inform')
+    end
     result(call('hire', m.gtype, m.name, target, grade))
 end
 
@@ -885,13 +887,15 @@ end
 ---------------------------------------------------------------------------
 -- Hire consent (from qbx_management)
 ---------------------------------------------------------------------------
-lib.callback.register(RES .. ':client:confirmHire', function(fromName, label, seconds)
+--- offer = { from, group, rank, pay, probationDays, terms, date, contract, expectedName }
+lib.callback.register(RES .. ':client:confirmHire', function(offer, seconds)
+    if offer.contract then return BMC.signContract(offer, seconds) end -- client/features.lua
     local open = true
     SetTimeout((seconds or 30) * 1000, function() if open then UI.closeConfirm() end end)
-    local ok = UI.confirm({ header = 'Job offer', content = ('%s wants to hire you into %s. Do you accept?'):format(fromName, label),
+    local ok = UI.confirm({ header = 'Job offer', content = ('%s wants to hire you into %s as %s. Do you accept?'):format(offer.from, offer.group, offer.rank),
         type = 'info', confirm = 'Accept', cancel = 'Decline' })
     open = false
-    return ok
+    return { accepted = ok }
 end)
 
 ---------------------------------------------------------------------------
