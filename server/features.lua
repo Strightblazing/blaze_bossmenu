@@ -221,6 +221,10 @@ local function buildProfile(gtype, name, cid)
     if F.employeeOfWeek then
         p.eotw = MySQL.scalar.await('SELECT 1 FROM blaze_boss_eotw WHERE job = ? AND citizenid = ? AND week = YEARWEEK(NOW(), 3)', { key, cid }) and true or nil
     end
+    do
+        local pl = Bridge.GetPlayerByCitizenId(cid)
+        p.phone, p.email = Bridge.GetContact(cid, pl and pl.PlayerData.source or nil)
+    end
     p.contracts = MySQL.query.await("SELECT id, number, DATE_FORMAT(signed_at, '%m-%d-%Y') AS at FROM blaze_boss_contracts WHERE job = ? AND citizenid = ? ORDER BY id DESC LIMIT 5", { key, cid }) or {}
     if F.records then
         p.records = MySQL.query.await("SELECT type, text, by_name, DATE_FORMAT(created_at, '%m-%d-%Y') AS at FROM blaze_boss_records WHERE job = ? AND citizenid = ? ORDER BY id DESC LIMIT 25", { key, cid }) or {}
@@ -809,7 +813,10 @@ if DUTY.enabled then
             and MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status IN ('new','interview')", { job }) or nil
         local eotwName = F.employeeOfWeek and MySQL.scalar.await('SELECT name FROM blaze_boss_eotw WHERE job = ? AND week = YEARWEEK(NOW(), 3)', { key }) or nil
 
+        local phone, email = Bridge.GetContact(cid, src)
+
         return {
+            phone = phone, email = email,
             fullName = c.fullName, jobType = TYPES[shared.type] or (shared.type and shared.type:gsub('^%l', string.upper)) or nil,
             rankPos = rankPos, rankCount = #grades,
             employedDays = mem and tonumber(mem.days) or nil, employedSince = mem and mem.since or nil,

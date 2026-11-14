@@ -240,6 +240,18 @@ Config = {
         maxPerJob = 30,
     },
 
+    -- Phone number + email on the time clock (About you) and in employee profiles.
+    -- Auto-detects: sd-phone, lb-phone, high-phone, qs-smartphone-pro, qs-smartphone (qs-base), 17mov_Phone, npwd,
+    -- then falls back to the character's own phone (qb-phone, nPhone and others).
+    contact = {
+        enabled = true,
+        -- 'auto' = first phone resource that's running, or one resource name, e.g. 'lb-phone'
+        phone = 'auto',
+        -- Your own lookup for any other phone script (return nil to fall through to the ones above):
+        -- getPhone = function(citizenid, source) return exports['my-phone']:GetNumber(citizenid) end,
+        -- getEmail = function(citizenid, source) return exports['my-phone']:GetEmail(citizenid) end,
+    },
+
     -- Managers place/move/delete their OWN job's points from the boss menu (Locations). Admins can always use /bossmenu.
     managerPlacement = {
         enabled = true,

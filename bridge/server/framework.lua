@@ -303,6 +303,92 @@ function Bridge.AddItem(src, item, count, metadata)
     return p and p.Functions.AddItem and p.Functions.AddItem(item, count or 1, nil, metadata) or false
 end
 
+---------------------------------------------------------------------------
+-- Contact info (phone number + email) for profiles and the time clock.
+-- Phone resources are auto-detected; then the character's own data. Config.contact can add your own.
+---------------------------------------------------------------------------
+local function fmtPhone(n)
+    if not n or n == '' then return nil end
+    local d = tostring(n):gsub('%D', '')
+    if #d == 10 then return ('(%s) %s-%s'):format(d:sub(1, 3), d:sub(4, 6), d:sub(7)) end
+    if #d == 7 then return ('%s-%s'):format(d:sub(1, 3), d:sub(4)) end
+    return tostring(n)
+end
+
+local function try(fn, ...)
+    local ok, res = pcall(fn, ...)
+    if ok and res ~= nil and res ~= false and res ~= '' then return res end
+end
+
+--- Phone resources, tried in this order (the first one that's running and answers wins). Each entry is called
+--- inside pcall, so a renamed export can't break anything. Export names come from each resource's own docs.
+---   phone(cid, src) / email(cid, src, phone)   (src = their server id when online, else nil)
+local PHONES = {
+    { res = 'sd-phone', -- checked against sd-phone's code
+      phone = function(cid) return exports['sd-phone']:getPhoneNumberByIdentifier(cid) end,
+      email = function(cid)
+          local list = exports['sd-phone']:getMailAddresses(cid)
+          return type(list) == 'table' and list[1] and list[1].email or nil
+      end },
+    { res = 'lb-phone', -- docs.lbscripts.com: GetEquippedPhoneNumber(source or identifier), GetEmailAddress(phoneNumber)
+      phone = function(cid, src) return exports['lb-phone']:GetEquippedPhoneNumber(src or cid) end,
+      email = function(_, _, phone) return phone and exports['lb-phone']:GetEmailAddress(phone) or nil end },
+    { res = 'high-phone', -- docs.high-scripts.com: getPlayerPhoneNumber(id), getPlayerMailAccount(source) / getOfflinePlayerMailAccount(identifier)
+      phone = function(_, src) return src and exports['high-phone']:getPlayerPhoneNumber(src) or nil end,
+      email = function(cid, src)
+          local acc = src and exports['high-phone']:getPlayerMailAccount(src) or exports['high-phone']:getOfflinePlayerMailAccount(cid)
+          return type(acc) == 'table' and acc.address or nil
+      end },
+    { res = 'qs-smartphone-pro', -- Quasar docs: GetPhoneNumberFromIdentifier(identifier, isOwned)
+      phone = function(cid) return exports['qs-smartphone-pro']:GetPhoneNumberFromIdentifier(cid, false) end },
+    { res = 'qs-base', -- Quasar Smartphone (non-pro): GetPlayerPhone(source)
+      phone = function(_, src) return src and exports['qs-base']:GetPlayerPhone(src) or nil end },
+    { res = '17mov_Phone', -- docs.17movement.net: GetNumberFromPlayer(src), GetNumberFromIdentifier(identifier)
+      phone = function(cid, src)
+          if src then return exports['17mov_Phone']:GetNumberFromPlayer(src) end
+          return exports['17mov_Phone']:GetNumberFromIdentifier(cid)
+      end },
+    { res = 'npwd', -- projecterror.dev: getPlayerData({ source } or { identifier }) -> .phoneNumber
+      phone = function(cid, src)
+          local d = exports.npwd:getPlayerData(src and { source = src } or { identifier = cid })
+          return type(d) == 'table' and d.phoneNumber or nil
+      end },
+}
+Bridge.PhoneResources = PHONES
+
+--- Returns phone, email (either can be nil). src = their server id if online.
+function Bridge.GetContact(cid, src)
+    local C = Config.contact or {}
+    if C.enabled == false or not cid then return nil, nil end
+    local phone, email
+    -- 1) your own lookup (config.lua > contact.getPhone / getEmail)
+    if type(C.getPhone) == 'function' then phone = try(C.getPhone, cid, src) end
+    if type(C.getEmail) == 'function' then email = try(C.getEmail, cid, src) end
+    -- 2) phone resources (only the ones that are running; contact.phone = 'auto' or one resource name)
+    for _, p in ipairs(PHONES) do
+        if (C.phone == nil or C.phone == 'auto' or C.phone == p.res) and GetResourceState(p.res) == 'started' then
+            if not phone and p.phone then phone = try(p.phone, cid, src) end
+            if not email and p.email then email = try(p.email, cid, src, phone) end
+            if phone and email then break end
+        end
+    end
+    -- 3) the character's own data (qb-phone, nPhone and many others keep the number here)
+    if not phone then
+        local pl = byCitizenId(cid)
+        local ci = pl and pl.PlayerData.charinfo
+        phone = ci and ci.phone or nil
+        if not phone and QBX then -- Qbox's players table has a phone_number column
+            phone = try(function() return MySQL.scalar.await('SELECT phone_number FROM players WHERE citizenid = ?', { cid }) end)
+        end
+        if not phone then
+            local raw = try(function() return MySQL.scalar.await('SELECT charinfo FROM players WHERE citizenid = ?', { cid }) end)
+            local info = raw and json.decode(raw)
+            phone = info and info.phone or nil
+        end
+    end
+    return fmtPhone(phone), email
+end
+
 --- Phone mail (sd-phone). Works for offline players too. Returns true if delivered.
 function Bridge.SendMail(cid, fromName, fromEmail, subject, body)
     if GetResourceState('sd-phone') ~= 'started' then return false end

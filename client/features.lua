@@ -23,6 +23,8 @@ function BMC.profileOptions(p)
         icon = 'fa-solid fa-id-badge', readOnly = true }
     if p.eotw then o[#o + 1] = { title = 'Employee of the Week', icon = 'fa-solid fa-star', iconColor = '#F5C542', readOnly = true } end
     o[#o + 1] = { title = 'Hired', description = p.hiredAt or 'Before records began', icon = 'fa-regular fa-calendar', readOnly = true }
+    if p.phone then o[#o + 1] = { title = 'Phone', description = p.phone, icon = 'fa-solid fa-phone', readOnly = true } end
+    if p.email then o[#o + 1] = { title = 'Email', description = p.email, icon = 'fa-solid fa-envelope', readOnly = true } end
     if p.probationUntil then
         o[#o + 1] = { title = 'On probation', description = 'Until ' .. p.probationUntil, icon = 'fa-solid fa-hourglass-half', iconColor = '#F0A93B', readOnly = true }
     end

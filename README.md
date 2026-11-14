@@ -42,7 +42,7 @@ It does **not** need Blaze Medical or any other Blaze resource.
 ### Extras (each can be turned off in `Config.features`, `Config.applications` or `Config.funds`)
 
 **Staff**
-- **Employee profiles**: hire date, probation, hours this week and this month, last check-in, rank history and record.
+- **Employee profiles**: hire date, phone and email (from the phone resource), probation, hours this week and this month, last check-in, rank history and record.
 - **Commendations & write-ups** on an employee's record (write-ups only for people below you). They're told right away.
 - **Probation**: new hires are on probation for `probationDays`; managers get a reminder when it ends.
 - **Badges in the staff list**: Employee of the Week, Probation, Inactive (no duty in `inactiveDays`), Ready for promotion (`promotionHours`).
@@ -251,6 +251,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `features.receptionist` | NPC at applications points: `enabled`, `model`, `scenario`, `greet`. |
 | `duty.*` | Duty points: `enabled`, `style` (`'clock'` screen / `'instant'` toggle), `methods` (`'tap'`, `'swipe'`, `'keypad'`). |
 | `outfits.*` | Job outfits: `enabled`, `appearance` (`'auto'` = illenium-appearance if running, `'native'`), `maxPerJob`. |
+| `contact.*` | Phone + email on the time clock and in profiles: `enabled`, `phone` (`'auto'` or a resource name), optional `getPhone` / `getEmail` functions. Auto-detects sd-phone, lb-phone, high-phone, qs-smartphone-pro, qs-smartphone, 17mov_Phone, npwd, then the character's own phone. |
 | `managerPlacement.*` | Managers place their own job's points: `enabled`, `types`, `teleport`. |
 | `radial.*` | "Work" radial entry for bosses: `enabled`, `label`, `icon`. |
 | `locations` | Fixed points from config (added to the ones placed in game). Types: boss, applications, review, duty, outfits. |

@@ -167,7 +167,7 @@ body.demo{background:#2a2d33}
 /* job full name, About you, Department */
 .dept .full{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .facts{display:grid;grid-template-columns:auto 1fr;gap:7px 18px;font-size:13px}
-.facts .k{color:var(--muted)}.facts .v{color:var(--text);text-align:right}
+.facts .k{color:var(--muted)}.facts .v{color:var(--text);text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .facts .v small{color:var(--faint);font-size:11.5px;margin-left:4px}
 .app.mini .about-block,.app.mini .dept .full{display:none}
 .dense .facts{font-size:12px;gap:5px 14px}
@@ -371,6 +371,7 @@ let D = {
   tags: ['Employee of the week', 'Probation · 3 days left'],
   onDutyList: [['Dr. Steven Blaze', 'Chief'], ['Mike Kerr', 'EMT'], ['Ana Lopez', 'Paramedic']],
   announcement: { message: 'Training night Thursday 8pm at Pillbox. Bring your trauma kit.', by: 'Dr. Steven Blaze', at: '11-13-2026' },
+  phone: '(555) 014-2290', email: 'jane.doe@ems.ls',
   fullName: 'Emergency Medical Services', jobType: 'Medical', rankPos: 2, rankCount: 5, employedDays: 42, employedSince: '10-03-2026',
   pay: 500, record: { commendations: 2, writeups: 0 }, staffTotal: 12, appsWaiting: 3, eotw: 'Jane Doe',
 };
@@ -425,6 +426,8 @@ function render() {
   const facts = [];
   facts.push(['Rank', esc(D.rank) + (D.rankCount ? '<small>' + (D.rankPos || '?') + ' of ' + D.rankCount + '</small>' : '')]);
   if (D.callsign) facts.push(['Callsign', esc(D.callsign)]);
+  if (D.phone) facts.push(['Phone', esc(D.phone)]);
+  if (D.email) facts.push(['Email', esc(D.email)]);
   facts.push(['Department', esc(D.dept) + (D.jobType ? '<small>' + esc(D.jobType) + '</small>' : '')]);
   facts.push(['Employed', D.employedDays != null ? (D.employedDays === 0 ? 'Started today' : D.employedDays + ' day' + (D.employedDays === 1 ? '' : 's')) + (D.employedSince ? '<small>since ' + esc(D.employedSince) + '</small>' : '') : 'Before records began']);
   if (D.pay) facts.push(['Pay', money(D.pay) + '<small>per paycheck</small>']);
