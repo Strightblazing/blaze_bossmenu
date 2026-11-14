@@ -976,6 +976,7 @@ local function buildTargets(points)
                 { name = 'blaze_boss_apply', label = 'Apply for ' .. label, icon = 'fa-solid fa-file-signature', onSelect = function() openApplication(p.group) end },
                 { name = 'blaze_boss_status', label = 'My application status', icon = 'fa-solid fa-circle-info', onSelect = function() openApplicationStatus(p.group) end },
             }
+            p.targetOptions = options -- the receptionist NPC gets the same options (client/features.lua)
         end
         handles[#handles + 1] = Target.addPoint({ coords = coords, radius = p.radius or 1.0, options = options })
     end

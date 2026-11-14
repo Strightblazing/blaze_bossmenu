@@ -96,8 +96,36 @@ function Target.addPoint(opts)
     return { kind = 'zone', id = zone }
 end
 
+--- Same options on an entity (e.g. the receptionist NPC). Returns a handle for Target.remove, or nil with no target script.
+function Target.addEntity(entity, options)
+    if not entity or not DoesEntityExist(entity) then return nil end
+    if mode == 'ox_target' then
+        local opts, names = {}, {}
+        for _, o in ipairs(options) do
+            opts[#opts + 1] = { name = o.name, label = o.label, icon = o.icon, distance = 2.5,
+                canInteract = o.canInteract and function() return o.canInteract() end or nil,
+                onSelect = function() o.onSelect() end }
+            names[#names + 1] = o.name
+        end
+        exports.ox_target:addLocalEntity(entity, opts)
+        return { kind = 'oxent', id = entity, names = names }
+    elseif mode == 'qb-target' then
+        local opts = {}
+        for i, o in ipairs(options) do
+            opts[#opts + 1] = { type = 'client', icon = o.icon, label = o.label, num = i,
+                canInteract = o.canInteract and function() return o.canInteract() end or nil,
+                action = function() o.onSelect() end }
+        end
+        exports['qb-target']:AddTargetEntity(entity, { options = opts, distance = 2.5 })
+        return { kind = 'qbent', id = entity }
+    end
+    return nil -- no target script: the walk-up zone at the point already covers it
+end
+
 function Target.remove(h)
     if not h then return end
+    if h.kind == 'oxent' then pcall(function() exports.ox_target:removeLocalEntity(h.id, h.names) end) return end
+    if h.kind == 'qbent' then pcall(function() exports['qb-target']:RemoveTargetEntity(h.id) end) return end
     if h.kind == 'ox' then exports.ox_target:removeZone(h.id)
     elseif h.kind == 'qb' then exports['qb-target']:RemoveZone(h.id)
     elseif h.kind == 'zone' then h.id:remove() end

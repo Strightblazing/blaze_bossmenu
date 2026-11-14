@@ -457,6 +457,7 @@ local pedPoints = {}
 
 local function clearReceptionists()
     for _, p in ipairs(pedPoints) do
+        if p.target then Target.remove(p.target) p.target = nil end
         if p.ped and DoesEntityExist(p.ped) then DeleteEntity(p.ped) end
         p:remove()
     end
@@ -490,8 +491,17 @@ function BMC.onPoints(points)
         if p.type == 'applications' then
             local lastGreet = 0
             local point = lib.points.new({ coords = vec3(p.coords.x, p.coords.y, p.coords.z), distance = 40.0 })
-            function point:onEnter() if not self.ped then self.ped = spawnReceptionist(p) end end
-            function point:onExit() if self.ped and DoesEntityExist(self.ped) then DeleteEntity(self.ped) end self.ped = nil end
+            function point:onEnter()
+                if self.ped then return end
+                self.ped = spawnReceptionist(p)
+                -- look at her to apply (same options as the point)
+                if self.ped and p.targetOptions then self.target = Target.addEntity(self.ped, p.targetOptions) end
+            end
+            function point:onExit()
+                if self.target then Target.remove(self.target) self.target = nil end
+                if self.ped and DoesEntityExist(self.ped) then DeleteEntity(self.ped) end
+                self.ped = nil
+            end
             function point:nearby()
                 if R.greet and self.ped and self.currentDistance < 2.5 and GetGameTimer() - lastGreet > 60000 then
                     lastGreet = GetGameTimer()

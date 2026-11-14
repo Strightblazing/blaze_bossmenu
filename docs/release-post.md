@@ -49,6 +49,7 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 - Admins and managers place points in game (aim + E), Show zones, `/bossdebug` live debug panel, `/bossmenutest` test tools with "View as"
 - Console, ox_lib logger and Discord logs (webhook only in server.cfg)
 - Drop-in for qbx_management / qb-bossmenu: keeps their tables, exports and events
+- …and many more!
 
 ![Admin and setup](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/showcase-admin.png)
 
@@ -71,3 +72,5 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 | Support | Yes (GitHub issues) |
 
 Based on [qbx_management](https://github.com/Qbox-project/qbx_management) by the Qbox Project. Licensed under GPL-3.0.
+
+> **Heads up:** this resource was built with the help of AI (Claude). I've tested it on my own server, but it hasn't been tested by other people or on other setups yet, so expect some rough edges. Please report bugs on GitHub and I'll fix them.
