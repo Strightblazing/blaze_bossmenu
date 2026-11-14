@@ -207,6 +207,37 @@ Config = {
         payroll = true,
     },
 
+    -- Duty points: staff clock in / out at a placed duty point (feeds the duty hours too)
+    duty = {
+        enabled = true,
+    },
+
+    -- Job outfits: managers save what they're wearing as a job outfit (with the lowest rank allowed),
+    -- staff change into them at a wardrobe point. Male and female outfits are kept apart. Face and hair are never changed.
+    outfits = {
+        enabled = true,
+        -- 'auto' = use illenium-appearance when it's running (recommended), 'native' = plain GTA clothing natives
+        appearance = 'auto',
+        -- Most outfits one job can have
+        maxPerJob = 30,
+    },
+
+    -- Managers place/move/delete their OWN job's points from the boss menu (Locations). Admins can always use /bossmenu.
+    managerPlacement = {
+        enabled = true,
+        -- Which point types managers may place
+        types = { boss = true, applications = true, review = true, duty = true, outfits = true },
+        -- Managers can teleport to their job's points (admins always can)
+        teleport = false,
+    },
+
+    -- Radial menu (ox_lib / qbx_radialmenu): a "Work" entry for bosses with their boss menu, applications and My job
+    radial = {
+        enabled = true,
+        label = 'Work',
+        icon = 'briefcase',
+    },
+
     -- Extras. Each one can be turned off on its own.
     features = {
         -- Employee profiles (staff list + /myjob): hire date, hours this week, rank history, record
@@ -269,7 +300,7 @@ Config = {
             hire = true, fire = true, promote = true, demote = true, callsign = true,
             accept = true, deny = true, interview = true, deposit = true, withdraw = true,
             toggle = true, formEdit = true, formReset = true, placement = true, gradeEdit = true,
-            record = true, eotw = true, announce = true, bonus = true, withdrawApp = true, checkin = true, contractEdit = true,
+            record = true, eotw = true, announce = true, bonus = true, withdrawApp = true, checkin = true, contractEdit = true, outfit = true,
         },
     },
 }

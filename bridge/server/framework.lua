@@ -272,6 +272,20 @@ function Bridge.RemoveCash(src, amount, reason)
     return p.Functions.RemoveMoney('cash', amount, reason or 'blaze_bossmenu') ~= false
 end
 
+--- Clock in/out for `job`. On Qbox, a job they hold but isn't their current one becomes their current job first.
+--- Returns the new duty state, or nil + reason.
+function Bridge.SetDuty(src, job, onDuty)
+    local p = Bridge.GetPlayer(src)
+    if not p then return nil, 'Player not found.' end
+    if (p.PlayerData.job or {}).name ~= job then
+        if not QBX then return nil, 'That isn\'t your current job.' end
+        local ok = exports.qbx_core:SetPlayerPrimaryJob(p.PlayerData.citizenid, job)
+        if not ok then return nil, 'Could not switch to that job.' end
+    end
+    if QBX then exports.qbx_core:SetJobDuty(src, onDuty) else p.Functions.SetJobDuty(onDuty) end
+    return onDuty
+end
+
 --- Pay into the player's bank (bonuses)
 function Bridge.AddBank(src, amount, reason)
     local p = Bridge.GetPlayer(src)

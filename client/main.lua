@@ -22,15 +22,18 @@ local function short(s, n)
     return #s > n and (s:sub(1, n - 1) .. '…') or s
 end
 
-local managed = {}  -- ['job:ambulance'] = true
+local managed = {}  -- ['job:ambulance'] = true   (groups they can manage)
+local member = {}   -- ['job:ambulance'] = true   (groups they're in: duty points, wardrobes)
 local myGroups = {} -- list from getMyJobs
 local isAdmin = false
 local dynamicItems = {} -- items other scripts add (AddBossMenuItem / AddGangMenuItem)
 
 local function refreshManaged()
     local d = call('getMyJobs') or { groups = {} }
-    managed, myGroups, isAdmin = {}, d.groups or {}, d.isAdmin == true
+    managed, member, myGroups, isAdmin = {}, {}, d.groups or {}, d.isAdmin == true
     for _, g in ipairs(myGroups) do managed[g.gtype .. ':' .. g.name] = true end
+    for _, k in ipairs(d.member or {}) do member[k] = true end
+    if BMC and BMC.updateRadial then BMC.updateRadial(myGroups) end -- "Work" radial entry for bosses
 end
 Bridge.onGroupsChanged(refreshManaged)
 
@@ -748,6 +751,14 @@ openGroup = function(gtype, name, fromPicker)
     if FT.announcements then
         options[#options + 1] = { title = 'Announcement', description = 'Post a message to your department', icon = 'fa-solid fa-bullhorn', arrow = true, onSelect = function() openAnnouncement(m) end }
     end
+    if (Config.outfits or {}).enabled and BMC then
+        options[#options + 1] = { title = 'Outfits', description = 'Save uniforms for your ranks', icon = 'fa-solid fa-shirt', arrow = true,
+            onSelect = function() BMC.openOutfitManager(m) end }
+    end
+    if ((Config.managerPlacement or {}).enabled or m.isAdmin) and BMC and BMC.openLocations then
+        options[#options + 1] = { title = 'Locations', description = 'Boss desk, duty, wardrobe and application points', icon = 'fa-solid fa-location-dot', arrow = true,
+            onSelect = function() BMC.openLocations(m) end }
+    end
     local CT = Config.contract or {}
     if CT.enabled and BMC and (CT.editor == 'management' or (CT.editor == 'admin' and m.isAdmin)) then
         options[#options + 1] = { title = 'Employment contract', description = 'Edit the contract new hires sign', icon = 'fa-solid fa-file-contract', arrow = true,
@@ -923,6 +934,24 @@ local function buildTargets(points)
                 canInteract = function() return managed[p.gtype .. ':' .. p.group] == true end,
                 onSelect = function() openGroup(p.gtype, p.group) end,
             } }
+        elseif p.type == 'duty' then
+            options = { {
+                name = 'blaze_boss_duty', label = 'Clock in / out · ' .. label, icon = 'fa-solid fa-clock',
+                canInteract = function() return member[p.gtype .. ':' .. p.group] == true end,
+                onSelect = function()
+                    local ok, msg, onDuty = call('toggleDuty', p.group)
+                    lib.notify({ title = label, description = msg or (ok and 'Done.' or 'That didn\'t work.'), type = ok and (onDuty and 'success' or 'inform') or 'error' })
+                end,
+            } }
+        elseif p.type == 'outfits' then
+            options = {
+                { name = 'blaze_boss_wardrobe', label = label .. ' wardrobe', icon = 'fa-solid fa-shirt',
+                  canInteract = function() return member[p.gtype .. ':' .. p.group] == true or managed[p.gtype .. ':' .. p.group] == true end,
+                  onSelect = function() BMC.openWardrobe(p.gtype, p.group, label) end },
+                { name = 'blaze_boss_ownclothes', label = 'Back to my own clothes', icon = 'fa-solid fa-person',
+                  canInteract = function() return member[p.gtype .. ':' .. p.group] == true or managed[p.gtype .. ':' .. p.group] == true end,
+                  onSelect = function() BMC.ownClothes() end },
+            }
         elseif p.type == 'review' then
             options = { {
                 name = 'blaze_boss_review', label = 'Review ' .. label .. ' applications', icon = 'fa-solid fa-clipboard-check',
@@ -951,6 +980,9 @@ end
 RegisterNetEvent(RES .. ':client:points', function(points) buildTargets(points) end)
 -- "View as" preview started/stopped (/bossmenutest): refresh which desks and menus this player gets
 RegisterNetEvent(RES .. ':client:viewAs', function() refreshManaged() end)
+-- From the radial menu (client/features.lua). Local events only; the server re-checks everything.
+AddEventHandler(RES .. ':client:openGroup', function(gtype, name) openGroup(gtype, name) end)
+AddEventHandler(RES .. ':client:openReview', function(job) openReview(job) end)
 
 CreateThread(function()
     Wait(1000)

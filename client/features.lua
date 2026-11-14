@@ -500,3 +500,199 @@ function BMC.onPoints(points)
 end
 
 AddEventHandler('onResourceStop', function(res) if res == RES then clearReceptionists() end end)
+
+---------------------------------------------------------------------------
+-- Outfits: read / apply clothes. Uses illenium-appearance when it's running (auto), else plain GTA natives.
+-- Face (0) and hair (2) are never touched: an outfit is clothes only.
+---------------------------------------------------------------------------
+local OUT = Config.outfits or {}
+local COMPONENTS = { 1, 3, 4, 5, 6, 7, 8, 9, 10, 11 }
+local PROPS = { 0, 1, 2, 6, 7 }
+local KEEP = {}
+for _, c in ipairs(COMPONENTS) do KEEP[c] = true end
+
+local function useIllenium()
+    return OUT.appearance ~= 'native' and GetResourceState('illenium-appearance') == 'started'
+end
+
+--- 'male' / 'female' for the freemode characters, nil for anything else
+function BMC.pedModel()
+    local m = GetEntityModel(cache.ped)
+    if m == joaat('mp_m_freemode_01') then return 'male' end
+    if m == joaat('mp_f_freemode_01') then return 'female' end
+end
+
+function BMC.readClothes()
+    local ped, out = cache.ped, { components = {}, props = {} }
+    if useIllenium() then
+        for _, c in ipairs(exports['illenium-appearance']:getPedComponents(ped) or {}) do
+            if KEEP[c.component_id] then out.components[#out.components + 1] = { component_id = c.component_id, drawable = c.drawable, texture = c.texture } end
+        end
+        for _, p in ipairs(exports['illenium-appearance']:getPedProps(ped) or {}) do
+            out.props[#out.props + 1] = { prop_id = p.prop_id, drawable = p.drawable, texture = p.texture }
+        end
+        return out
+    end
+    for _, id in ipairs(COMPONENTS) do
+        out.components[#out.components + 1] = { component_id = id, drawable = GetPedDrawableVariation(ped, id), texture = GetPedTextureVariation(ped, id) }
+    end
+    for _, id in ipairs(PROPS) do
+        out.props[#out.props + 1] = { prop_id = id, drawable = GetPedPropIndex(ped, id), texture = GetPedPropTextureIndex(ped, id) }
+    end
+    return out
+end
+
+function BMC.applyClothes(data)
+    local ped = cache.ped
+    if type(data) ~= 'table' then return end
+    if useIllenium() then
+        exports['illenium-appearance']:setPedComponents(ped, data.components or {})
+        exports['illenium-appearance']:setPedProps(ped, data.props or {})
+        return
+    end
+    for _, c in ipairs(data.components or {}) do SetPedComponentVariation(ped, c.component_id, c.drawable, c.texture, 0) end
+    for _, p in ipairs(data.props or {}) do
+        if p.drawable == -1 then ClearPedProp(ped, p.prop_id) else SetPedPropIndex(ped, p.prop_id, p.drawable, p.texture, true) end
+    end
+end
+
+--- Back to their own saved clothes (illenium-appearance's reloadSkin)
+function BMC.ownClothes()
+    if GetResourceState('illenium-appearance') == 'started' then
+        TriggerEvent('illenium-appearance:client:reloadSkin', true)
+        return notify('Back in your own clothes.', 'success', 'Wardrobe')
+    end
+    notify('Change back at a clothing store (no clothing script detected).', 'inform', 'Wardrobe')
+end
+
+local function changeAnim()
+    if IsPedInAnyVehicle(cache.ped, false) then return end
+    if lib.requestAnimDict('clothingtie', 2000) then
+        TaskPlayAnim(cache.ped, 'clothingtie', 'try_tie_neutral_a', 8.0, -8.0, 1800, 51, 0.0, false, false, false)
+        Wait(1200)
+        RemoveAnimDict('clothingtie')
+    end
+end
+
+local function wear(gtype, name, id)
+    local o, err = call('wearOutfit', gtype, name, id)
+    if not o then return notify(err or 'Couldn\'t put that on.', 'error', 'Wardrobe') end
+    if o.model ~= BMC.pedModel() then return notify('That outfit is made for a different body type.', 'error', 'Wardrobe') end
+    changeAnim()
+    BMC.applyClothes(o.data)
+    notify(('You put on "%s".'):format(o.name), 'success', 'Wardrobe')
+end
+
+--- Wardrobe point: staff pick an outfit for their rank
+function BMC.openWardrobe(gtype, name, label)
+    local model = BMC.pedModel()
+    local d = call('getOutfits', gtype, name, model)
+    if not d then return notify('Only staff can use this wardrobe.', 'error', 'Wardrobe') end
+    local options = {}
+    for _, o in ipairs(d.outfits) do
+        if o.model == model then
+            options[#options + 1] = { title = o.name, description = ('%s and up'):format(o.rankName), icon = 'fa-solid fa-shirt',
+                disabled = not o.allowed, onSelect = function() wear(gtype, name, o.id) end }
+        end
+    end
+    if #options == 0 then
+        options[1] = { title = model and 'No outfits for you yet' or 'Outfits only work on freemode characters', icon = 'fa-solid fa-circle-info', readOnly = true,
+            description = d.manager and 'Save one in the boss menu > Outfits' or 'Ask a manager to add some' }
+    end
+    options[#options + 1] = { title = 'Back to my own clothes', icon = 'fa-solid fa-person', onSelect = function() changeAnim() BMC.ownClothes() end }
+    UI.registerMenu({ id = 'blaze_boss_wardrobe', title = 'Wardrobe · ' .. (label or name), options = options })
+    UI.showMenu('blaze_boss_wardrobe')
+end
+
+--- Boss menu > Outfits: save what you're wearing, rename / change rank, try on, delete
+function BMC.openOutfitManager(m)
+    local model = BMC.pedModel()
+    local d = call('getOutfits', m.gtype, m.name, model)
+    if not d or not d.manager then return notify('You are not a manager here.', 'error', 'Outfits') end
+    local function rankOptions()
+        local o = {}
+        for _, g in ipairs(d.grades) do o[#o + 1] = { value = tostring(g.level), label = ('%s (%d)'):format(g.name, g.level) } end
+        return o
+    end
+    local options = {
+        { title = 'Save what I\'m wearing', icon = 'fa-solid fa-plus', disabled = not model,
+          description = model and ('Saved as a %s outfit. Face and hair aren\'t included.'):format(model) or 'Only works on the freemode characters',
+          onSelect = function()
+              local v = UI.input('New outfit', {
+                  { type = 'input', label = 'Outfit name', required = true, minLength = 1, maxLength = 40, placeholder = 'Class A uniform' },
+                  { type = 'select', label = 'Lowest rank that can wear it', options = rankOptions(), default = tostring(d.grades[1] and d.grades[1].level or 0), required = true },
+              })
+              if v and v[1] then
+                  local ok, msg = call('saveOutfit', m.gtype, m.name, { name = v[1], minGrade = tonumber(v[2]) or 0, model = model, data = BMC.readClothes() })
+                  notify(msg or '', ok and 'success' or 'error', 'Outfits')
+              end
+              BMC.openOutfitManager(m)
+          end },
+    }
+    for _, o in ipairs(d.outfits) do
+        options[#options + 1] = {
+            title = o.name, description = ('%s · %s and up'):format(o.model == 'male' and 'Male' or 'Female', o.rankName), icon = 'fa-solid fa-shirt', arrow = true,
+            onSelect = function()
+                UI.registerMenu({ id = 'blaze_boss_outfit', title = o.name, menu = 'blaze_boss_outfits', options = {
+                    { title = 'Try it on', icon = 'fa-solid fa-person-half-dress', disabled = o.model ~= model,
+                      description = o.model ~= model and 'Made for a different body type' or nil, onSelect = function() wear(m.gtype, m.name, o.id) end },
+                    { title = 'Rename / change rank', icon = 'fa-solid fa-pen', onSelect = function()
+                        local v = UI.input('Edit outfit', {
+                            { type = 'input', label = 'Outfit name', required = true, minLength = 1, maxLength = 40, default = o.name },
+                            { type = 'select', label = 'Lowest rank that can wear it', options = rankOptions(), default = tostring(o.minGrade), required = true },
+                        })
+                        if v and v[1] then
+                            local ok, msg = call('updateOutfit', m.gtype, m.name, o.id, v[1], tonumber(v[2]))
+                            notify(msg or '', ok and 'success' or 'error', 'Outfits')
+                        end
+                        BMC.openOutfitManager(m)
+                    end },
+                    { title = 'Delete', icon = 'fa-solid fa-trash', iconColor = '#E5484D', onSelect = function()
+                        if UI.confirm({ header = 'Delete outfit', content = ('Delete "%s"?'):format(o.name), type = 'error', confirm = 'Delete' }) then
+                            local ok, msg = call('deleteOutfit', m.gtype, m.name, o.id)
+                            notify(msg or '', ok and 'success' or 'error', 'Outfits')
+                        end
+                        BMC.openOutfitManager(m)
+                    end },
+                } })
+                UI.showMenu('blaze_boss_outfit')
+            end,
+        }
+    end
+    if #d.outfits == 0 then options[#options + 1] = { title = 'No outfits yet', description = 'Put on a uniform, then "Save what I\'m wearing"', readOnly = true } end
+    options[#options + 1] = { title = 'Back to my own clothes', icon = 'fa-solid fa-person', onSelect = function() BMC.ownClothes() end }
+    UI.registerMenu({ id = 'blaze_boss_outfits', title = 'Outfits · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_outfits')
+end
+
+---------------------------------------------------------------------------
+-- Radial menu (ox_lib / qbx_radialmenu): a "Work" entry for bosses with their boss menu, applications, /myjob
+---------------------------------------------------------------------------
+local RAD = Config.radial or {}
+local radialShown = false
+
+--- groups = the groups this player manages (from getMyJobs)
+function BMC.updateRadial(groups)
+    if not RAD.enabled or not lib.addRadialItem then return end
+    if radialShown then lib.removeRadialItem('blaze_boss_work') radialShown = false end
+    if #groups == 0 then return end
+    local items = {}
+    for _, g in ipairs(groups) do
+        items[#items + 1] = { id = 'bb_boss_' .. g.gtype .. g.name, label = (#groups > 1 and (g.label .. ' ') or '') .. 'Boss menu', icon = 'briefcase',
+            onSelect = function() TriggerEvent(RES .. ':client:openGroup', g.gtype, g.name) end }
+        if g.apps then
+            items[#items + 1] = { id = 'bb_apps_' .. g.name, label = (#groups > 1 and (g.label .. ' ') or '') .. 'Applications', icon = 'file-signature',
+                onSelect = function() TriggerEvent(RES .. ':client:openReview', g.name) end }
+        end
+    end
+    if F.profiles and F.myJobCommand then
+        items[#items + 1] = { id = 'bb_myjob', label = 'My job', icon = 'id-badge', onSelect = function() BMC.openMyJob() end }
+    end
+    lib.registerRadial({ id = 'blaze_boss_work_menu', items = items })
+    lib.addRadialItem({ id = 'blaze_boss_work', label = RAD.label or 'Work', icon = RAD.icon or 'briefcase', menu = 'blaze_boss_work_menu' })
+    radialShown = true
+end
+
+AddEventHandler('onResourceStop', function(res)
+    if res == RES and radialShown and lib.removeRadialItem then lib.removeRadialItem('blaze_boss_work') end
+end)

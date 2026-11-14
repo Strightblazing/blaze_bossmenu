@@ -301,6 +301,18 @@ local function createTables()
         `signed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`), INDEX `job_citizen` (`job`, `citizenid`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    -- Job outfits (wardrobe): clothes saved by managers, worn by staff of that rank or higher
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_outfits` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `job` VARCHAR(70) NOT NULL,
+        `name` VARCHAR(60) NOT NULL,
+        `min_grade` INT NOT NULL DEFAULT 0,
+        `model` VARCHAR(16) NOT NULL,
+        `data` LONGTEXT NOT NULL,
+        `created_by` VARCHAR(128) NULL,
+        `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`), INDEX `job` (`job`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
     -- Same table as qbx_management, so existing hours carry over (no foreign key: works on QBCore too)
     MySQL.query.await([[CREATE TABLE IF NOT EXISTS `player_jobs_activity` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -454,6 +466,9 @@ local function pointVisible(p)
     if not groupCfg(p.gtype, p.group) then return false end
     -- 'applications' = where people apply, 'review' = where managers review them
     if p.type == 'applications' or p.type == 'review' then return appsOn(p.gtype, p.group) end
+    -- 'duty' = clock in/out (jobs), 'outfits' = wardrobe with the job's outfits
+    if p.type == 'duty' then return p.gtype == 'job' and (Config.duty or {}).enabled == true end
+    if p.type == 'outfits' then return (Config.outfits or {}).enabled == true end
     return p.type == 'boss'
 end
 
@@ -673,18 +688,20 @@ end
 ---------------------------------------------------------------------------
 --- Groups this player can manage
 register('getMyJobs', function(src)
-    local list = {}
+    local list, member = {}, {}
     local admin = isAdmin(src)
     for _, gtype in ipairs({ 'job', 'gang' }) do
         local cfgList = gtype == 'job' and Config.jobs or Config.gangs or {}
         for name, c in pairs(cfgList) do
-            if Bridge.GroupExists(gtype, name) and actorLimit(src, gtype, name) then
-                list[#list + 1] = { gtype = gtype, name = name, label = c.label or name }
+            if Bridge.GroupExists(gtype, name) then
+                if actorLimit(src, gtype, name) then list[#list + 1] = { gtype = gtype, name = name, label = c.label or name, apps = appsOn(gtype, name) } end
+                -- groups they're in (duty points, wardrobes)
+                if Bridge.GetPlayerGroupGrade(src, gtype, name) then member[#member + 1] = gtype .. ':' .. name end
             end
         end
     end
     table.sort(list, function(a, b) return a.label < b.label end)
-    return { groups = list, isAdmin = admin }
+    return { groups = list, member = member, isAdmin = admin }
 end)
 
 --- Everything the main menu needs to show/hide its options
@@ -1178,9 +1195,42 @@ if APPS.enabled then
 end
 
 ---------------------------------------------------------------------------
--- Points (placement is admin only)
+-- Points. Admins place anything (/bossmenu). Managers can place their own job's points from the
+-- boss menu (Locations), limited to Config.managerPlacement.types.
 ---------------------------------------------------------------------------
+local PTYPES = { boss = true, applications = true, review = true, duty = true, outfits = true }
+
+--- Is this point type allowed for this group at all? Returns ok, whyNot
+local function typeAllowed(gtype, name, ptype)
+    if not PTYPES[ptype] then return false, 'Invalid point type.' end
+    if (ptype == 'applications' or ptype == 'review') and not appsOn(gtype, name) then return false, 'Applications are off for this group.' end
+    if ptype == 'duty' and (gtype ~= 'job' or not (Config.duty or {}).enabled) then return false, 'Duty points are for jobs (and need duty.enabled).' end
+    if ptype == 'outfits' and not (Config.outfits or {}).enabled then return false, 'Outfits are turned off.' end
+    return true
+end
+
+local function canPlace(src, gtype, name, ptype)
+    if isAdmin(src) then return true end
+    local mp = Config.managerPlacement or {}
+    if not mp.enabled or not (mp.types or {})[ptype] then return false end
+    return actorLimit(src, gtype, name) ~= nil
+end
+BM.canPlace, BM.typeAllowed = canPlace, typeAllowed
+
 register('getPoints', function() return allPoints() end)
+
+--- A manager's own group: its points + which types they may place (boss menu > Locations)
+register('getGroupPoints', function(src, gtype, name)
+    if not actorLimit(src, gtype, name) then return nil end
+    local list, types = {}, {}
+    for _, p in ipairs(allPoints()) do
+        if p.gtype == gtype and p.group == name then list[#list + 1] = p end
+    end
+    for t in pairs(PTYPES) do
+        if typeAllowed(gtype, name, t) and canPlace(src, gtype, name, t) then types[#types + 1] = t end
+    end
+    return { points = list, types = types }
+end)
 
 register('getPlacementInfo', function(src)
     if not isAdmin(src) then return nil end
@@ -1195,10 +1245,10 @@ register('getPlacementInfo', function(src)
 end)
 
 register('addPoint', function(src, gtype, name, ptype, coords, heading, radius)
-    if not isAdmin(src) then return false, 'Admins only.' end
     if not groupCfg(gtype, name) then return false, 'That group isn\'t configured.' end
-    if ptype ~= 'boss' and ptype ~= 'applications' and ptype ~= 'review' then return false, 'Invalid point type.' end
-    if ptype ~= 'boss' and not appsOn(gtype, name) then return false, 'Applications are off for this group.' end
+    local okType, why = typeAllowed(gtype, name, ptype)
+    if not okType then return false, why end
+    if not canPlace(src, gtype, name, ptype) then return false, 'You can\'t place that point.' end
     if type(coords) ~= 'table' and type(coords) ~= 'vector3' then return false, 'Invalid position.' end
     local x, y, z = tonumber(coords.x), tonumber(coords.y), tonumber(coords.z)
     if not x or not y or not z then return false, 'Invalid position.' end
@@ -1214,11 +1264,11 @@ register('addPoint', function(src, gtype, name, ptype, coords, heading, radius)
 end)
 
 register('removePoint', function(src, id)
-    if not isAdmin(src) then return false, 'Admins only.' end
     id = tonumber(id)
     if not id then return false, 'Built-in points can\'t be deleted in game. Remove them from config.lua.' end
     for i, p in ipairs(points) do
         if p.id == id then
+            if not canPlace(src, p.gtype, p.group, p.type) then return false, 'You can\'t change that point.' end
             MySQL.query.await('DELETE FROM blaze_boss_points WHERE id = ?', { id })
             table.remove(points, i)
             syncPoints()
@@ -1231,7 +1281,6 @@ end)
 
 --- Move a placed point (same job, type and size). coords = new spot, heading = admin's heading.
 register('movePoint', function(src, id, coords, heading)
-    if not isAdmin(src) then return false, 'Admins only.' end
     id = tonumber(id)
     if not id then return false, 'Built-in points can\'t be moved in game. Change them in config.lua.' end
     if type(coords) ~= 'table' and type(coords) ~= 'vector3' then return false, 'Invalid position.' end
@@ -1239,6 +1288,7 @@ register('movePoint', function(src, id, coords, heading)
     if not x or not y or not z then return false, 'Invalid position.' end
     for _, p in ipairs(points) do
         if p.id == id then
+            if not canPlace(src, p.gtype, p.group, p.type) then return false, 'You can\'t change that point.' end
             local c = { x = math.floor(x * 100) / 100, y = math.floor(y * 100) / 100, z = math.floor(z * 100) / 100 }
             heading = (tonumber(heading) or p.heading or 0.0) % 360
             MySQL.update.await('UPDATE blaze_boss_points SET coords = ?, heading = ? WHERE id = ?', { json.encode(c), heading, id })
@@ -1252,12 +1302,12 @@ register('movePoint', function(src, id, coords, heading)
 end)
 
 register('resizePoint', function(src, id, radius)
-    if not isAdmin(src) then return false, 'Admins only.' end
     id = tonumber(id)
     if not id then return false, 'Built-in points can\'t be changed in game. Change them in config.lua.' end
     radius = math.min(5.0, math.max(0.5, tonumber(radius) or 1.0))
     for _, p in ipairs(points) do
         if p.id == id then
+            if not canPlace(src, p.gtype, p.group, p.type) then return false, 'You can\'t change that point.' end
             MySQL.update.await('UPDATE blaze_boss_points SET radius = ? WHERE id = ?', { radius, id })
             p.radius = radius
             syncPoints()

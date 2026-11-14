@@ -605,3 +605,107 @@ if C.enabled then
         return { template = doc.template, values = doc.values, signature = row.signature, signedAt = row.at }
     end)
 end
+
+---------------------------------------------------------------------------
+-- Duty points: clock in / out at a placed duty point (Config.duty)
+---------------------------------------------------------------------------
+local DUTY = Config.duty or {}
+if DUTY.enabled then
+    register('toggleDuty', function(src, job)
+        if not BM.groupCfg('job', job) then return false, 'That job isn\'t configured.' end
+        if not Bridge.GetPlayerGroupGrade(src, 'job', job) then return false, 'You don\'t work here.' end
+        local current = Bridge.GetJob(src) or {}
+        local goingOn = not (current.name == job and current.onduty)
+        local state, why = Bridge.SetDuty(src, job, goingOn)
+        if state == nil then return false, why end
+        return true, state and ('You\'re now on duty with %s.'):format(label('job', job)) or ('You\'re now off duty from %s.'):format(label('job', job)), state
+    end)
+end
+
+---------------------------------------------------------------------------
+-- Outfits (Config.outfits): managers save outfits for their job; staff of that rank or higher wear them
+-- at a wardrobe point. Clothes are read/applied on the client (illenium-appearance if running).
+---------------------------------------------------------------------------
+local OUT = Config.outfits or {}
+if OUT.enabled then
+    local MODELS = { male = true, female = true }
+
+    --- keep only numbers in the expected shape: { components = { {component_id, drawable, texture} }, props = { {prop_id, drawable, texture} } }
+    local function cleanClothes(d)
+        if type(d) ~= 'table' then return nil end
+        local out = { components = {}, props = {} }
+        for _, c in ipairs(type(d.components) == 'table' and d.components or {}) do
+            local id, dr, tx = tonumber(c.component_id), tonumber(c.drawable), tonumber(c.texture)
+            if id and dr and tx and id >= 0 and id <= 11 and #out.components < 12 then
+                out.components[#out.components + 1] = { component_id = math.floor(id), drawable = math.floor(dr), texture = math.floor(tx) }
+            end
+        end
+        for _, p in ipairs(type(d.props) == 'table' and d.props or {}) do
+            local id, dr, tx = tonumber(p.prop_id), tonumber(p.drawable), tonumber(p.texture)
+            if id and dr and tx and id >= 0 and id <= 13 and #out.props < 10 then
+                out.props[#out.props + 1] = { prop_id = math.floor(id), drawable = math.floor(dr), texture = math.floor(tx) }
+            end
+        end
+        if #out.components == 0 then return nil end
+        return out
+    end
+
+    --- Outfits this player can see: staff see the ones for their rank and body; managers see all
+    register('getOutfits', function(src, gtype, name, model)
+        local grade = Bridge.GetPlayerGroupGrade(src, gtype, name)
+        local manager = BM.actorLimit(src, gtype, name) ~= nil
+        if not grade and not manager then return nil end
+        local rows = MySQL.query.await('SELECT id, name, min_grade, model FROM blaze_boss_outfits WHERE job = ? ORDER BY min_grade, name', { BM.gkey(gtype, name) }) or {}
+        local out = {}
+        for _, r in ipairs(rows) do
+            local allowed = (grade or -1) >= r.min_grade
+            if manager or (allowed and r.model == model) then
+                out[#out + 1] = { id = r.id, name = r.name, minGrade = r.min_grade, rankName = BM.gradeName(gtype, name, r.min_grade), model = r.model, allowed = allowed or manager }
+            end
+        end
+        return { outfits = out, manager = manager, grades = Bridge.GetGrades(gtype, name) }
+    end)
+
+    register('wearOutfit', function(src, gtype, name, id)
+        local row = MySQL.single.await('SELECT job, min_grade, model, data, name FROM blaze_boss_outfits WHERE id = ? AND job = ?', { tonumber(id), BM.gkey(gtype, name) })
+        if not row then return nil, 'Outfit not found.' end
+        local grade = Bridge.GetPlayerGroupGrade(src, gtype, name)
+        if not BM.actorLimit(src, gtype, name) and (not grade or grade < row.min_grade) then return nil, 'Your rank can\'t wear that outfit.' end
+        return { data = json.decode(row.data), model = row.model, name = row.name }
+    end)
+
+    register('saveOutfit', function(src, gtype, name, o)
+        if not BM.actorLimit(src, gtype, name) then return false, 'You are not a manager here.' end
+        if type(o) ~= 'table' then return false, 'Invalid outfit.' end
+        local oname = BM.cleanText(o.name, 100)
+        if not oname or #oname < 1 or #oname > 40 then return false, 'Outfit name must be 1-40 characters.' end
+        local minGrade = tonumber(o.minGrade) or 0
+        if not Bridge.GetGrade(gtype, name, minGrade) then return false, 'That rank doesn\'t exist.' end
+        if not MODELS[o.model] then return false, 'Outfits work on the male/female freemode characters only.' end
+        local clothes = cleanClothes(o.data)
+        if not clothes then return false, 'Couldn\'t read your clothes.' end
+        local count = MySQL.scalar.await('SELECT COUNT(*) FROM blaze_boss_outfits WHERE job = ?', { BM.gkey(gtype, name) }) or 0
+        if count >= (OUT.maxPerJob or 30) then return false, ('This job already has %d outfits (the most allowed).'):format(count) end
+        MySQL.insert.await('INSERT INTO blaze_boss_outfits (job, name, min_grade, model, data, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+            { BM.gkey(gtype, name), oname, minGrade, o.model, json.encode(clothes), Bridge.GetName(src) })
+        Logs.log('outfit', src, ('%s saved the %s outfit "%s" (rank %d+, %s)'):format(Logs.who(src), label(gtype, name), oname, minGrade, o.model), { Group = BM.gkey(gtype, name) })
+        return true, ('Outfit "%s" saved.'):format(oname)
+    end)
+
+    register('updateOutfit', function(src, gtype, name, id, newName, minGrade)
+        if not BM.actorLimit(src, gtype, name) then return false, 'You are not a manager here.' end
+        newName = BM.cleanText(newName, 100)
+        if not newName or #newName < 1 or #newName > 40 then return false, 'Outfit name must be 1-40 characters.' end
+        minGrade = tonumber(minGrade)
+        if not minGrade or not Bridge.GetGrade(gtype, name, minGrade) then return false, 'That rank doesn\'t exist.' end
+        local n = MySQL.update.await('UPDATE blaze_boss_outfits SET name = ?, min_grade = ? WHERE id = ? AND job = ?', { newName, minGrade, tonumber(id), BM.gkey(gtype, name) })
+        return (n or 0) > 0, (n or 0) > 0 and 'Outfit updated.' or 'Outfit not found.'
+    end)
+
+    register('deleteOutfit', function(src, gtype, name, id)
+        if not BM.actorLimit(src, gtype, name) then return false, 'You are not a manager here.' end
+        local n = MySQL.update.await('DELETE FROM blaze_boss_outfits WHERE id = ? AND job = ?', { tonumber(id), BM.gkey(gtype, name) })
+        if (n or 0) > 0 then Logs.log('outfit', src, ('%s deleted outfit #%s from %s'):format(Logs.who(src), id, label(gtype, name)), { Group = BM.gkey(gtype, name) }) end
+        return (n or 0) > 0, (n or 0) > 0 and 'Outfit deleted.' or 'Outfit not found.'
+    end)
+end

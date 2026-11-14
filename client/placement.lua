@@ -1,12 +1,25 @@
--- /bossmenu (admins): place boss desks and application points in game. The server checks admin on every action.
+-- /bossmenu (admins): place boss desks, application, review, duty and wardrobe points in game.
+-- Managers get the same tools for their own job in the boss menu (Locations). The server checks every action.
 if not Config.enabled then return end
 
 local RES = GetCurrentResourceName()
 local function call(name, ...) return lib.callback.await(('%s:%s'):format(RES, name), false, ...) end
 local function result(ok, msg) lib.notify({ title = 'Boss menu placement', description = msg or (ok and 'Done.' or 'Failed.'), type = ok and 'success' or 'error' }) return ok end
 
-local TYPE_LABEL = { boss = 'Boss desk', applications = 'Applications point', review = 'Application review point' }
-local TYPE_ICON = { boss = 'fa-solid fa-briefcase', applications = 'fa-solid fa-file-signature', review = 'fa-solid fa-clipboard-check' }
+local TYPE_LABEL = { boss = 'Boss desk', applications = 'Applications point', review = 'Application review point', duty = 'Duty point', outfits = 'Wardrobe' }
+local TYPE_ICON = { boss = 'fa-solid fa-briefcase', applications = 'fa-solid fa-file-signature', review = 'fa-solid fa-clipboard-check', duty = 'fa-solid fa-clock', outfits = 'fa-solid fa-shirt' }
+local TYPE_DESC = {
+    boss = 'Managers open the boss menu here', applications = 'Anyone can apply here', review = 'Managers review applications here',
+    duty = 'Staff clock in and out here', outfits = 'Staff change into job outfits here',
+}
+
+--- Can this point type exist for this group? (mirrors the server check)
+local function typeFits(g, ptype)
+    if ptype == 'applications' or ptype == 'review' then return g.apps == true end
+    if ptype == 'duty' then return g.gtype == 'job' and (Config.duty or {}).enabled == true end
+    if ptype == 'outfits' then return (Config.outfits or {}).enabled == true end
+    return ptype == 'boss'
+end
 local openPlacement
 
 --- Raycast marker where the player looks. E = confirm, Backspace = cancel. Returns coords, heading or nil.
@@ -33,7 +46,7 @@ end
 local function addFlow(info, ptype)
     local options = {}
     for _, g in ipairs(info.groups) do
-        if ptype == 'boss' or g.apps then -- hide application/review points for groups with applications off
+        if typeFits(g, ptype) then -- e.g. no application points when applications are off
             options[#options + 1] = {
                 title = g.label, description = (g.gtype == 'gang' and 'Gang · ' or 'Job · ') .. g.name, arrow = true,
                 onSelect = function()
@@ -50,6 +63,44 @@ local function addFlow(info, ptype)
     if #options == 0 then options[1] = { title = 'No configured groups', description = 'Add jobs/gangs in config.lua', readOnly = true } end
     UI.registerMenu({ id = 'blaze_boss_place_pick', title = 'Add ' .. TYPE_LABEL[ptype]:lower(), menu = 'blaze_boss_place', options = options })
     UI.showMenu('blaze_boss_place_pick')
+end
+
+--- Teleport / Move / Change size / Delete for one point. after() reopens the list. teleport = allowed?
+local function pointActions(p, groupLabel, backMenu, after, teleport)
+    local fixed = p.fixed == 'config' and 'From config.lua (can\'t be changed in game)'
+        or p.fixed == 'script' and 'Added by another script (can\'t be changed in game)' or nil
+    local title = ('%s · %s'):format(groupLabel, TYPE_LABEL[p.type] or p.type)
+    local options = {}
+    if teleport then
+        options[#options + 1] = { title = 'Teleport', icon = 'fa-solid fa-location-arrow', onSelect = function()
+            SetEntityCoords(cache.ped, p.coords.x, p.coords.y, p.coords.z, false, false, false, false)
+        end }
+    end
+    options[#options + 1] = { title = 'Set waypoint', icon = 'fa-solid fa-map-pin', onSelect = function()
+        SetNewWaypoint(p.coords.x, p.coords.y)
+        result(true, 'Waypoint set.')
+    end }
+    options[#options + 1] = { title = 'Move', icon = 'fa-solid fa-up-down-left-right', disabled = p.fixed ~= nil,
+      description = fixed or 'Aim at the new spot and press E. Same job, type and size.', onSelect = function()
+        local coords, heading = placeMarker('Move: ' .. title)
+        if coords then result(call('movePoint', p.id, { x = coords.x, y = coords.y, z = coords.z }, heading)) end
+        after()
+    end }
+    options[#options + 1] = { title = 'Change size', icon = 'fa-solid fa-expand', disabled = p.fixed ~= nil,
+      description = fixed or ('Now %.1f m'):format(p.radius or 1.0), onSelect = function()
+        local v = UI.input('Point size', { { type = 'number', label = 'Radius (0.5 - 5.0 m)', default = p.radius or 1.0, min = 0.5, max = 5.0, required = true } })
+        if v and v[1] then result(call('resizePoint', p.id, v[1])) end
+        after()
+    end }
+    options[#options + 1] = { title = 'Delete', icon = 'fa-solid fa-trash', iconColor = '#E5484D', disabled = p.fixed ~= nil,
+      description = fixed, onSelect = function()
+        if UI.confirm({ header = 'Delete point', content = 'Delete this point? It disappears for everyone.', type = 'error', confirm = 'Delete' }) then
+            result(call('removePoint', p.id))
+        end
+        after()
+    end }
+    UI.registerMenu({ id = 'blaze_boss_place_point', title = title, menu = backMenu, options = options })
+    UI.showMenu('blaze_boss_place_point')
 end
 
 local function manageFlow(info)
@@ -73,34 +124,7 @@ local function manageFlow(info)
                 description = fixed or ('#%s · %.1f, %.1f, %.1f'):format(p.id, p.coords.x, p.coords.y, p.coords.z),
                 icon = TYPE_ICON[p.type] or 'fa-solid fa-location-dot', arrow = true,
                 onSelect = function()
-                    UI.registerMenu({
-                        id = 'blaze_boss_place_point', title = ('%s · %s'):format(labels[k] or k, TYPE_LABEL[p.type] or p.type), menu = 'blaze_boss_place_list',
-                        options = {
-                            { title = 'Teleport', icon = 'fa-solid fa-location-arrow', onSelect = function()
-                                SetEntityCoords(cache.ped, p.coords.x, p.coords.y, p.coords.z, false, false, false, false)
-                            end },
-                            { title = 'Move', icon = 'fa-solid fa-up-down-left-right', disabled = p.fixed ~= nil,
-                              description = fixed or 'Aim at the new spot and press E. Same job, type and size.', onSelect = function()
-                                local coords, heading = placeMarker(('Move: %s · %s'):format(labels[k] or k, TYPE_LABEL[p.type] or p.type))
-                                if coords then result(call('movePoint', p.id, { x = coords.x, y = coords.y, z = coords.z }, heading)) end
-                                openPlacement()
-                            end },
-                            { title = 'Change size', icon = 'fa-solid fa-expand', disabled = p.fixed ~= nil,
-                              description = fixed or ('Now %.1f m'):format(p.radius or 1.0), onSelect = function()
-                                local v = UI.input('Point size', { { type = 'number', label = 'Radius (0.5 - 5.0 m)', default = p.radius or 1.0, min = 0.5, max = 5.0, required = true } })
-                                if v and v[1] then result(call('resizePoint', p.id, v[1])) end
-                                openPlacement()
-                            end },
-                            { title = 'Delete', icon = 'fa-solid fa-trash', iconColor = '#E5484D', disabled = p.fixed ~= nil,
-                              description = fixed, onSelect = function()
-                                if UI.confirm({ header = 'Delete point', content = 'Delete this point? It disappears for everyone.', type = 'error', confirm = 'Delete' }) then
-                                    result(call('removePoint', p.id))
-                                end
-                                openPlacement()
-                            end },
-                        },
-                    })
-                    UI.showMenu('blaze_boss_place_point')
+                    pointActions(p, labels[k] or k, 'blaze_boss_place_list', openPlacement, true)
                 end,
             }
         end
@@ -119,6 +143,8 @@ openPlacement = function()
             { title = 'Add boss desk', description = 'Managers open the boss menu here', icon = 'fa-solid fa-briefcase', arrow = true, onSelect = function() addFlow(info, 'boss') end },
             { title = 'Add applications point', description = 'Anyone can apply here', icon = TYPE_ICON.applications, arrow = true, onSelect = function() addFlow(info, 'applications') end },
             { title = 'Add application review point', description = 'Managers review that job\'s applications here', icon = TYPE_ICON.review, arrow = true, onSelect = function() addFlow(info, 'review') end },
+            { title = 'Add duty point', description = TYPE_DESC.duty, icon = TYPE_ICON.duty, arrow = true, disabled = not (Config.duty or {}).enabled, onSelect = function() addFlow(info, 'duty') end },
+            { title = 'Add wardrobe', description = TYPE_DESC.outfits, icon = TYPE_ICON.outfits, arrow = true, disabled = not (Config.outfits or {}).enabled, onSelect = function() addFlow(info, 'outfits') end },
             { title = 'Manage points', description = ('%d points'):format(#info.points), icon = 'fa-solid fa-list', arrow = true, onSelect = function() manageFlow(info) end },
         },
     })
@@ -127,4 +153,38 @@ end
 
 RegisterNetEvent(RES .. ':client:placement', function() openPlacement() end)
 
-TriggerEvent('chat:addSuggestion', '/bossmenu', 'Place boss desks and application points (admin)')
+TriggerEvent('chat:addSuggestion', '/bossmenu', 'Place boss desks, duty, wardrobe and application points (admin)')
+
+---------------------------------------------------------------------------
+-- Boss menu > Locations: a manager's own job's points (Config.managerPlacement)
+---------------------------------------------------------------------------
+BMC.placeMarker = placeMarker
+
+function BMC.openLocations(m)
+    local d = call('getGroupPoints', m.gtype, m.name)
+    if not d then return result(false, 'You are not a manager here.') end
+    local reopen = function() BMC.openLocations(m) end
+    local teleport = m.isAdmin or (Config.managerPlacement or {}).teleport == true
+    local options = {}
+    table.sort(d.types, function(a, b) return (TYPE_LABEL[a] or a) < (TYPE_LABEL[b] or b) end)
+    for _, t in ipairs(d.types) do
+        options[#options + 1] = { title = 'Add ' .. (TYPE_LABEL[t] or t):lower(), description = TYPE_DESC[t], icon = 'fa-solid fa-plus', onSelect = function()
+            local coords, heading = placeMarker(('%s · %s'):format(TYPE_LABEL[t] or t, m.label))
+            if coords then
+                local v = UI.input('Point size', { { type = 'number', label = 'Radius (0.5 - 5.0 m)', default = 1.0, min = 0.5, max = 5.0, required = true } })
+                result(call('addPoint', m.gtype, m.name, t, { x = coords.x, y = coords.y, z = coords.z }, heading, v and v[1] or 1.0))
+            end
+            reopen()
+        end }
+    end
+    for _, p in ipairs(d.points) do
+        options[#options + 1] = {
+            title = TYPE_LABEL[p.type] or p.type, icon = TYPE_ICON[p.type] or 'fa-solid fa-location-dot', arrow = true,
+            description = p.fixed and 'Set in config.lua' or ('%.0f m away'):format(#(GetEntityCoords(cache.ped) - vec3(p.coords.x, p.coords.y, p.coords.z))),
+            onSelect = function() pointActions(p, m.label, 'blaze_boss_locations', reopen, teleport) end,
+        }
+    end
+    if #d.points == 0 then options[#options + 1] = { title = 'No points yet', description = 'Use Add above, then aim and press E', readOnly = true } end
+    UI.registerMenu({ id = 'blaze_boss_locations', title = 'Locations · ' .. m.label, menu = 'blaze_boss_main', options = options })
+    UI.showMenu('blaze_boss_locations')
+end

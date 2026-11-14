@@ -23,7 +23,12 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - **Duty hours**: on/off duty time per employee, kept for 31 days (same table as qbx_management, so old hours carry over).
 - **Rank editor** (Qbox): rename ranks, change pay, boss flag and bank access, saved across restarts.
 - **Gangs**: members, hire, promote/demote, kick, rank editor, optional funds.
-- **Placement**: `/bossmenu` lets admins place boss desks and application points where they're looking.
+- **Placement**: `/bossmenu` lets admins place boss desks, application, review, duty and wardrobe points where they're looking.
+  Managers can do the same for their own job from the boss menu (**Locations**): add, move, resize, delete, set a waypoint.
+- **Duty points**: staff clock in / out at a placed point (feeds duty hours).
+- **Job outfits**: managers save what they're wearing as a uniform with the lowest rank allowed; staff change at a **wardrobe** point.
+  Uses illenium-appearance automatically when it's running; male and female outfits are separate; face and hair are never changed.
+- **Radial menu**: bosses get a **Work** entry (ox_lib radial, works with qbx_radialmenu) with their boss menu, applications and My job.
 - **Logs** to console, the ox_lib logger and Discord.
 - **Compatibility** with scripts written for qbx_management or qb-bossmenu (e.g. illenium-appearance boss outfits).
 
@@ -131,6 +136,11 @@ Use `/bossmenu` in game (admins only):
 - **Add applications point**: same, but only for jobs with applications on.
 - **Add application review point**: where managers review that job's applications (for example an HR office),
   without needing the boss desk. Only that job's managers (and admins) see it.
+- **Add duty point**: staff of that job clock in and out here.
+- **Add wardrobe**: staff of that job change into the job's outfits here (and back to their own clothes).
+
+Managers can place, move and delete their own job's points from the boss menu → **Locations**
+(`managerPlacement`: which types, and whether they may teleport).
 - **Manage points**: everything placed, grouped by job. **Teleport** to a point, **Move** it (aim at the new spot,
   press E; it keeps its job, type and size), **Change size**, or **Delete** it.
   Points from `Config.locations`, or added by other scripts, can't be changed in game.
@@ -215,7 +225,11 @@ The applicant's full name always comes from their character. It is never a quest
 | `features.myJobCommand` / `jobBoardCommand` | `/myjob` and `/jobs` command names, or `false`. |
 | `features.phoneMail` | Send application results by sd-phone mail. |
 | `features.receptionist` | NPC at applications points: `enabled`, `model`, `scenario`, `greet`. |
-| `locations` | Fixed points from config (added to the ones placed in game). |
+| `duty.enabled` | Duty points (clock in / out). |
+| `outfits.*` | Job outfits: `enabled`, `appearance` (`'auto'` = illenium-appearance if running, `'native'`), `maxPerJob`. |
+| `managerPlacement.*` | Managers place their own job's points: `enabled`, `types`, `teleport`. |
+| `radial.*` | "Work" radial entry for bosses: `enabled`, `label`, `icon`. |
+| `locations` | Fixed points from config (added to the ones placed in game). Types: boss, applications, review, duty, outfits. |
 | `logs.*` | Console, ox_lib logger, Discord, and each event on/off. |
 
 ### On/off switches (all enforced on the server)
@@ -275,7 +289,7 @@ Events `qb-bossmenu:client:OpenMenu` and `qb-gangmenu:client:OpenMenu` open the 
 
 `blaze_boss_applications`, `blaze_boss_forms`, `blaze_boss_callsigns`, `blaze_boss_fund_log`,
 `blaze_boss_settings`, `blaze_boss_points`, `blaze_boss_members`, `blaze_boss_records`, `blaze_boss_audit`,
-`blaze_boss_announcements`, `blaze_boss_eotw`, `blaze_boss_app_votes`, `blaze_boss_contract_templates`, `blaze_boss_contracts`, plus `player_jobs_activity` and `management_groups`
+`blaze_boss_announcements`, `blaze_boss_eotw`, `blaze_boss_app_votes`, `blaze_boss_contract_templates`, `blaze_boss_contracts`, `blaze_boss_outfits`, plus `player_jobs_activity` and `management_groups`
 (the same tables qbx_management used).
 
 ## License
