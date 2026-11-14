@@ -56,8 +56,25 @@ end
 ---------------------------------------------------------------------------
 -- Permissions
 ---------------------------------------------------------------------------
-local function isAdmin(src)
+local function isRealAdmin(src)
     return IsPlayerAceAllowed(src, Config.adminAce) or Bridge.IsFrameworkAdmin(src) or false
+end
+
+-- "View as" preview (/bossmenutest, admins): [src] = { gtype, name, grade|nil }. While set, that admin
+-- counts as a non-admin with that rank in that group (nil = not in it, like a civilian).
+local viewAs = {}
+BM.viewAs = viewAs
+local realGroupGrade = Bridge.GetPlayerGroupGrade
+Bridge.GetPlayerGroupGrade = function(src, gtype, name)
+    local v = viewAs[src]
+    if v and v.gtype == gtype and v.name == name then return v.grade end
+    return realGroupGrade(src, gtype, name)
+end
+AddEventHandler('playerDropped', function() viewAs[source] = nil end)
+
+local function isAdmin(src)
+    if viewAs[src] then return false end
+    return isRealAdmin(src)
 end
 
 --- The player's grade if it makes them a manager of the group, else nil
@@ -1298,6 +1315,7 @@ end
 -- Helpers for server/features.lua
 BM.register, BM.groupCfg, BM.gkey, BM.appsOn, BM.fundsOn = register, groupCfg, gkey, appsOn, fundsOn
 BM.isAdmin, BM.managerGrade, BM.actorLimit, BM.checkTarget = isAdmin, managerGrade, actorLimit, checkTarget
+BM.isRealAdmin = isRealAdmin
 BM.notifyMember, BM.groupLabel, BM.gradeName, BM.cleanText, BM.cleanLong = notifyMember, groupLabel, gradeName, cleanText, cleanLong
 BM.isOpen, BM.activityFor, BM.allPoints, BM.withdrawLeft = isOpen, activityFor, allPoints, withdrawLeft
 BM.clockedIn = clockedIn

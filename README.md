@@ -152,7 +152,10 @@ Change or turn off the command with `applications.statusCommand`.
   and one regular. They're real offline characters (citizen IDs `BMTEST01`, `BMTEST02`, …) that nobody can log in as,
   so you can promote, demote, write up, commend, set callsigns and fire them.
 - **Add 3 test applications** using the job's current form: two waiting, one invited to an interview. Accepting one hires that test character.
-- **Previews** of the promotion celebration, the hire offer popup and the announcement popup.
+- **View as…**: see a job exactly as a **civilian** (not in it), a **regular employee**, or **any rank** including command / boss ranks.
+  While it's on, you count as that person (no admin, that rank's limits), and a reminder shows at the top of the screen.
+  **Stop preview** puts you back (it also resets when you disconnect). Anything you do while previewing is real.
+- **Previews** of the promotion celebration, the hire offer popup, the employment contract and the announcement popup.
 - **Remove all test data**: deletes every test character and everything linked to them.
 
 Things that need a real second player: hiring someone nearby (consent popup + handshake) and bonuses (paid to online players).

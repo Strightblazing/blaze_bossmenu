@@ -51,16 +51,19 @@ local function randomName(i)
 end
 
 register('testInfo', function(src)
-    if not BM.isAdmin(src) then return nil end
+    if not BM.isRealAdmin(src) then return nil end
     local groups = {}
     for _, gtype in ipairs({ 'job', 'gang' }) do
         for name, c in pairs((gtype == 'job' and Config.jobs or Config.gangs) or {}) do
-            if Bridge.GroupExists(gtype, name) then groups[#groups + 1] = { gtype = gtype, name = name, label = c.label or name, apps = BM.appsOn(gtype, name) } end
+            if Bridge.GroupExists(gtype, name) then
+                groups[#groups + 1] = { gtype = gtype, name = name, label = c.label or name, apps = BM.appsOn(gtype, name),
+                    grades = Bridge.GetGrades(gtype, name), bossGrade = c.bossGrade }
+            end
         end
     end
     table.sort(groups, function(a, b) return a.label < b.label end)
     return {
-        groups = groups, myName = Bridge.GetName(src), today = os.date('%m-%d-%Y'),
+        groups = groups, myName = Bridge.GetName(src), today = os.date('%m-%d-%Y'), viewAs = BM.viewAs[src],
         characters = MySQL.scalar.await('SELECT COUNT(*) FROM players WHERE citizenid LIKE ?', { PREFIX .. '%' }) or 0,
         applications = MySQL.scalar.await('SELECT COUNT(*) FROM blaze_boss_applications WHERE citizenid LIKE ?', { PREFIX .. '%' }) or 0,
     }
@@ -68,7 +71,7 @@ end)
 
 --- 4 offline staff spread over the lower ranks, each set up to show a different badge
 register('testAddStaff', function(src, gtype, name)
-    if not BM.isAdmin(src) then return false, 'Admins only.' end
+    if not BM.isRealAdmin(src) then return false, 'Admins only.' end
     if not BM.groupCfg(gtype, name) then return false, 'That group isn\'t configured.' end
     local grades = Bridge.GetGrades(gtype, name)
     if #grades < 2 then return false, 'This group needs at least 2 ranks.' end
@@ -138,7 +141,7 @@ end
 
 --- 3 applications (2 waiting, 1 invited to interview) from test characters with no job
 register('testAddApplications', function(src, job)
-    if not BM.isAdmin(src) then return false, 'Admins only.' end
+    if not BM.isRealAdmin(src) then return false, 'Admins only.' end
     if not BM.appsOn('job', job) then return false, 'Applications are off for this job.' end
     local f = MySQL.single.await('SELECT questions FROM blaze_boss_forms WHERE job = ?', { job })
     local questions = f and json.decode(f.questions) or (Config.applications.defaultQuestions or {})
@@ -156,7 +159,7 @@ register('testAddApplications', function(src, job)
 end)
 
 register('testClear', function(src)
-    if not BM.isAdmin(src) then return false, 'Admins only.' end
+    if not BM.isRealAdmin(src) then return false, 'Admins only.' end
     local like = PREFIX .. '%'
     local apps = MySQL.query.await('SELECT id FROM blaze_boss_applications WHERE citizenid LIKE ?', { like }) or {}
     for _, a in ipairs(apps) do MySQL.query.await('DELETE FROM blaze_boss_app_votes WHERE app_id = ?', { a.id }) end
@@ -168,8 +171,33 @@ register('testClear', function(src)
     return true, ('Removed %d test characters and all their test data.'):format(n)
 end)
 
+--- "View as": see a group like a civilian (grade = false) or someone of that rank. Only you are affected.
+--- Anything you do while previewing is real. gtype = nil stops the preview.
+register('testViewAs', function(src, gtype, name, grade)
+    if not BM.isRealAdmin(src) then return false, 'Admins only.' end
+    local function refresh() TriggerClientEvent(RES .. ':client:viewAs', src, BM.viewAs[src]) end
+    if not gtype then
+        BM.viewAs[src] = nil
+        refresh()
+        return true, 'Preview stopped. You\'re back to normal.'
+    end
+    if not BM.groupCfg(gtype, name) then return false, 'That group isn\'t configured.' end
+    local who
+    if grade == false then
+        who = 'a civilian (not in ' .. BM.groupLabel(gtype, name) .. ')'
+    else
+        grade = tonumber(grade)
+        local g = grade and Bridge.GetGrade(gtype, name, grade)
+        if not g then return false, 'That rank doesn\'t exist.' end
+        who = ('%s (rank %d%s)'):format(g.name, grade, g.isboss and ', boss' or '')
+    end
+    BM.viewAs[src] = { gtype = gtype, name = name, grade = grade ~= false and grade or nil, label = BM.groupLabel(gtype, name), who = who }
+    refresh()
+    return true, ('Previewing %s as %s. Anything you do is real.'):format(BM.groupLabel(gtype, name), who)
+end)
+
 RegisterCommand(Config.testCommand, function(src)
     if src == 0 then return print(('[blaze_bossmenu] /%s is an in-game command.'):format(Config.testCommand)) end
-    if not BM.isAdmin(src) then return Bridge.Notify(src, 'You don\'t have permission to use this.', 'error') end
+    if not BM.isRealAdmin(src) then return Bridge.Notify(src, 'You don\'t have permission to use this.', 'error') end
     TriggerClientEvent(RES .. ':client:testMenu', src)
 end, false)

@@ -949,6 +949,8 @@ local function buildTargets(points)
 end
 
 RegisterNetEvent(RES .. ':client:points', function(points) buildTargets(points) end)
+-- "View as" preview started/stopped (/bossmenutest): refresh which desks and menus this player gets
+RegisterNetEvent(RES .. ':client:viewAs', function() refreshManaged() end)
 
 CreateThread(function()
     Wait(1000)

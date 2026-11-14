@@ -24,12 +24,47 @@ local function pickGroup(info, appsOnly, title, fn)
     UI.showMenu('blaze_boss_test_pick')
 end
 
+--- "View as": pick a rank (or Civilian) in a group and see everything the way they would
+local function viewAsMenu(g)
+    local options = {
+        { title = 'Civilian', description = ('Not in %s: application point, /jobs, /applicationstatus'):format(g.label), icon = 'fa-solid fa-person', arrow = true,
+          onSelect = function() result(call('testViewAs', g.gtype, g.name, false)) end },
+    }
+    for i = #g.grades, 1, -1 do
+        local gr = g.grades[i]
+        local boss = (g.bossGrade and gr.level >= g.bossGrade) or (not g.bossGrade and gr.isboss)
+        options[#options + 1] = {
+            title = ('%s (rank %d)'):format(gr.name, gr.level), icon = boss and 'fa-solid fa-user-tie' or 'fa-solid fa-user',
+            iconColor = boss and '#F5C542' or nil, arrow = true,
+            description = boss and 'Command / boss access: boss menu at their limits' or 'Regular employee: no boss access, /myjob',
+            onSelect = function() result(call('testViewAs', g.gtype, g.name, gr.level)) end,
+        }
+    end
+    UI.registerMenu({ id = 'blaze_boss_test_viewas', title = 'View ' .. g.label .. ' as…', menu = 'blaze_boss_test_pick', options = options })
+    UI.showMenu('blaze_boss_test_viewas')
+end
+
 openTest = function()
     local info = call('testInfo')
     if not info then return result(false, 'Admins only.') end
-    UI.registerMenu({
-        id = 'blaze_boss_test', title = 'Boss menu test',
-        options = {
+    local top = {}
+    if info.viewAs then
+        top[#top + 1] = { title = 'Stop preview', icon = 'fa-solid fa-eye-slash', iconColor = '#E5484D',
+            description = ('Now viewing %s as %s'):format(info.viewAs.label, info.viewAs.who),
+            onSelect = function() result(call('testViewAs')) openTest() end }
+    end
+    top[#top + 1] = { title = 'View as…', icon = 'fa-solid fa-eye', iconColor = '#5AA9FF', arrow = true,
+        description = 'See a job as a civilian, an employee or any rank (only you are affected)',
+        onSelect = function()
+            local options = {}
+            for _, g in ipairs(info.groups) do
+                options[#options + 1] = { title = g.label, description = (g.gtype == 'gang' and 'Gang · ' or 'Job · ') .. g.name, arrow = true,
+                    onSelect = function() viewAsMenu(g) end }
+            end
+            UI.registerMenu({ id = 'blaze_boss_test_pick', title = 'View which job as…', menu = 'blaze_boss_test', options = options })
+            UI.showMenu('blaze_boss_test_pick')
+        end }
+    local options = {
             { title = ('Test data: %d characters · %d applications'):format(info.characters, info.applications), icon = 'fa-solid fa-flask', readOnly = true,
               description = 'Fake offline characters (citizen ID BMTEST..). Nobody can log in as them.' },
             { title = 'Add 4 test staff', icon = 'fa-solid fa-users', arrow = true,
@@ -65,10 +100,20 @@ openTest = function()
                   end
                   openTest()
               end },
-        },
-    })
+    }
+    for i = #top, 1, -1 do table.insert(options, 1, top[i]) end
+    UI.registerMenu({ id = 'blaze_boss_test', title = 'Boss menu test', options = options })
     UI.showMenu('blaze_boss_test')
 end
+
+-- On-screen reminder while previewing, so it's never forgotten
+RegisterNetEvent(RES .. ':client:viewAs', function(v)
+    if v then
+        lib.showTextUI(('👁 Previewing %s as %s  \n/%s → Stop preview'):format(v.label, v.who, Config.testCommand), { position = 'top-center', icon = 'eye' })
+    else
+        lib.hideTextUI()
+    end
+end)
 
 RegisterNetEvent(RES .. ':client:testMenu', function() openTest() end)
 TriggerEvent('chat:addSuggestion', '/' .. Config.testCommand, 'Boss menu test tools (admin)')
