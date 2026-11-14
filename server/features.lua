@@ -791,7 +791,30 @@ if DUTY.enabled then
 
         local ann = F.announcements and MySQL.single.await("SELECT message, by_name, DATE_FORMAT(created_at, '%m-%d-%Y') AS at FROM blaze_boss_announcements WHERE job = ?", { key }) or nil
 
+        -- job + rank details
+        local shared = Bridge.GetGroup('job', job) or {}
+        local rankPos = 0
+        for i, g in ipairs(grades) do if g.level == grade then rankPos = i end end
+        local TYPES = { ems = 'Medical', leo = 'Law enforcement', fire = 'Fire', mechanic = 'Mechanic' }
+        -- employment
+        local mem = MySQL.single.await("SELECT DATEDIFF(NOW(), hired_at) AS days, DATE_FORMAT(hired_at, '%m-%d-%Y') AS since FROM blaze_boss_members WHERE citizenid = ? AND job = ?", { cid, key })
+        local record
+        if F.records then
+            local r = MySQL.single.await("SELECT SUM(type = 'commend') AS c, SUM(type = 'warning') AS w FROM blaze_boss_records WHERE job = ? AND citizenid = ?", { key, cid }) or {}
+            record = { commendations = tonumber(r.c) or 0, writeups = tonumber(r.w) or 0 }
+        end
+        -- department stats (applications waiting: managers only)
+        local manager = BM.actorLimit(src, 'job', job) ~= nil
+        local appsWaiting = (manager and BM.appsOn('job', job))
+            and MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status IN ('new','interview')", { job }) or nil
+        local eotwName = F.employeeOfWeek and MySQL.scalar.await('SELECT name FROM blaze_boss_eotw WHERE job = ? AND week = YEARWEEK(NOW(), 3)', { key }) or nil
+
         return {
+            fullName = c.fullName, jobType = TYPES[shared.type] or (shared.type and shared.type:gsub('^%l', string.upper)) or nil,
+            rankPos = rankPos, rankCount = #grades,
+            employedDays = mem and tonumber(mem.days) or nil, employedSince = mem and mem.since or nil,
+            pay = mine and tonumber(mine.payment) or nil, record = record,
+            staffTotal = #Bridge.GetMembers('job', job), appsWaiting = appsWaiting and tonumber(appsWaiting) or nil, eotw = eotwName,
             dept = label('job', job), name = Bridge.GetName(src), rank = mine and mine.name or tostring(grade),
             callsign = MySQL.scalar.await('SELECT callsign FROM blaze_boss_callsigns WHERE citizenid = ? AND job = ?', { cid, job }),
             id = cid:sub(-5):upper(), pin = pinOf(cid), virtual = true,

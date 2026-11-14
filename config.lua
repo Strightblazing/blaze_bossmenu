@@ -106,6 +106,8 @@ Config = {
         ambulance = {
             -- Shown in menus
             label = 'EMS',
+            -- Full name, shown under the label on the time clock (optional)
+            fullName = 'Emergency Medical Services',
             -- nil = use the job grade's isboss flag from the framework; or a number = minimum grade that counts as a manager
             bossGrade = nil,
             -- Society/bank account name used for Funds

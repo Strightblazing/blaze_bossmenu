@@ -164,6 +164,16 @@ body.demo{background:#2a2d33}
 .dense .btn{padding:6px 14px;font-size:12.5px}
 .dense .app.mini{width:min(470px,94vw)}
 
+/* job full name, About you, Department */
+.dept .full{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:7px 18px;font-size:13px}
+.facts .k{color:var(--muted)}.facts .v{color:var(--text);text-align:right}
+.facts .v small{color:var(--faint);font-size:11.5px;margin-left:4px}
+.app.mini .about-block,.app.mini .dept .full{display:none}
+.dense .facts{font-size:12px;gap:5px 14px}
+.app:not(.mini) .about-block{animation:rise .45s cubic-bezier(.2,.8,.2,1) .22s both}
+#deptStats .stat b{font-size:17px}.dense #deptStats .stat b{font-size:15px}
+#deptStats .stat b.name{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* the clock-in area title is a heading, not a side note */
 .label #stageTitle{margin-left:0;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:500}
 /* Clock out button: only in the full screen while on duty */
@@ -225,7 +235,7 @@ body.demo{background:#2a2d33}
 /* full screen reveal: sections one after another */
 .app:not(.mini) .col.info>div,.app:not(.mini) .announce-block{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
 .app:not(.mini) .col.info>div:nth-child(1){animation-delay:.05s}.app:not(.mini) .col.info>div:nth-child(2){animation-delay:.12s}
-.app:not(.mini) .col.info>div:nth-child(3){animation-delay:.19s}.app:not(.mini) .col.info>div:nth-child(4){animation-delay:.26s}
+.app:not(.mini) .col.info>div:nth-child(3){animation-delay:.19s}.app:not(.mini) .col.info>div:nth-child(4){animation-delay:.26s}.app:not(.mini) .col.info>div:nth-child(5){animation-delay:.33s}
 .app:not(.mini) .announce-block{animation-delay:.3s}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .bar i{transition:height .6s cubic-bezier(.2,.8,.2,1)}
@@ -242,7 +252,7 @@ body.demo{background:#2a2d33}
 
 <div id="wrap"><div class="scaler" id="scaler"><div class="app mini" id="app">
   <div class="head">
-    <div class="dept"><small>Time clock</small><b id="dept"></b></div>
+    <div class="dept"><small>Time clock</small><b id="dept"></b><span class="full" id="deptFull"></span></div>
     <div class="clock"><div class="t" id="clock"></div><div class="d" id="date"></div></div>
     <div class="status" id="status"><i></i><span>Off duty</span></div>
   </div>
@@ -264,6 +274,10 @@ body.demo{background:#2a2d33}
           <div class="reader keys" id="keys"></div>
         </div>
         <div class="result" id="result"></div>
+      </div>
+      <div class="about-block">
+        <div class="label">About you</div>
+        <div class="facts" id="facts"></div>
       </div>
       <div class="announce-block">
         <div class="label">Announcement</div>
@@ -289,6 +303,10 @@ body.demo{background:#2a2d33}
         <div class="label">Next rank <span id="nextRank"></span></div>
         <div class="prog" id="prog"><i id="progBar"></i></div>
         <div class="sub" id="progText"></div>
+      </div>
+      <div>
+        <div class="label">Department</div>
+        <div class="stats" id="deptStats"></div>
       </div>
       <div>
         <div class="label">On duty <span id="dutyCount"></span></div>
@@ -353,6 +371,8 @@ let D = {
   tags: ['Employee of the week', 'Probation · 3 days left'],
   onDutyList: [['Dr. Steven Blaze', 'Chief'], ['Mike Kerr', 'EMT'], ['Ana Lopez', 'Paramedic']],
   announcement: { message: 'Training night Thursday 8pm at Pillbox. Bring your trauma kit.', by: 'Dr. Steven Blaze', at: '11-13-2026' },
+  fullName: 'Emergency Medical Services', jobType: 'Medical', rankPos: 2, rankCount: 5, employedDays: 42, employedSince: '10-03-2026',
+  pay: 500, record: { commendations: 2, writeups: 0 }, staffTotal: 12, appsWaiting: 3, eotw: 'Jane Doe',
 };
 let methods = ['tap', 'swipe', 'keypad'], method = 'tap', clockedAt = null, busy = false;
 
@@ -400,6 +420,16 @@ function msg(text, cls) {
 // ---------- render ----------
 function render() {
   $('#dept').textContent = D.dept; $('#cardDept').textContent = D.dept;
+  $('#deptFull').textContent = D.fullName || '';
+  // About you
+  const facts = [];
+  facts.push(['Rank', esc(D.rank) + (D.rankCount ? '<small>' + (D.rankPos || '?') + ' of ' + D.rankCount + '</small>' : '')]);
+  if (D.callsign) facts.push(['Callsign', esc(D.callsign)]);
+  facts.push(['Department', esc(D.dept) + (D.jobType ? '<small>' + esc(D.jobType) + '</small>' : '')]);
+  facts.push(['Employed', D.employedDays != null ? (D.employedDays === 0 ? 'Started today' : D.employedDays + ' day' + (D.employedDays === 1 ? '' : 's')) + (D.employedSince ? '<small>since ' + esc(D.employedSince) + '</small>' : '') : 'Before records began']);
+  if (D.pay) facts.push(['Pay', money(D.pay) + '<small>per paycheck</small>']);
+  if (D.record) facts.push(['Record', D.record.commendations + ' commendation' + (D.record.commendations === 1 ? '' : 's') + ' · ' + D.record.writeups + ' write-up' + (D.record.writeups === 1 ? '' : 's')]);
+  $('#facts').innerHTML = facts.map(f => '<span class="k">' + f[0] + '</span><span class="v">' + f[1] + '</span>').join('');
   $('#cName').textContent = D.name; $('#cRank').textContent = D.rank; $('#cRank').title = D.rank;
   $('#cCall').textContent = D.callsign ? ' · ' + D.callsign : '';
   $('#cId').textContent = D.id; $('#cPin').textContent = D.pin; $('#ini').textContent = initials(D.name);
@@ -431,6 +461,12 @@ function render() {
   }
   const list = (D.onDuty ? [[D.name, D.rank, true]] : []).concat(D.onDutyList || []);
   $('#dutyCount').textContent = list.length;
+  // Department tiles: on duty / total, applications waiting (managers) or ranks, Employee of the week
+  const tiles = [['On duty', list.length + (D.staffTotal ? ' / ' + D.staffTotal : '')]];
+  if (D.appsWaiting != null) tiles.push(['Applications', D.appsWaiting + ' waiting']);
+  else tiles.push(['Ranks', String(D.rankCount || '-')]);
+  tiles.push(['Employee of week', D.eotw ? esc(D.eotw) : 'Not picked', true]);
+  $('#deptStats').innerHTML = tiles.map(t => '<div class="stat"><small>' + t[0] + '</small><b' + (t[2] ? ' class="name" title="' + (D.eotw ? esc(D.eotw) : '') + '"' : '') + '>' + t[1] + '</b></div>').join('');
   $('#duty').innerHTML = list.length ? list.map(p => '<div class="person' + (p[2] ? ' you' : '') + '"><span class="av">' + initials(p[0]) + '</span>' + esc(p[0]) +
     (p[2] ? ' <span style="color:var(--faint)">(you)</span>' : '') + '<span class="rk">' + esc(p[1]) + '</span></div>').join('')
     : '<div class="empty">Nobody is on duty.</div>';

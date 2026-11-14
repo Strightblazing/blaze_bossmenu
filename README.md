@@ -29,7 +29,9 @@ It does **not** need Blaze Medical or any other Blaze resource.
   personal PIN). They clock in by tapping the ID on the reader, swiping it, or typing the PIN (`duty.methods`). It shows
   a live shift timer, hours this week and the last 31 days, a bar per day, their last shift, progress to the next rank
   (`promotionHours` and real pay), tags (Employee of the week, probation, ready for promotion), who's on duty and the
-  department announcement. Green / red shows on or off duty. The server checks they're at that job's duty point and the PIN.
+  department announcement, an About you list (rank and position, callsign, department, time employed, pay,
+  record) and department stats (on duty vs total staff, applications waiting for managers, Employee of the Week).
+  Green / red shows on or off duty. The server checks they're at that job's duty point and the PIN.
   `duty.style = 'instant'` just toggles duty instead.
 - **Job outfits**: managers save what they're wearing as a uniform with the lowest rank allowed; staff change at a **wardrobe** point.
   Uses illenium-appearance automatically when it's running; male and female outfits are separate; face and hair are never changed.
@@ -220,6 +222,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `applications.quickReplies` | Ready-made `deny` and `interview` messages. |
 | `funds.bonuses` / `maxBonus` / `payroll` | Bonuses from society funds, biggest bonus per person, the Payroll page. |
 | `jobs[x].description` | Text shown on the `/jobs` board. |
+| `jobs[x].fullName` | Full job name shown under the label on the time clock (e.g. Emergency Medical Services). |
 | `jobs[x].promotionHours` | `{ [rank] = hours }` needed to show "Ready for promotion". |
 | `jobs[x].withdrawLimits` | `{ [rank] = amount }` most that rank can withdraw + pay in bonuses per day. |
 | `jobs[x].starterItems` | `{ { item = 'radio', count = 1 } }` given to new hires. |
