@@ -163,6 +163,9 @@ body.demo{background:#2a2d33}
 .btn{padding:6px 14px;font-size:12.5px}
 .app.mini{width:min(470px,94vw)}
 
+/* size: the whole clock is scaled (about 25% larger; smaller on small screens) */
+.scaler{transform:scale(var(--ui-scale,1.25));transform-origin:center;transition:transform .2s}
+
 /* ---------- motion & glow (subtle) ---------- */
 @media (prefers-reduced-motion:no-preference){
 /* panel opens */
@@ -225,7 +228,7 @@ body.demo{background:#2a2d33}
 <body>
 <div class="demobar"><span>Demo</span><button id="flip">Start off duty</button></div>
 
-<div id="wrap"><div class="app mini" id="app">
+<div id="wrap"><div class="scaler" id="scaler"><div class="app mini" id="app">
   <div class="head">
     <div class="dept"><small>Time clock</small><b id="dept"></b></div>
     <div class="clock"><div class="t" id="clock"></div><div class="d" id="date"></div></div>
@@ -283,7 +286,7 @@ body.demo{background:#2a2d33}
   </div>
 
   <div class="foot"><span id="footNote"></span><span class="sp"></span><button class="btn" id="close">Close</button></div>
-</div></div>
+</div></div></div>
 
 <script>
 // In game this page runs inside web/index.html, which passes messages to and from the game
@@ -301,6 +304,17 @@ function post(name, data) {
     return fetch('https://' + GetParentResourceName() + '/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: JSON.stringify(data || {}) }).then(r => r.json()).catch(() => ({}));
   return Promise.resolve({});
 }
+
+// ---------- size: up to 25% larger, but always fits the screen ----------
+const UI_SCALE = 1.25;
+let S = UI_SCALE;
+function fitScale() {
+  const app = $('#app');
+  const w = app.offsetWidth || 780, h = app.offsetHeight || 600;
+  S = Math.max(0.6, Math.min(UI_SCALE, (innerWidth * 0.94) / w, (innerHeight * 0.92) / h));
+  document.documentElement.style.setProperty('--ui-scale', S);
+}
+addEventListener('resize', fitScale);
 
 // ---------- data: from the server in game, demo values in a browser ----------
 let D = {
@@ -414,7 +428,7 @@ function done(onDuty, shift) {
   if (onDuty) {
     // clocked in: open the full screen
     flash('good');
-    setTimeout(() => { $('#app').classList.remove('mini'); reveal(); }, 700);
+    setTimeout(() => { $('#app').classList.remove('mini'); reveal(); setTimeout(fitScale, 380); }, 700);
     msg('<span class="dot in"></span><b>Clocked in</b> at ' + hhmm, 'ok');
     $('#result').innerHTML = '<span class="dot in"></span><b>Clocked in at ' + hhmm + '.</b> Have a good shift.';
   } else {
@@ -464,8 +478,10 @@ card.addEventListener('pointerdown', e => {
 });
 card.addEventListener('pointermove', e => {
   if (!drag) return;
-  const x = e.clientX - drag.s.left - drag.dx, y = e.clientY - drag.s.top - drag.dy;
-  card.style.left = Math.max(-60, Math.min(drag.s.width - 120, x)) + 'px'; card.style.top = Math.max(-40, Math.min(drag.s.height - 50, y)) + 'px';
+  // screen pixels -> the clock's own (unscaled) pixels
+  const x = (e.clientX - drag.s.left - drag.dx) / S, y = (e.clientY - drag.s.top - drag.dy) / S;
+  const sw = drag.s.width / S, sh = drag.s.height / S;
+  card.style.left = Math.max(-60, Math.min(sw - 120, x)) + 'px'; card.style.top = Math.max(-40, Math.min(sh - 50, y)) + 'px';
   const cr = card.getBoundingClientRect();
   if (method === 'tap') {
     const pr = $('#pad').getBoundingClientRect();
@@ -476,7 +492,7 @@ card.addEventListener('pointermove', e => {
     if (inSlot && drag.startX === null) { drag.startX = cr.left; drag.startT = performance.now(); }
     if (!inSlot) { drag.startX = null; $('#fill').style.width = '0'; return; }
     const prog = (cr.left - drag.startX) / (sl.width * 0.45);
-    $('#fill').style.width = Math.max(0, Math.min(1, prog)) * (sl.width - 28) + 'px';
+    $('#fill').style.width = Math.max(0, Math.min(1, prog)) * (sl.width / S - 28) + 'px';
     if (prog >= 1) {
       const ms = performance.now() - drag.startT; endDrag();
       if (ms < 900) punch(); else fail('Too slow. Try one quick move.');
@@ -548,6 +564,7 @@ window.addEventListener('message', e => {
     $('#app').classList.add('mini');
     setMethod(methods[0]); render(); tick();
     $('#wrap').classList.add('show');
+    requestAnimationFrame(fitScale);
   }
   if (d.action === 'closeClock') $('#wrap').classList.remove('show');
 });
@@ -555,6 +572,6 @@ $('#flip').onclick = () => { $('#app').classList.add('mini'); D.onDuty = !D.onDu
 
 if (isFiveM) document.body.classList.add('game');
 else { document.body.classList.add('demo'); $('#wrap').classList.add('show'); }
-setMethod(methods[0]); render(); tick();
+setMethod(methods[0]); render(); tick(); requestAnimationFrame(fitScale);
 </script>
 </body></html>
