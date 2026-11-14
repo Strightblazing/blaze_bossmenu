@@ -177,8 +177,8 @@ Use `/bossmenu` in game (admins only):
 - **Add boss desk**: pick the job or gang, aim at the spot and press **E** (Backspace cancels). While aiming you see a
   **preview**: the zone ring at its real size in its color and a line for the way you face. Change the size
   with the **mouse wheel** or **↑ / ↓** (0.5-5 m). Application points also show a see-through receptionist where she'll stand.
-  The game HUD and minimap hide while you place (custom HUDs can listen to the client event
-  `blaze_bossmenu:client:placing`, true / false). Press **G** on the card to switch **Output** to **Copy config line**:
+  The game HUD and minimap hide while you place. To hide your HUD resource too, set `placementHud` in config.lua
+  (a function that hides / shows it), or listen to the client event `blaze_bossmenu:client:placing` (true / false). Press **G** on the card to switch **Output** to **Copy config line**:
   E then copies a ready `config.lua > locations` line (job, type, coords, heading, size) to your clipboard and F8
   instead of saving the point. Moving a point in **Manage points** can export the same way.
 - **Add applications point**: same, but only for jobs with applications on.

@@ -282,6 +282,12 @@ Config = {
         teleport = false,
     },
 
+    -- Hide your HUD resource while placing, moving or resizing points (the GTA HUD and minimap always hide).
+    -- false = off, or function(hidden) that hides/shows your HUD. It runs on the client. Example:
+    --   placementHud = function(hidden) exports['your_hud']:setVisible(not hidden) end,
+    -- Or listen to the client event 'blaze_bossmenu:client:placing' (true / false) in your HUD instead.
+    placementHud = false,
+
     -- Radial menu (ox_lib / qbx_radialmenu): a "Work" entry for bosses with their boss menu, applications and My job
     radial = {
         enabled = true,

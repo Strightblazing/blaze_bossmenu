@@ -99,6 +99,11 @@ local function setPlacing(on)
     if placing == on then return end
     placing = on
     TriggerEvent(RES .. ':client:placing', on)
+    -- your HUD resource (config.lua > placementHud)
+    if type(Config.placementHud) == 'function' then
+        local ok, err = pcall(Config.placementHud, on)
+        if not ok then print(('^3[blaze_bossmenu]^7 placementHud failed: %s'):format(err)) end
+    end
 end
 
 local function cardShow(mode, ptype, title, group, radius, resize, canExport, exportOn)
