@@ -2,7 +2,7 @@
 <!-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | see NOTICE.md -->
 <html lang="en"><head><meta charset="utf-8">
 <title>blaze_bossmenu</title>
-<!-- The resource's one NUI page. It hosts the screens (employment contract, time clock, debug panel) and passes
+<!-- The resource's one NUI page. It hosts the screens (employment contract, time clock, debug panel, placement card) and passes
      messages between them and the game: SendNUIMessage -> the right screen, screen -> NUI callbacks. -->
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:transparent}
@@ -11,14 +11,17 @@ iframe.on{visibility:visible;pointer-events:auto}
 /* the debug panel is always drawn but never takes clicks, except while it's being moved */
 iframe#debug{visibility:visible;z-index:5}
 iframe#debug.grab{pointer-events:auto}
+/* the placement card is an overlay too and never takes the mouse */
+iframe#place{visibility:visible;z-index:4}
 </style></head>
 <body>
 <iframe id="contract" src="contract.html" allowtransparency="true"></iframe>
 <iframe id="timeclock" src="timeclock.html" allowtransparency="true"></iframe>
 <iframe id="debug" src="debug.html" allowtransparency="true"></iframe>
+<iframe id="place" src="place.html" allowtransparency="true"></iframe>
 <script>
 const RES = typeof GetParentResourceName === 'function' ? GetParentResourceName() : null;
-const frames = { contract: document.getElementById('contract'), timeclock: document.getElementById('timeclock'), debug: document.getElementById('debug') };
+const frames = { contract: document.getElementById('contract'), timeclock: document.getElementById('timeclock'), debug: document.getElementById('debug'), place: document.getElementById('place') };
 const screens = ['contract', 'timeclock']; // the ones that open and close (the debug panel is an overlay)
 
 /** Called by the screens: send to the game, return its JSON answer */
@@ -49,6 +52,7 @@ window.addEventListener('message', e => {
     if (d.action === 'dbg:move') { frames.debug.classList.add('grab'); try { frames.debug.focus(); frames.debug.contentWindow.focus(); } catch (err) {} }
     return frames.debug.contentWindow.postMessage(d, '*');
   }
+  if (/^place:/.test(d.action)) return frames.place.contentWindow.postMessage(d, '*');
   const target = d.action.indexOf('Clock') !== -1 ? 'timeclock' : 'contract';
   if (/^open/.test(d.action)) {
     screens.forEach(k => frames[k].classList.toggle('on', k === target));

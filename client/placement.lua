@@ -90,16 +90,23 @@ local function moveGhost(ped, c, heading)
     SetEntityHeading(ped, (heading + 180.0) % 360.0)
 end
 
---- Aim where the point goes and see it before placing. opts = { ptype, radius, resize = true (wheel changes size) }
+--- The placement card (web/place.html): what you're placing, its size and the keys. Never takes the mouse.
+local function cardShow(mode, ptype, title, group, radius, resize)
+    SendNUIMessage({ action = 'place:show', mode = mode, type = ptype, title = title, group = group,
+        color = ZONE_COLOR[ptype] or { 122, 162, 255 }, size = radius, resize = resize == true })
+end
+local function cardSize(radius) SendNUIMessage({ action = 'place:size', size = radius }) end
+local function cardHide() SendNUIMessage({ action = 'place:hide' }) end
+AddEventHandler('onResourceStop', function(res) if res == RES then cardHide() end end)
+
+--- Aim where the point goes and see it before placing.
+--- opts = { ptype, radius, resize = true (wheel changes size), title, group, mode = 'place' | 'move', label (3D text) }
 --- E = place, Backspace = cancel. Returns coords, heading, radius (or nil).
 local function placeMarker(text, opts)
     opts = opts or {}
     local radius = clampRadius(opts.radius or 1.0)
-    local function ui()
-        lib.showTextUI(('%s  \n[E] Place  \n%s[Backspace] Cancel'):format(text,
-            opts.resize and ('[Scroll / ↑↓] Size: %.2f m  \n'):format(radius) or ('Size: %.2f m  \n'):format(radius)))
-    end
-    ui()
+    cardShow(opts.mode or 'place', opts.ptype, opts.title or text, opts.group, radius, opts.resize)
+    local aimOk = true
     local ghost = ghostPed(opts.ptype)
     local chosen
     while true do
@@ -109,10 +116,12 @@ local function placeMarker(text, opts)
         DisableControlAction(0, 194, true)
         if opts.resize then
             local dir = sizeInput()
-            if dir ~= 0 then radius = clampRadius(radius + dir * STEP_R) ui() end
+            if dir ~= 0 then radius = clampRadius(radius + dir * STEP_R) cardSize(radius) end
         end
         local heading = GetEntityHeading(cache.ped)
         local hit, _, coords = lib.raycast.fromCamera(1 | 16, cache.ped, 15.0)
+        local ok = (hit and coords) and true or false
+        if ok ~= aimOk then aimOk = ok SendNUIMessage({ action = 'place:aim', ok = ok }) end
         if hit and coords then
             drawPreview(coords, opts.ptype, radius, heading, opts.label)
             if ghost then moveGhost(ghost, coords, heading) end
@@ -123,17 +132,16 @@ local function placeMarker(text, opts)
         if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 194) then break end
     end
     if ghost and DoesEntityExist(ghost) then DeleteEntity(ghost) end
-    lib.hideTextUI()
+    cardHide()
     if not chosen then return nil end
     return chosen, GetEntityHeading(cache.ped), radius
 end
 
 --- Change a placed point's size with a live ring on the spot. Returns the new radius or nil.
-local function sizeMarker(p, text)
+local function sizeMarker(p, group)
     local c = vec3(p.coords.x, p.coords.y, p.coords.z)
     local radius = clampRadius(p.radius or 1.0)
-    local function ui() lib.showTextUI(('%s  \n[Scroll / ↑↓] Size: %.2f m  \n[E] Save  \n[Backspace] Cancel'):format(text, radius)) end
-    ui()
+    cardShow('size', p.type, TYPE_LABEL[p.type] or p.type, group, radius, true)
     local saved
     while true do
         Wait(0)
@@ -141,13 +149,13 @@ local function sizeMarker(p, text)
         DisableControlAction(0, 177, true)
         DisableControlAction(0, 194, true)
         local dir = sizeInput()
-        if dir ~= 0 then radius = clampRadius(radius + dir * STEP_R) ui() end
+        if dir ~= 0 then radius = clampRadius(radius + dir * STEP_R) cardSize(radius) end
         drawPreview(c, p.type, radius, p.heading)
         if IsDisabledControlJustPressed(0, 38) then saved = radius break end
         if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 194) then break end
         if #(GetEntityCoords(cache.ped) - c) > 40.0 then lib.notify({ title = 'Boss menu placement', description = 'Too far from the point.', type = 'error' }) break end
     end
-    lib.hideTextUI()
+    cardHide()
     return saved
 end
 
@@ -159,7 +167,7 @@ local function addFlow(info, ptype)
                 title = g.label, description = (g.gtype == 'gang' and 'Gang · ' or 'Job · ') .. g.name, arrow = true,
                 onSelect = function()
                     local coords, heading, radius = placeMarker(('%s · %s'):format(TYPE_LABEL[ptype], g.label),
-                        { ptype = ptype, radius = 1.0, resize = true, label = ('%s · %s'):format(TYPE_LABEL[ptype], g.label) })
+                        { ptype = ptype, radius = 1.0, resize = true, title = TYPE_LABEL[ptype], group = g.label, label = ('%s · %s'):format(TYPE_LABEL[ptype], g.label) })
                     if coords then
                         result(call('addPoint', g.gtype, g.name, ptype, { x = coords.x, y = coords.y, z = coords.z }, heading, radius))
                     end
@@ -190,13 +198,13 @@ local function pointActions(p, groupLabel, backMenu, after, teleport)
     end }
     options[#options + 1] = { title = 'Move', icon = 'fa-solid fa-up-down-left-right', disabled = p.fixed ~= nil,
       description = fixed or 'Aim at the new spot and press E. Same job, type and size.', onSelect = function()
-        local coords, heading = placeMarker('Move: ' .. title, { ptype = p.type, radius = p.radius or 1.0, label = title })
+        local coords, heading = placeMarker('Move: ' .. title, { ptype = p.type, radius = p.radius or 1.0, mode = 'move', title = TYPE_LABEL[p.type] or p.type, group = groupLabel, label = title })
         if coords then result(call('movePoint', p.id, { x = coords.x, y = coords.y, z = coords.z }, heading)) end
         after()
     end }
     options[#options + 1] = { title = 'Change size', icon = 'fa-solid fa-expand', disabled = p.fixed ~= nil,
       description = fixed or ('Now %.2f m. Scroll to resize, see it on the spot.'):format(p.radius or 1.0), onSelect = function()
-        local r = sizeMarker(p, 'Size: ' .. title)
+        local r = sizeMarker(p, groupLabel)
         if r then result(call('resizePoint', p.id, r)) end
         after()
     end }
@@ -298,7 +306,7 @@ function BMC.openLocations(m)
     for _, t in ipairs(d.types) do
         options[#options + 1] = { title = 'Add ' .. (TYPE_LABEL[t] or t):lower(), description = TYPE_DESC[t], icon = 'fa-solid fa-plus', onSelect = function()
             local coords, heading, radius = placeMarker(('%s · %s'):format(TYPE_LABEL[t] or t, m.label),
-                { ptype = t, radius = 1.0, resize = true, label = ('%s · %s'):format(TYPE_LABEL[t] or t, m.label) })
+                { ptype = t, radius = 1.0, resize = true, title = TYPE_LABEL[t] or t, group = m.label, label = ('%s · %s'):format(TYPE_LABEL[t] or t, m.label) })
             if coords then
                 result(call('addPoint', m.gtype, m.name, t, { x = coords.x, y = coords.y, z = coords.z }, heading, radius))
             end

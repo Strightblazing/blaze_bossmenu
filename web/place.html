@@ -1,0 +1,102 @@
+<!doctype html>
+<!-- blaze_bossmenu | GNU GPL v3 (see LICENSE) | see NOTICE.md -->
+<html lang="en"><head><meta charset="utf-8">
+<title>Blaze Boss Menu · Placement</title>
+<!-- Placement card shown while placing, moving or resizing a point (client/placement.lua). Runs inside web/index.html,
+     never takes the mouse. Open this file in a browser for a demo.
+     in: { action: 'place:show', mode: 'place'|'move'|'size', type, title, group, color: [r,g,b], size, resize }
+         { action: 'place:size', size } | { action: 'place:aim', ok } | { action: 'place:hide' } -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--panel:rgba(20,21,24,.94);--surface:#1a1c20;--line:#26292e;--line2:#30343a;--text:#f2f3f5;--muted:#8b9099;--faint:#5c616a;
+  --c:122,162,255;--font:Inter,'Segoe UI',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;font-family:var(--font);color:var(--text);user-select:none;-webkit-font-smoothing:antialiased}
+body.demo{background:radial-gradient(ellipse at 50% 30%,#55606b,#2a3138 70%)}
+.card{position:fixed;left:50%;bottom:7vh;width:390px;max-width:calc(100vw - 32px);transform:translate(-50%,12px);opacity:0;pointer-events:none;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px 12px;
+  box-shadow:0 18px 50px rgba(0,0,0,.45),0 0 0 1px rgba(var(--c),.08),0 0 32px rgba(var(--c),.10);backdrop-filter:blur(8px);
+  transition:opacity .2s ease,transform .25s cubic-bezier(.2,.8,.2,1)}
+.card.show{opacity:1;transform:translate(-50%,0)}
+.top{display:flex;align-items:center;gap:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:rgb(var(--c));box-shadow:0 0 10px rgba(var(--c),.8);flex:none}
+.ttl{min-width:0}
+.ttl b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttl small{display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mode{margin-left:auto;flex:none;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgb(var(--c));
+  border:1px solid rgba(var(--c),.4);border-radius:6px;padding:2px 7px}
+.size{margin-top:12px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}
+.size small{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.track{position:relative;height:6px;border-radius:999px;background:var(--line2);overflow:hidden}
+.track i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:rgb(var(--c));box-shadow:0 0 10px rgba(var(--c),.6);transition:width .15s ease}
+.val{font-family:var(--mono);font-size:13px;min-width:54px;text-align:right}
+.val.bump{animation:bump .25s ease}@keyframes bump{40%{color:rgb(var(--c));transform:scale(1.08)}}
+.lock{font-size:11px;color:var(--faint)}
+.aim{margin-top:10px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px;min-height:16px}
+.aim i{width:6px;height:6px;border-radius:50%;background:#3fb97a;box-shadow:0 0 8px rgba(63,185,122,.8)}
+.aim.off i{background:#e5534b;box-shadow:0 0 8px rgba(229,83,75,.7)}
+.keys{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
+.keys span{display:flex;align-items:center;gap:6px}
+.k{font-family:var(--mono);font-size:10.5px;color:var(--text);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;background:var(--surface)}
+.keys .pri .k{border-color:rgba(var(--c),.6);color:rgb(var(--c))}
+.shot .card{transition:none}
+</style></head>
+<body>
+<div class="card" id="card">
+  <div class="top"><span class="dot"></span><div class="ttl"><b id="title">Duty point</b><small id="group">EMS</small></div><span class="mode" id="mode">Place</span></div>
+  <div class="size"><small>Size</small><div class="track"><i id="bar"></i></div><span class="val" id="val">1.00 m</span></div>
+  <div class="aim" id="aim"><i></i><span id="aimText">Aim at the spot</span></div>
+  <div class="keys" id="keys"></div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const MIN = 0.5, MAX = 5.0;
+let S = { mode: 'place', resize: true, size: 1 };
+
+function keys() {
+  const k = (key, label, pri) => '<span' + (pri ? ' class="pri"' : '') + '><span class="k">' + key + '</span>' + label + '</span>';
+  const act = S.mode === 'size' ? 'Save' : (S.mode === 'move' ? 'Move here' : 'Place');
+  $('keys').innerHTML = k('E', act, true) + (S.resize ? k('Scroll / ↑↓', 'Size') : '') + k('Backspace', 'Cancel');
+}
+function size(v, bump) {
+  S.size = v;
+  $('val').textContent = Number(v).toFixed(2) + ' m';
+  $('bar').style.width = Math.max(4, (v - MIN) / (MAX - MIN) * 100) + '%';
+  if (bump) { $('val').classList.remove('bump'); void $('val').offsetWidth; $('val').classList.add('bump'); }
+}
+function aim(ok) {
+  if (S.mode === 'size') { $('aim').style.display = 'none'; return; }
+  $('aim').style.display = '';
+  $('aim').classList.toggle('off', !ok);
+  $('aimText').textContent = ok ? (S.mode === 'move' ? 'Shows where it will go' : 'Shows where it will be placed') : 'Aim at the ground or a surface';
+}
+function show(d) {
+  S = Object.assign({ mode: 'place', resize: false, size: 1 }, d);
+  const c = Array.isArray(d.color) ? d.color : [122, 162, 255];
+  document.documentElement.style.setProperty('--c', c.join(','));
+  $('title').textContent = d.title || 'Point';
+  $('group').textContent = d.group || '';
+  $('mode').textContent = S.mode === 'size' ? 'Resize' : (S.mode === 'move' ? 'Move' : 'Place');
+  size(S.size); aim(true); keys();
+  $('card').classList.add('show');
+}
+addEventListener('message', e => {
+  const d = e.data || {};
+  if (d.action === 'place:show') show(d);
+  else if (d.action === 'place:size') size(d.size, true);
+  else if (d.action === 'place:aim') aim(!!d.ok);
+  else if (d.action === 'place:hide') $('card').classList.remove('show');
+});
+
+/* demo in a normal browser: #move, #size, #noaim */
+if (window.parent === window) {
+  document.body.classList.add('demo');
+  const h = location.hash.slice(1);
+  if (h) document.body.classList.add('shot');
+  show({ mode: h === 'move' ? 'move' : (h === 'size' ? 'size' : 'place'), title: h === 'size' ? 'Applications point' : 'Duty point', group: 'EMS',
+         color: h === 'size' ? [90, 169, 255] : [63, 185, 122], size: 1.25, resize: h !== 'move' });
+  if (h === 'noaim') aim(false);
+  if (!h) { let v = 1.25, dir = 1; setInterval(() => { v += 0.25 * dir; if (v >= 3 || v <= 0.75) dir = -dir; size(v, true); }, 900); }
+}
+</script>
+</body></html>
