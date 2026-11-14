@@ -189,6 +189,9 @@ body.demo{background:#2a2d33}
 /* size: the whole clock is scaled (each player picks their size; smaller on small screens) */
 .scaler{transform:scale(var(--ui-scale,1.25));transform-origin:center;transition:transform .2s}
 
+/* screenshots (demo #hash): everything in its final state */
+.shot *,.shot *:before,.shot *:after{transition:none!important;animation:none!important}
+
 /* ---------- motion & glow (subtle) ---------- */
 @media (prefers-reduced-motion:no-preference){
 /* panel opens */
@@ -686,5 +689,19 @@ $('#flip').onclick = () => { $('#app').classList.add('mini'); D.onDuty = !D.onDu
 if (isFiveM) document.body.classList.add('game');
 else { document.body.classList.add('demo'); $('#wrap').classList.add('show'); }
 setMethod(methods[0]); render(); tick(); requestAnimationFrame(fitScale);
+// demo states for screenshots: timeclock.html#pin, #swipe, #duty, #full
+if (!isFiveM) {
+  const h = location.hash.slice(1);
+  if (h === 'pin') setMethod('keypad');
+  if (h === 'swipe') setMethod('swipe');
+  if (h === 'duty') { $('#flip').click(); }
+  if (h) { document.body.classList.add('shot'); document.querySelector('.demobar').style.display = 'none'; } // screenshot mode: no animations, no demo bar
+  if (h === 'full') { // straight to the full view, already clocked in
+    D.onDuty = true; clockedAt = Date.now() - (1 * 3600 + 47 * 60) * 1000;
+    $('#app').classList.remove('mini'); render(); updateStage();
+    $('#result').innerHTML = '<span class="dot in"></span><b>Clocked in at ' + new Date(clockedAt).toTimeString().slice(0, 5) + '.</b> Have a good shift.';
+    fitScale(); tick();
+  }
+}
 </script>
 </body></html>

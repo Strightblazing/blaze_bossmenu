@@ -259,6 +259,14 @@ function demoResult(name, data) {
   else { toast('Closed. (Demo) Reopening the unsigned contract…'); setTimeout(() => open({ mode: 'sign', offer: DEMO, seconds: 90 }), 1600); }
   return Promise.resolve();
 }
-if (!isFiveM) { document.body.classList.add('demo'); open({ mode: 'sign', offer: DEMO, seconds: 90 }); }
+if (!isFiveM) {
+  document.body.classList.add('demo');
+  if (location.hash === '#signed') { // demo state for screenshots: a signed copy
+    const c = document.createElement('canvas'); c.width = 600; c.height = 200; const x = c.getContext('2d');
+    x.strokeStyle = '#1d2f6f'; x.lineWidth = 4; x.lineCap = 'round'; x.beginPath(); x.moveTo(40, 140);
+    x.bezierCurveTo(90, 30, 130, 170, 190, 90); x.bezierCurveTo(230, 40, 250, 150, 300, 110); x.bezierCurveTo(360, 60, 420, 150, 540, 70); x.stroke();
+    open({ mode: 'view', offer: Object.assign({}, DEMO, { signature: c.toDataURL(), signedAt: TODAY }) });
+  } else open({ mode: 'sign', offer: DEMO, seconds: 90 });
+}
 </script>
 </body></html>

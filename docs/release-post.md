@@ -1,6 +1,7 @@
 # [FREE] [QBOX/QBCORE] Blaze Boss Menu: boss menu, applications, time clock & contracts for any job
 
-<!-- Release post for the Cfx.re forum (Releases > Free) and Discord. Replace the [screenshot] lines with images/GIFs. -->
+<!-- Release post for the Cfx.re forum (Releases > Free) and Discord. Paste everything below the title.
+     Images load from GitHub once the repo is public. Add an in-game boss menu screenshot/GIF where marked if you like. -->
 
 **Blaze Boss Menu** is a complete management system for any job (EMS, police, fire, mechanics, businesses) and gangs.
 It replaces **qbx_management** (it's a GPL-3.0 fork of it) and adds job applications, a time clock, signed employment
@@ -8,7 +9,9 @@ contracts, funds, outfits, profiles and admin tools, all configurable and all ch
 
 Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib** (optional **Lation UI**).
 
-[screenshot: boss menu]
+![Time clock: clock in](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/timeclock-tap.png)
+
+<!-- optional: add an in-game screenshot or GIF of the boss menu here -->
 
 ## Features
 
@@ -30,19 +33,23 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 - Live shift timer, hours this week and month, next rank progress with pay, who's on duty, the announcement
 - Clean modern design, adjustable size, scans while on duty just open it; Clock out button
 
-[screenshot/GIF: time clock]
+![Time clock: on duty](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/timeclock-full.png)
+![Time clock: PIN](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/timeclock-pin.png)
 
 **Employment contract**
 - New hires sign a real-looking contract with the mouse, filled in automatically (job, rank, pay, probation, hiring manager)
 - Per-job templates edited in game; signed copies kept on the employee's record
 
-[screenshot/GIF: contract signing]
+![Employment contract](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/contract-sign.png)
+![Signed contract](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/contract-signed.png)
 
 **And more**
 - Duty points, job outfits and wardrobes (illenium-appearance), starter items (ox_inventory)
 - Phone number / email from sd-phone, lb-phone, high-phone, qs-smartphone(-pro), 17mov_Phone, npwd
 - Admins and managers place points in game (aim + E), Show zones, `/bossdebug` live debug panel, `/bossmenutest` test tools with "View as"
 - Console, ox_lib logger and Discord logs (webhook only in server.cfg)
+
+![Debug panel](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/debug-panel.png)
 - Drop-in for qbx_management / qb-bossmenu: keeps their tables, exports and events
 
 ## Requirements
@@ -51,7 +58,8 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 - Optional: ox_target or qb-target, lation_ui, illenium-appearance, ox_inventory, a supported phone and banking resource
 
 ## Download
-- GitHub: https://github.com/Strightblazing/blaze_bossmenu (latest release)
+- Download: https://github.com/Strightblazing/blaze_bossmenu/releases/latest
+- GitHub: https://github.com/Strightblazing/blaze_bossmenu
 - Setup and every config option: README on GitHub
 
 | | |

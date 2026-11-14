@@ -10,6 +10,16 @@ It is a fork of [qbx_management](https://github.com/Qbox-project/qbx_management)
 everything qbx_management did is here, plus applications, funds, callsigns and in-game placement. See `NOTICE.md`.
 It does **not** need Blaze Medical or any other Blaze resource.
 
+## Screenshots
+
+| Time clock (clock in) | Time clock (on duty) |
+|---|---|
+| ![Time clock: tap your ID](docs/screenshots/timeclock-tap.png) | ![Time clock: full view](docs/screenshots/timeclock-full.png) |
+| **Employment contract** | **Debug panel** |
+| ![Signed employment contract](docs/screenshots/contract-signed.png) | ![Debug panel](docs/screenshots/debug-panel.png) |
+
+The boss menu itself uses ox_lib (or Lation UI) menus in game.
+
 ## Features
 
 - **Staff**: list everyone in the job (online and offline) with rank, callsign, on duty / off duty / offline,
