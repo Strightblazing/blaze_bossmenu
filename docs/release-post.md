@@ -48,9 +48,9 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 - Phone number / email from sd-phone, lb-phone, high-phone, qs-smartphone(-pro), 17mov_Phone, npwd
 - Admins and managers place points in game (aim + E), Show zones, `/bossdebug` live debug panel, `/bossmenutest` test tools with "View as"
 - Console, ox_lib logger and Discord logs (webhook only in server.cfg)
+- Drop-in for qbx_management / qb-bossmenu: keeps their tables, exports and events
 
 ![Debug panel](https://raw.githubusercontent.com/Strightblazing/blaze_bossmenu/main/docs/screenshots/debug-panel.png)
-- Drop-in for qbx_management / qb-bossmenu: keeps their tables, exports and events
 
 ## Requirements
 - ox_lib, oxmysql
