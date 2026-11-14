@@ -1,7 +1,7 @@
 # blaze_bossmenu
 
 Boss menu + job application system for **any job** (EMS, fire, police, mechanic, …) and gangs.
-Runs on **Qbox** and **QBCore**. Menus use **ox_lib** by default, with optional **Lation UI**. No NUI of its own.
+Runs on **Qbox** and **QBCore**. Menus use **ox_lib** by default, with optional **Lation UI**. Menus use no web page of their own; the one exception is the employment contract, signed with the mouse.
 
 It is a fork of [qbx_management](https://github.com/Qbox-project/qbx_management) (GPL-3.0) and replaces it:
 everything qbx_management did is here, plus applications, funds, callsigns and in-game placement. See `NOTICE.md`.
@@ -52,12 +52,17 @@ It does **not** need Blaze Medical or any other Blaze resource.
 - **Payroll**: pay per rank, and what one paycheck costs for everyone / for staff on duty now.
 
 **Employment contract**
-- When someone is hired nearby, they get a **contract** instead of a plain Accept/Decline: employer, position, pay,
-  probation, date and the terms (`contract.terms`, or per job `jobs[x].contractTerms`).
-- They **sign by typing their character's full name** and ticking "I agree" (the server checks the name).
-  Their character writes on a notepad while reading and signing.
-- The signed contract is saved on their record, they get a "CONTRACT SIGNED" celebration, and the manager is told.
-- Try it alone with `/bossmenutest` → **Preview: employment contract**.
+- When someone is hired nearby, they get a real-looking **Employment Agreement** on screen instead of a plain Accept/Decline,
+  and **sign it with the mouse**. A red SIGNED stamp lands on the page. Their character writes on a notepad meanwhile.
+- It **fills itself in**: the job label, rank, pay, probation, the new hire's name, and the person hiring with their rank
+  ("represented by Dr. Steven Blaze, Chief"). Placeholders: `{job}` `{rank}` `{pay}` `{probation}` `{employee}`
+  `{manager}` `{manager_rank}` `{date}` `{number}`. A section that uses `{pay}` or `{probation}` drops out when it doesn't apply.
+- **Edit it in game**: boss menu → **Employment contract**. Change the title and intro, add/edit/move/delete sections,
+  preview it on paper, save, or reset to default. Each job has its own; the default is `contract.template` in config.lua.
+- The signed copy (exact wording + signature) is kept, so editing the template later never changes old contracts.
+  **View employment contract** in their profile or `/myjob` opens it again.
+- Prefer typing? `contract.style = 'typed'`: a popup where they type their full name (checked on the server).
+- Try it alone with `/bossmenutest` → **Preview: employment contract**, or open `web/contract.html` in a browser for a demo.
 
 **Flair**
 - **Celebrations**: big centre-screen message + sound for new hires, promotions, bonuses and Employee of the Week.
@@ -178,7 +183,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `adminsCanManage` | Admins can open and use any configured job's or gang's boss menu. |
 | `hireDistance` | How close (m) someone must be to be hired. |
 | `hireConsent` / `hireConsentSeconds` | Accept/Decline popup for the person being hired, and how long they have. |
-| `contract.*` | Employment contract to sign instead: `enabled`, `seconds`, `requireExactName`, `animation`, `terms`. |
+| `contract.*` | Employment contract: `enabled`, `style` (`'paper'` mouse / `'typed'`), `seconds`, `requireExactName` (typed), `animation`, `editor` (`'management'` / `'admin'` / `false`), `template`. |
 | `activity.*` | Duty hours: on/off, shortest shift saved, days kept, date format. |
 | `gradeEditor` | In-game rank editor (Qbox, also needs `qbx:enableGroupManagement "true"`). |
 | `qbxManagementCompat` | Answer qbx_management exports and qb-bossmenu events while qbx_management is stopped. |
@@ -267,7 +272,7 @@ Events `qb-bossmenu:client:OpenMenu` and `qb-gangmenu:client:OpenMenu` open the 
 
 `blaze_boss_applications`, `blaze_boss_forms`, `blaze_boss_callsigns`, `blaze_boss_fund_log`,
 `blaze_boss_settings`, `blaze_boss_points`, `blaze_boss_members`, `blaze_boss_records`, `blaze_boss_audit`,
-`blaze_boss_announcements`, `blaze_boss_eotw`, `blaze_boss_app_votes`, plus `player_jobs_activity` and `management_groups`
+`blaze_boss_announcements`, `blaze_boss_eotw`, `blaze_boss_app_votes`, `blaze_boss_contract_templates`, `blaze_boss_contracts`, plus `player_jobs_activity` and `management_groups`
 (the same tables qbx_management used).
 
 ## License

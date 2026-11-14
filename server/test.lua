@@ -60,7 +60,7 @@ register('testInfo', function(src)
     end
     table.sort(groups, function(a, b) return a.label < b.label end)
     return {
-        groups = groups, myName = Bridge.GetName(src),
+        groups = groups, myName = Bridge.GetName(src), today = os.date('%m-%d-%Y'),
         characters = MySQL.scalar.await('SELECT COUNT(*) FROM players WHERE citizenid LIKE ?', { PREFIX .. '%' }) or 0,
         applications = MySQL.scalar.await('SELECT COUNT(*) FROM blaze_boss_applications WHERE citizenid LIKE ?', { PREFIX .. '%' }) or 0,
     }
@@ -160,7 +160,7 @@ register('testClear', function(src)
     local like = PREFIX .. '%'
     local apps = MySQL.query.await('SELECT id FROM blaze_boss_applications WHERE citizenid LIKE ?', { like }) or {}
     for _, a in ipairs(apps) do MySQL.query.await('DELETE FROM blaze_boss_app_votes WHERE app_id = ?', { a.id }) end
-    for _, t in ipairs({ 'blaze_boss_applications', 'blaze_boss_members', 'blaze_boss_records', 'blaze_boss_callsigns', 'blaze_boss_eotw', 'player_jobs_activity' }) do
+    for _, t in ipairs({ 'blaze_boss_applications', 'blaze_boss_members', 'blaze_boss_records', 'blaze_boss_callsigns', 'blaze_boss_eotw', 'player_jobs_activity', 'blaze_boss_contracts' }) do
         MySQL.query.await(('DELETE FROM %s WHERE citizenid LIKE ?'):format(t), { like })
     end
     if Bridge.framework == 'qbx' then MySQL.query.await('DELETE FROM player_groups WHERE citizenid LIKE ?', { like }) end

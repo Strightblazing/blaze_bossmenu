@@ -48,10 +48,13 @@ openTest = function()
             { title = 'Preview: employment contract', icon = 'fa-solid fa-file-signature', iconColor = '#A78BFA', description = 'Read and sign it yourself (nothing is saved)',
               onSelect = function()
                   local C = Config.contract or {}
-                  local r = BMC.signContract({ from = 'Test Manager', group = 'Test Department', rank = 'Probationary Paramedic', pay = 500,
-                      probationDays = (Config.features or {}).probationDays, date = os.date and os.date('%m-%d-%Y') or '', terms = C.terms or {},
-                      expectedName = info.myName }, C.seconds or 90)
-                  result(r.accepted, r.accepted and ('Signed as "%s" (preview only).'):format(r.signature) or 'Not signed (preview only).')
+                  local days = tonumber((Config.features or {}).probationDays) or 0
+                  local r = BMC.signContract({
+                      template = C.template or {}, style = C.style == 'typed' and 'typed' or 'paper', expectedName = info.myName,
+                      values = { job = 'Test Department', rank = 'Probationary Paramedic', pay = '$500', probation = days > 0 and (days .. ' days') or nil,
+                          employee = info.myName, manager = 'Test Manager', manager_rank = 'Chief', date = info.today, number = 'EA-TEST' },
+                  }, C.seconds or 90)
+                  result(r.accepted, r.accepted and 'Contract signed (preview only, nothing saved).' or 'Not signed (preview only).')
               end },
             { title = 'Preview: announcement popup', icon = 'fa-solid fa-bullhorn', description = 'What on-duty staff see',
               onSelect = function() TriggerEvent(RES .. ':client:announcement', 'Test Department', 'This is a test announcement. Briefing at 8pm!', 'Test Manager') end },

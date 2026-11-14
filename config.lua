@@ -37,24 +37,42 @@ Config = {
     -- Seconds they have to answer before it counts as declined
     hireConsentSeconds = 30,
 
-    -- Employment contract: instead of a plain Accept/Decline, the person being hired reads a contract
-    -- (employer, position, pay, probation, terms) and signs it by typing their character's full name.
-    -- Their character writes on a notepad while signing, and the signed contract goes on their record.
+    -- Employment contract: instead of a plain Accept/Decline, the person being hired reads an employment
+    -- agreement and signs it. It fills itself in: job label, rank, pay, probation, the new hire, and the
+    -- person hiring with their rank. The signed copy (exact wording + signature) is kept on their record.
     -- Needs hireConsent = true.
     contract = {
         enabled = true,
+        -- 'paper' = a real-looking contract on screen, signed with the mouse
+        -- 'typed' = a popup where they type their full name instead
+        style = 'paper',
         -- Seconds to read and sign before the offer expires
         seconds = 90,
-        -- The signature must match their character's name (checked on the server)
+        -- 'typed' style only: the typed name must match their character's name (checked on the server)
         requireExactName = true,
         -- Notepad animation while reading/signing
         animation = true,
-        -- Terms shown on every contract. A job can have its own with jobs[x].contractTerms = { ... }
-        terms = {
-            'Show up for your shifts and follow department rules and the chain of command.',
-            'Treat the public and your co-workers with respect.',
-            'Department vehicles, equipment and funds are for work only.',
-            'Either side may end this employment at any time.',
+        -- Who can edit a job's contract in game (boss menu > Employment contract):
+        -- 'management' = managers (+ admins), 'admin' = admins only, false = only this file
+        editor = 'management',
+        -- The default contract for every job. Once a job's contract is edited in game, that version is used
+        -- ("Reset to default" in game comes back to this one).
+        -- Placeholders filled in automatically: {job} {rank} {pay} {probation} {employee} {manager} {manager_rank} {date} {number}
+        -- A section that uses {pay} or {probation} is left out when that doesn't apply (no pay / probation off).
+        -- In a section's text, lines starting with "-" become a numbered list.
+        template = {
+            title = 'Employment Agreement',
+            intro = 'This Employment Agreement (the "Agreement") is made on {date} between {job} (the "Employer"), represented by {manager}, {manager_rank}, and {employee} (the "Employee").',
+            sections = {
+                { title = 'Position', text = 'The Employer hires the Employee as {rank}, reporting through the {job} chain of command.' },
+                { title = 'Compensation', text = 'The Employee will be paid {pay} per paycheck, under {job} policy.' },
+                { title = 'Probation', text = 'The first {probation} are a probationary period. {job} management will review the Employee\'s work when it ends.' },
+                { title = 'Terms of employment', text = '- Show up for your shifts and follow {job} rules and the chain of command.\n'
+                    .. '- Treat the public and your co-workers with respect.\n'
+                    .. '- {job} vehicles, equipment and funds are for work only.\n'
+                    .. '- Either side may end this employment at any time.' },
+                { title = 'Agreement', text = 'By signing below, the Employee accepts this position and agrees to the terms of this Agreement.' },
+            },
         },
     },
 
@@ -251,7 +269,7 @@ Config = {
             hire = true, fire = true, promote = true, demote = true, callsign = true,
             accept = true, deny = true, interview = true, deposit = true, withdraw = true,
             toggle = true, formEdit = true, formReset = true, placement = true, gradeEdit = true,
-            record = true, eotw = true, announce = true, bonus = true, withdrawApp = true, checkin = true,
+            record = true, eotw = true, announce = true, bonus = true, withdrawApp = true, checkin = true, contractEdit = true,
         },
     },
 }

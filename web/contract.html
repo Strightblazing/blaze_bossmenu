@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blaze Boss Menu · Employment contract</title>
+<!-- The only NUI page in blaze_bossmenu: the employment contract new hires sign with the mouse.
+     Opened from client/features.lua. Open this file in a normal browser to see a demo. -->
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Homemade+Apple&family=Barlow:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f6f1e4;--paper2:#efe7d3;--ink:#1f2a44;--text:#2b2620;--muted:#7a6f5d;--rule:#cbbf9f;--accent:#8a1c1c;--blue:#1d3b8f;
+  --serif:'Libre Baskerville',Georgia,'Times New Roman',serif;--script:'Homemade Apple','Brush Script MT',cursive;--ui:Barlow,'Segoe UI',sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;user-select:none}
+body.demo{background:radial-gradient(ellipse at 30% 30%,#6f7c86,#2d3943 55%,#141a20)}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(8,10,14,.55);opacity:0;pointer-events:none;transition:opacity .2s}
+#wrap.show{opacity:1;pointer-events:auto}
+.paper{position:relative;width:min(760px,94vw);max-height:calc(100vh - 110px);overflow-y:auto;background:linear-gradient(180deg,var(--paper),var(--paper2));color:var(--text);
+  font-family:var(--serif);font-size:14px;line-height:1.6;padding:14px;overflow-x:hidden;border-radius:3px;box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 0 120px rgba(160,130,70,.18);
+  transform:translateY(16px) rotate(-.4deg);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+#wrap.show .paper{transform:none}
+.paper::-webkit-scrollbar{width:8px}.paper::-webkit-scrollbar-thumb{background:var(--rule);border-radius:4px}
+.sheet{position:relative;border:1px solid var(--rule);padding:26px 38px 18px}
+header{display:flex;align-items:center;gap:16px;border-bottom:2px solid var(--text);padding-bottom:12px;margin-bottom:18px}
+.crest{width:58px;height:58px;border-radius:50%;border:2px solid var(--accent);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;letter-spacing:1px;flex:none}
+.org{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted)}
+.doc{font-size:28px;font-weight:700;letter-spacing:.5px}
+.no{margin-left:auto;text-align:right;font-size:12px;color:var(--muted);line-height:1.5}
+h4{margin:16px 0 4px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase}
+p{margin:0 0 6px}ol{margin:4px 0 6px;padding-left:22px}li{margin:2px 0}
+.lead{font-style:italic}
+.sigs{display:grid;grid-template-columns:1fr 1fr;gap:36px;margin-top:26px}
+.sigbox{position:relative;height:110px;border-radius:4px}
+.sign #box{background:rgba(29,59,143,.05);outline:1px dashed rgba(29,59,143,.35);cursor:crosshair}
+.sign #box:hover{background:rgba(29,59,143,.08)}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#sigimg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:none}
+.view #sigimg{display:block}.view canvas{display:none}
+.x{position:absolute;left:4px;bottom:6px;font-size:16px;color:var(--muted)}
+.hint{position:absolute;left:0;right:0;top:40%;text-align:center;font-family:var(--ui);font-size:13px;color:rgba(29,59,143,.55);pointer-events:none;transition:opacity .2s}
+.inked .hint,.view .hint{opacity:0}
+.emp{display:flex;align-items:flex-end;padding:0 0 10px 10px}
+.script{font-family:var(--script);font-size:24px;color:var(--ink);transform:rotate(-3deg);white-space:nowrap}
+.line{border-top:1px solid var(--text);margin-top:2px}
+.lbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.pn{font-weight:700}.dt{font-size:12px;color:var(--muted)}
+.stamp{position:absolute;left:calc(50% - 95px);bottom:150px;border:4px double var(--accent);color:var(--accent);font-family:var(--ui);font-weight:700;font-size:34px;letter-spacing:6px;padding:4px 16px;border-radius:6px;
+  transform:rotate(-14deg) scale(2.4);opacity:0;pointer-events:none;mix-blend-mode:multiply}
+.stamp small{display:block;font-size:11px;letter-spacing:2px;text-align:center}
+.stamped .stamp{animation:stamp .45s cubic-bezier(.3,1.6,.5,1) forwards}
+.view .stamp{opacity:.85;transform:rotate(-14deg)}.preview .stamp{display:none}
+@keyframes stamp{to{opacity:.85;transform:rotate(-14deg) scale(1)}}
+.bar{display:flex;align-items:center;gap:10px;width:min(760px,94vw);font-family:var(--ui);color:#e8eaed}
+.bar .info{font-size:13px;color:#c9ced4}
+.bar .timer{font-weight:700;font-variant-numeric:tabular-nums;color:#f0a93b;margin-right:6px}
+.bar .sp{flex:1}
+button{font-family:var(--ui);font-weight:700;font-size:14px;border-radius:6px;padding:9px 18px;border:1px solid #3a424e;background:#1d222a;color:#e8eaed;cursor:pointer}
+button:hover{background:#262c36}
+button.pri{background:#3DDC84;border-color:#3DDC84;color:#0c1a12}
+button.pri:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:transparent}
+.view .only-sign,.sign .only-view{display:none}.preview .only-signed,.view:not(.preview) .only-preview{display:none}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#111419f0;color:#e8eaed;font-family:var(--ui);border:1px solid #2a313b;border-left:4px solid #3DDC84;border-radius:8px;padding:10px 14px;font-size:14px;display:none}
+</style></head>
+<body>
+<div id="wrap" class="sign">
+  <div class="paper" id="paper"><div class="sheet">
+    <div class="stamp" id="stamp">SIGNED<small id="stampDate"></small></div>
+    <header>
+      <div class="crest" id="crest">EMS</div>
+      <div><div class="org" id="org">Department</div><div class="doc" id="title">Employment Agreement</div></div>
+      <div class="no">No. <span id="num"></span><br><span class="d"></span></div>
+    </header>
+    <p class="lead" id="intro"></p>
+    <div id="sections"></div>
+    <div class="sigs">
+      <div>
+        <div class="sigbox" id="box"><canvas id="pad"></canvas><img id="sigimg" alt=""><span class="x">✕</span><div class="hint">Sign here with your mouse</div></div>
+        <div class="line"></div><div class="lbl">Employee signature</div><div class="pn n"></div><div class="dt">Date: <span class="d"></span></div>
+      </div>
+      <div>
+        <div class="sigbox emp"><span class="script f"></span></div>
+        <div class="line"></div><div class="lbl">For the Employer</div><div class="pn f"></div><div class="dt" id="mrank"></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="bar">
+    <span class="only-sign info"><span class="timer" id="timer"></span>Read the agreement, then sign in the box.</span>
+    <span class="only-view only-signed info">Signed copy</span><span class="only-view only-preview info">Preview: this is what new hires see. Nothing is signed.</span>
+    <span class="sp"></span>
+    <button class="only-sign ghost" id="clear">Clear</button>
+    <button class="only-sign" id="decline">Decline</button>
+    <button class="only-sign pri" id="accept" disabled>Sign &amp; accept</button>
+    <button class="only-view pri" id="close">Close</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const isFiveM = typeof GetParentResourceName === 'function';
+const RES = isFiveM ? GetParentResourceName() : 'demo';
+const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let mode = 'sign', busy = false, timerId = null, left = 0;
+
+function post(name, data) {
+  if (!isFiveM) return demoResult(name, data);
+  return fetch(`https://${RES}/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: JSON.stringify(data || {}) }).catch(() => {});
+}
+
+/* ---------- signature pad ---------- */
+const pad = $('#pad'), ctx = pad.getContext('2d');
+let drawing = false, last = null, ink = 0, minX = 1e9, maxX = -1e9;
+function sizePad() {
+  const r = pad.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  pad.width = Math.max(1, r.width * dpr); pad.height = Math.max(1, r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1d2f6f';
+}
+function clearPad() { ctx.clearRect(0, 0, pad.width, pad.height); ink = 0; minX = 1e9; maxX = -1e9; $('#box').classList.remove('inked'); updateAccept(); }
+function pos(e) { const r = pad.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() }; }
+pad.addEventListener('pointerdown', e => { if (mode !== 'sign' || busy) return; drawing = true; pad.setPointerCapture(e.pointerId); last = pos(e); $('#box').classList.add('inked'); });
+pad.addEventListener('pointermove', e => {
+  if (!drawing) return;
+  const p = pos(e), d = Math.hypot(p.x - last.x, p.y - last.y);
+  if (d < 1) return;
+  const speed = d / Math.max(1, p.t - last.t);           // faster strokes = thinner line, like a real pen
+  ctx.lineWidth = Math.max(1.2, Math.min(3.2, 3.4 - speed * 1.4));
+  ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.quadraticCurveTo(last.x, last.y, (last.x + p.x) / 2, (last.y + p.y) / 2); ctx.lineTo(p.x, p.y); ctx.stroke();
+  ink += d; minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); last = p; updateAccept();
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => pad.addEventListener(ev, () => { drawing = false; }));
+const enoughInk = () => ink > 120 && (maxX - minX) > 50;
+function updateAccept() { $('#accept').disabled = mode !== 'sign' || !enoughInk(); }
+
+/** PNG of the signature, kept small so it fits in a network event */
+function exportSignature() {
+  let url = pad.toDataURL('image/png');
+  for (const k of [0.5, 0.35]) { // shrink until it fits comfortably in a network event
+    if (url.length <= 40000) break;
+    const c = document.createElement('canvas'); c.width = pad.width * k; c.height = pad.height * k;
+    c.getContext('2d').drawImage(pad, 0, 0, c.width, c.height); url = c.toDataURL('image/png');
+  }
+  return url;
+}
+
+/* ---------- document ---------- */
+function initials(s) {
+  const words = String(s || '').split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].slice(0, 4).toUpperCase();   // "EMS", "LSPD"
+  return words.slice(0, 3).map(w => w[0]).join('').toUpperCase() || '★'; // "Los Santos Fire" -> "LSF"
+}
+// offer = { template = { title, intro, sections = [ { title, text } ] },
+//           values = { job, rank, pay, probation, employee, manager, manager_rank, date, number },
+//           signature + signedAt (view mode) }. {placeholders} in the template are filled from values.
+function fill(text, v) {
+  return esc(text).replace(/\{(\w+)\}/g, (m, k) => (v[k] != null && v[k] !== '') ? '<b>' + esc(v[k]) + '</b>' : m);
+}
+// a section that uses {pay} or {probation} is left out when that doesn't apply (e.g. a gang, or probation off)
+function optional(text, v) { return (/\{pay\}/.test(text) && !v.pay) || (/\{probation\}/.test(text) && !v.probation); }
+// lines starting with "-" become a numbered list, other lines are paragraphs
+function body(text, v) {
+  let html = '', list = [];
+  const flush = () => { if (list.length) { html += '<ol>' + list.map(l => '<li>' + l + '</li>').join('') + '</ol>'; list = []; } };
+  String(text || '').split('\n').forEach(line => {
+    const t = line.trim();
+    if (!t) return flush();
+    if (/^[-*•]\s*/.test(t)) list.push(fill(t.replace(/^[-*•]\s*/, ''), v));
+    else { flush(); html += '<p>' + fill(t, v) + '</p>'; }
+  });
+  flush();
+  return html;
+}
+function render(o) {
+  const t = o.template || {}, v = o.values || {};
+  $$('.d').forEach(e => e.textContent = v.date || ''); $$('.g').forEach(e => e.textContent = v.job || '');
+  $$('.f').forEach(e => e.textContent = v.manager || 'Management'); $$('.n').forEach(e => e.textContent = v.employee || '');
+  $('#mrank').textContent = [v.manager_rank, v.job].filter(Boolean).join(' · ');
+  $('#org').textContent = v.job || ''; $('#crest').textContent = initials(v.job); $('#title').textContent = t.title || 'Employment Agreement';
+  $('#num').textContent = v.number || '';
+  $('#intro').innerHTML = t.intro ? fill(t.intro, v) : '';
+  let n = 0, html = '';
+  (t.sections || []).forEach(sec => {
+    if (optional(sec.text, v)) return;
+    html += '<h4>' + (++n) + '. ' + esc(sec.title) + '</h4>' + body(sec.text, v);
+  });
+  $('#sections').innerHTML = html;
+  $('#stampDate').textContent = o.signedAt || v.date || '';
+}
+
+/** d.mode: 'sign' (new hire signs), 'view' (signed copy), 'preview' (template preview, nothing to sign) */
+function open(d) {
+  mode = d.mode === 'sign' ? 'sign' : 'view'; busy = false;
+  const w = $('#wrap'); w.className = d.mode === 'preview' ? 'view preview' : mode; render(d.offer || {});
+  $('#paper').classList.remove('stamped'); $('#paper').scrollTop = 0;
+  $('#sigimg').src = d.mode === 'view' ? (d.offer && d.offer.signature || '') : '';
+  $('#sigimg').style.visibility = d.mode === 'view' ? 'visible' : 'hidden';
+  requestAnimationFrame(() => { w.classList.add('show'); sizePad(); clearPad(); });
+  clearInterval(timerId);
+  if (mode === 'sign' && d.seconds) {
+    left = d.seconds; $('#timer').textContent = left + 's';
+    timerId = setInterval(() => {
+      left--; $('#timer').textContent = Math.max(0, left) + 's';
+      if (left <= 0) { clearInterval(timerId); finish({ accepted: false, expired: true }); }
+    }, 1000);
+  } else $('#timer').textContent = '';
+}
+function hide() { clearInterval(timerId); $('#wrap').classList.remove('show'); }
+function finish(res) { if (busy && !res.accepted) return; hide(); post('contract:result', res); }
+
+$('#clear').onclick = clearPad;
+$('#decline').onclick = () => finish({ accepted: false });
+$('#close').onclick = () => { hide(); post('contract:closed'); };
+$('#accept').onclick = () => {
+  if (!enoughInk() || busy) return;
+  busy = true; clearInterval(timerId);
+  const image = exportSignature();
+  $('#paper').classList.add('stamped');
+  setTimeout(() => { hide(); post('contract:result', { accepted: true, image }); }, 1100);
+};
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !$('#wrap').classList.contains('show')) return;
+  if (mode === 'view') { hide(); post('contract:closed'); } else finish({ accepted: false });
+});
+window.addEventListener('resize', () => { if (mode === 'sign') { sizePad(); clearPad(); } });
+window.addEventListener('message', e => {
+  const d = e.data || {};
+  if (d.action === 'openContract') open(d);
+  if (d.action === 'closeContract') hide();
+});
+
+/* ---------- demo when opened in a normal browser ---------- */
+// same default template as config.lua
+const TODAY = (() => { const t = new Date(); return [t.getMonth() + 1, t.getDate()].map(n => String(n).padStart(2, '0')).join('-') + '-' + t.getFullYear(); })();
+const DEMO = {
+  template: {
+    title: 'Employment Agreement',
+    intro: 'This Employment Agreement (the "Agreement") is made on {date} between {job} (the "Employer"), represented by {manager}, {manager_rank}, and {employee} (the "Employee").',
+    sections: [
+      { title: 'Position', text: 'The Employer hires the Employee as {rank}, reporting through the {job} chain of command.' },
+      { title: 'Compensation', text: 'The Employee will be paid {pay} per paycheck, under {job} policy.' },
+      { title: 'Probation', text: 'The first {probation} are a probationary period. {job} management will review the Employee\'s work when it ends.' },
+      { title: 'Terms of employment', text: '- Show up for your shifts and follow {job} rules and the chain of command.\n- Treat the public and your co-workers with respect.\n- {job} vehicles, equipment and funds are for work only.\n- Either side may end this employment at any time.' },
+      { title: 'Agreement', text: 'By signing below, the Employee accepts this position and agrees to the terms of this Agreement.' },
+    ],
+  },
+  values: { job: 'EMS', rank: 'Probationary Paramedic', pay: '$500', probation: '7 days', employee: 'Jane Doe', manager: 'Dr. Steven Blaze',
+            manager_rank: 'Chief', date: TODAY, number: 'EA-0042' },
+};
+function toast(t) { const el = $('#toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => el.style.display = 'none', 3500); }
+function demoResult(name, data) {
+  if (name === 'contract:result' && data.accepted) {
+    toast('Signed! This is the copy saved on their record. (Demo)');
+    setTimeout(() => open({ mode: 'view', offer: Object.assign({}, DEMO, { signature: data.image, signedAt: TODAY }) }), 900);
+  } else if (name === 'contract:result') { toast(data.expired ? 'The offer expired. (Demo) Reopening…' : 'Declined. (Demo) Reopening…'); setTimeout(() => open({ mode: 'sign', offer: DEMO, seconds: 90 }), 1600); }
+  else { toast('Closed. (Demo) Reopening the unsigned contract…'); setTimeout(() => open({ mode: 'sign', offer: DEMO, seconds: 90 }), 1600); }
+  return Promise.resolve();
+}
+if (!isFiveM) { document.body.classList.add('demo'); open({ mode: 'sign', offer: DEMO, seconds: 90 }); }
+</script>
+</body></html>

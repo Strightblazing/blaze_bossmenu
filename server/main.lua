@@ -266,6 +266,24 @@ local function createTables()
         `vote` TINYINT NOT NULL,
         PRIMARY KEY (`app_id`, `citizenid`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    -- Employment contracts: a job's edited template, and every signed contract (exact text + signature image)
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_contract_templates` (
+        `job` VARCHAR(70) NOT NULL,
+        `template` LONGTEXT NOT NULL,
+        `updated_by` VARCHAR(128) NULL,
+        `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`job`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_contracts` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `job` VARCHAR(70) NOT NULL,
+        `citizenid` VARCHAR(64) NOT NULL,
+        `number` VARCHAR(32) NULL,
+        `doc` LONGTEXT NOT NULL,
+        `signature` LONGTEXT NULL,
+        `signed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`), INDEX `job_citizen` (`job`, `citizenid`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
     -- Same table as qbx_management, so existing hours carry over (no foreign key: works on QBCore too)
     MySQL.query.await([[CREATE TABLE IF NOT EXISTS `player_jobs_activity` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -592,13 +610,15 @@ local function plainName(s)
     return tostring(s or ''):lower():gsub('[^%w%s%-\']', ''):gsub('%s+', ' '):gsub('^%s', ''):gsub('%s$', '')
 end
 
---- Ask the person being hired. With Config.contract.enabled they read and sign an employment contract.
---- Returns accepted, signature (signature only for contracts).
+--- Ask the person being hired. With Config.contract.enabled they read and sign an employment contract
+--- (style 'paper' = signed with the mouse, 'typed' = type your full name).
+--- Returns accepted, signature, whyNot, signatureImage
 local function askConsent(target, offer)
     if not Config.hireConsent then return true end
     local C = Config.contract or {}
     local seconds = C.enabled and (C.seconds or 90) or (Config.hireConsentSeconds or 30)
     offer.contract = C.enabled == true
+    offer.style = C.style == 'typed' and 'typed' or 'paper'
     offer.expectedName = Bridge.GetName(target)
     local p, done = promise.new(), false
     lib.callback(RES .. ':client:confirmHire', target, function(answer)
@@ -613,6 +633,14 @@ local function askConsent(target, offer)
     end)
     local a = Citizen.Await(p)
     if not a.accepted then return false, nil, a.timeout and 'They didn\'t answer in time.' or 'They declined the offer.' end
+    if offer.contract and offer.style == 'paper' then
+        -- drawn signature: a small PNG from the contract page; the printed name is their character name
+        local img = a.image
+        if type(img) ~= 'string' or img:sub(1, 22) ~= 'data:image/png;base64,' or #img > 80000 or #img < 200 then
+            return false, nil, 'The contract signature was missing or invalid.'
+        end
+        return true, offer.expectedName, nil, img
+    end
     if offer.contract then
         -- the server checks the signature too: it must be their character's full name
         if C.requireExactName ~= false and plainName(a.signature) ~= plainName(offer.expectedName) then
@@ -796,11 +824,19 @@ register('hire', function(src, gtype, name, target, grade)
     local g = Bridge.GetGrade(gtype, name, grade) or {}
     local c = groupCfg(gtype, name) or {}
     local days = gtype == 'job' and tonumber((Config.features or {}).probationDays) or 0
-    local accepted, signature, why = askConsent(target, {
-        from = Bridge.GetName(src), group = label, rank = g.name or tostring(grade), date = os.date('%m-%d-%Y'),
-        pay = gtype == 'job' and tonumber(g.payment) or nil, probationDays = days > 0 and days or nil,
-        terms = c.contractTerms or (Config.contract and Config.contract.terms) or {},
-    })
+    -- the contract fills itself in: job label, rank, pay, probation, the new hire, and who is hiring (+ their rank)
+    local myGrade = Bridge.GetPlayerGroupGrade(src, gtype, name)
+    local pay = gtype == 'job' and tonumber(g.payment) or nil
+    local values = {
+        job = label, rank = g.name or tostring(grade),
+        pay = (pay and pay > 0) and ('$' .. tostring(math.floor(pay)):reverse():gsub('(%d%d%d)', '%1,'):reverse():gsub('^,', '')) or nil,
+        probation = days > 0 and ('%d day%s'):format(days, days == 1 and '' or 's') or nil,
+        employee = Bridge.GetName(target), manager = Bridge.GetName(src),
+        manager_rank = myGrade and gradeName(gtype, name, myGrade) or 'Management',
+        date = os.date('%m-%d-%Y'), number = ('EA-%s-%04d'):format(os.date('%y%m%d'), math.random(0, 9999)),
+    }
+    local template = BM.contractTemplate and BM.contractTemplate(gtype, name) or (Config.contract or {}).template or {}
+    local accepted, signature, why, image = askConsent(target, { template = template, values = values })
     if not accepted then return false, why or 'They declined the offer.' end
     -- they may have walked off while reading
     if #(GetEntityCoords(GetPlayerPed(src)) - GetEntityCoords(GetPlayerPed(target))) > (Config.hireDistance or 5.0) + 5.0 then
@@ -811,7 +847,8 @@ register('hire', function(src, gtype, name, target, grade)
     if not ok then return false, err or 'Could not hire them.' end
     local who = Bridge.GetName(target)
     Bridge.Notify(target, ('You were hired into %s as %s.'):format(label, gradeName(gtype, name, grade)), 'success')
-    hook('hired', src, cid, gtype, name, grade, target, nil, signature)
+    hook('hired', src, cid, gtype, name, grade, target, nil, signature,
+        signature and { template = template, values = values, image = image } or nil)
     Logs.log('hire', src, ('%s hired %s into %s as %s%s'):format(Logs.who(src), Logs.who(target), label, gradeName(gtype, name, grade), signature and ' (contract signed)' or ''),
         { Group = gkey(gtype, name), Target = cid, Grade = grade })
     return true, signature and ('%s signed the contract and was hired.'):format(who) or ('%s was hired.'):format(who)

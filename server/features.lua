@@ -46,7 +46,14 @@ end
 -- Hooks from server/main.lua
 ---------------------------------------------------------------------------
 --- Someone joined (hire or accepted application). handshakeWith = hiring manager's partner src (nearby hire).
-BM.hooks.hired = function(src, cid, gtype, name, grade, handshakeWith, onlineSrc, signature)
+BM.hooks.hired = function(src, cid, gtype, name, grade, handshakeWith, onlineSrc, signature, contract)
+    -- the signed contract: exact template + filled values + signature image, so it reads the same forever
+    if contract then
+        MySQL.insert.await('INSERT INTO blaze_boss_contracts (job, citizenid, number, doc, signature) VALUES (?, ?, ?, ?, ?)', {
+            BM.gkey(gtype, name), cid, contract.values and contract.values.number,
+            json.encode({ template = contract.template, values = contract.values }), contract.image,
+        })
+    end
     local key = BM.gkey(gtype, name)
     local days = gtype == 'job' and tonumber(F.probationDays) or 0
     MySQL.query.await(([[INSERT INTO blaze_boss_members (citizenid, job, hired_at, probation_until, probation_done)
@@ -55,8 +62,9 @@ BM.hooks.hired = function(src, cid, gtype, name, grade, handshakeWith, onlineSrc
     if F.records then addRecord(gtype, name, cid, 'rank', ('Joined as %s'):format(BM.gradeName(gtype, name, grade)), Bridge.GetName(src)) end
     -- signed employment contract (Config.contract): kept on their record
     if signature then
-        addRecord(gtype, name, cid, 'contract', ('Employment contract signed "%s" as %s, offered by %s')
-            :format(signature, BM.gradeName(gtype, name, grade), Bridge.GetName(src)), Bridge.GetName(src))
+        addRecord(gtype, name, cid, 'contract', ('Employment contract%s signed as %s, offered by %s')
+            :format(contract and contract.values and contract.values.number and (' No. ' .. contract.values.number) or '',
+                BM.gradeName(gtype, name, grade), Bridge.GetName(src)), Bridge.GetName(src))
     end
 
     local target = onlineSrc or handshakeWith
@@ -213,6 +221,7 @@ local function buildProfile(gtype, name, cid)
     if F.employeeOfWeek then
         p.eotw = MySQL.scalar.await('SELECT 1 FROM blaze_boss_eotw WHERE job = ? AND citizenid = ? AND week = YEARWEEK(NOW(), 3)', { key, cid }) and true or nil
     end
+    p.contracts = MySQL.query.await("SELECT id, number, DATE_FORMAT(signed_at, '%m-%d-%Y') AS at FROM blaze_boss_contracts WHERE job = ? AND citizenid = ? ORDER BY id DESC LIMIT 5", { key, cid }) or {}
     if F.records then
         p.records = MySQL.query.await("SELECT type, text, by_name, DATE_FORMAT(created_at, '%m-%d-%Y') AS at FROM blaze_boss_records WHERE job = ? AND citizenid = ? ORDER BY id DESC LIMIT 25", { key, cid }) or {}
         local counts = MySQL.single.await("SELECT SUM(type = 'commend') AS c, SUM(type = 'warning') AS w FROM blaze_boss_records WHERE job = ? AND citizenid = ?", { key, cid }) or {}
@@ -496,4 +505,103 @@ if APPS.enabled then
             return out
         end)
     end
+end
+
+---------------------------------------------------------------------------
+-- Employment contract templates (Config.contract): per job, edited in the boss menu
+---------------------------------------------------------------------------
+local C = Config.contract or {}
+local templates = {} -- [group key] = saved template
+
+local function defaultTemplate() return C.template or { title = 'Employment Agreement', intro = '', sections = {} } end
+
+--- The template a group's contracts use: its saved one, or the default from config.lua
+function BM.contractTemplate(gtype, name)
+    return templates[BM.gkey(gtype, name)] or defaultTemplate()
+end
+
+local function canEditContract(src, gtype, name)
+    if not C.enabled or not BM.groupCfg(gtype, name) then return false end
+    if C.editor == 'management' then return BM.actorLimit(src, gtype, name) ~= nil end
+    if C.editor == 'admin' then return BM.isAdmin(src) end
+    return false
+end
+
+--- Strict server-side cleaning of a template sent by the client
+local function sanitizeTemplate(t)
+    if type(t) ~= 'table' or type(t.sections) ~= 'table' then return nil, 'Invalid contract.' end
+    local title = BM.cleanText(t.title, 200)
+    if not title or #title < 1 or #title > 60 then return nil, 'Title must be 1-60 characters.' end
+    local intro = BM.cleanLong(t.intro or '', 2000) or ''
+    if #intro > 600 then return nil, 'Intro can be at most 600 characters.' end
+    if #t.sections < 1 or #t.sections > 12 then return nil, 'A contract needs 1 to 12 sections.' end
+    local out = { title = title, intro = intro, sections = {} }
+    for i, s in ipairs(t.sections) do
+        if type(s) ~= 'table' then return nil, ('Section %d is invalid.'):format(i) end
+        local st = BM.cleanText(s.title, 200)
+        if not st or #st < 1 or #st > 60 then return nil, ('Section %d: title must be 1-60 characters.'):format(i) end
+        local body = BM.cleanLong(s.text, 4000)
+        if not body or #body < 1 or #body > 1500 then return nil, ('Section %d: text must be 1-1500 characters.'):format(i) end
+        out.sections[i] = { title = st, text = body }
+    end
+    return out
+end
+
+if C.enabled then
+    CreateThread(function()
+        Wait(2000) -- tables are created by server/main.lua on start
+        for _, r in ipairs(MySQL.query.await('SELECT job, template FROM blaze_boss_contract_templates') or {}) do
+            local t = json.decode(r.template)
+            if type(t) == 'table' then templates[r.job] = t end
+        end
+    end)
+
+    register('getContractTemplate', function(src, gtype, name)
+        if not canEditContract(src, gtype, name) then return nil end
+        local key = BM.gkey(gtype, name)
+        -- example values for the preview: this group, its lowest rank, and you as the one hiring
+        local low = Bridge.GetGrades(gtype, name)[1] or {}
+        local mine = Bridge.GetPlayerGroupGrade(src, gtype, name)
+        local days = gtype == 'job' and tonumber(F.probationDays) or 0
+        local pay = gtype == 'job' and tonumber(low.payment) or nil
+        local sample = {
+            job = label(gtype, name), rank = low.name or 'Recruit', pay = (pay and pay > 0) and ('$' .. math.floor(pay)) or nil,
+            probation = days > 0 and ('%d day%s'):format(days, days == 1 and '' or 's') or nil,
+            employee = 'Jane Doe', manager = Bridge.GetName(src), manager_rank = mine and BM.gradeName(gtype, name, mine) or 'Management',
+            date = os.date('%m-%d-%Y'), number = 'EA-PREVIEW',
+        }
+        return { template = BM.contractTemplate(gtype, name), custom = templates[key] ~= nil, sample = sample }
+    end)
+
+    register('saveContractTemplate', function(src, gtype, name, t)
+        if not canEditContract(src, gtype, name) then return false, 'You can\'t edit this contract.' end
+        local clean, err = sanitizeTemplate(t)
+        if not clean then return false, err end
+        local key = BM.gkey(gtype, name)
+        MySQL.query.await('INSERT INTO blaze_boss_contract_templates (job, template, updated_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE template = VALUES(template), updated_by = VALUES(updated_by)',
+            { key, json.encode(clean), Bridge.GetName(src) })
+        templates[key] = clean
+        Logs.log('contractEdit', src, ('%s saved the %s employment contract (%d sections)'):format(Logs.who(src), label(gtype, name), #clean.sections), { Group = key })
+        return true, 'Contract saved. New hires will sign this version.'
+    end)
+
+    register('resetContractTemplate', function(src, gtype, name)
+        if not canEditContract(src, gtype, name) then return false, 'You can\'t edit this contract.' end
+        local key = BM.gkey(gtype, name)
+        MySQL.query.await('DELETE FROM blaze_boss_contract_templates WHERE job = ?', { key })
+        templates[key] = nil
+        Logs.log('contractEdit', src, ('%s reset the %s employment contract to default'):format(Logs.who(src), label(gtype, name)), { Group = key })
+        return true, 'Contract reset to the default.'
+    end)
+
+    --- A signed contract: the employee themself, or a manager of that group
+    register('getContract', function(src, id)
+        local row = MySQL.single.await("SELECT job, citizenid, doc, signature, DATE_FORMAT(signed_at, '%m-%d-%Y') AS at FROM blaze_boss_contracts WHERE id = ?", { tonumber(id) })
+        if not row then return nil end
+        local gtype, name = 'job', row.job
+        if row.job:sub(1, 5) == 'gang:' then gtype, name = 'gang', row.job:sub(6) end
+        if Bridge.GetCitizenId(src) ~= row.citizenid and not BM.actorLimit(src, gtype, name) then return nil end
+        local doc = json.decode(row.doc) or {}
+        return { template = doc.template, values = doc.values, signature = row.signature, signedAt = row.at }
+    end)
 end

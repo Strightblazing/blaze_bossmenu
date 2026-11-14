@@ -33,6 +33,12 @@ client_scripts {
     'client/test.lua',
 }
 
+-- The only web page: the employment contract new hires sign with the mouse (Config.contract.style = 'paper')
+ui_page 'web/contract.html'
+files {
+    'web/contract.html',
+}
+
 -- ox_target / qb-target / lation_ui are optional and detected at runtime
 dependencies {
     'ox_lib',

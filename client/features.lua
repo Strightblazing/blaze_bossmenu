@@ -31,6 +31,10 @@ function BMC.profileOptions(p)
             icon = 'fa-solid fa-clock', readOnly = true, progress = math.min(100, math.floor(((p.hoursWeek or 0) / 40) * 100)) }
         o[#o + 1] = { title = 'Last check-in', description = p.lastCheckin or 'N/A', icon = 'fa-solid fa-right-to-bracket', readOnly = true }
     end
+    for _, c in ipairs(p.contracts or {}) do
+        o[#o + 1] = { title = 'View employment contract', description = ('No. %s · signed %s'):format(c.number or c.id, c.at or ''),
+            icon = 'fa-solid fa-file-contract', iconColor = '#A78BFA', arrow = true, onSelect = function() BMC.viewContract(c.id) end }
+    end
     if p.records then
         o[#o + 1] = { title = 'Record', description = ('%d commendation%s · %d write-up%s'):format(p.commendations or 0, p.commendations == 1 and '' or 's', p.warnings or 0, p.warnings == 1 and '' or 's'),
             icon = 'fa-solid fa-folder-open', readOnly = true }
@@ -133,28 +137,218 @@ local function plainName(s)
     return (tostring(s or ''):lower():gsub('[^%w%s%-\']', ''):gsub('%s+', ' '):gsub('^%s', ''):gsub('%s$', ''))
 end
 
+--- Fill {placeholders} (job, rank, pay, probation, employee, manager, manager_rank, date, number)
+local function fill(text, v, bold)
+    return (tostring(text or ''):gsub('{([%w_]+)}', function(k)
+        local val = v[k]
+        if val == nil or val == '' then return '{' .. k .. '}' end
+        return bold and ('**' .. tostring(val) .. '**') or tostring(val)
+    end))
+end
+BMC.fillContract = fill
+
+--- Typed style: the template as markdown for the confirm popup. Sections using {pay}/{probation} drop out when they don't apply.
 local function contractText(offer)
-    local lines = {
-        ('**%s** is offering you a position with **%s**.'):format(offer.from or 'Management', offer.group or '?'),
-        '',
-        ('- **Position:** %s'):format(offer.rank or '?'),
-    }
-    if offer.pay then lines[#lines + 1] = ('- **Pay:** $%s per paycheck'):format(math.floor(offer.pay)) end
-    if offer.probationDays then lines[#lines + 1] = ('- **Probation:** %d days'):format(offer.probationDays) end
-    lines[#lines + 1] = ('- **Date:** %s'):format(offer.date or '')
-    if offer.terms and #offer.terms > 0 then
-        lines[#lines + 1] = ''
-        lines[#lines + 1] = '**Terms of employment**'
-        for i, t in ipairs(offer.terms) do lines[#lines + 1] = ('%d. %s'):format(i, t) end
+    local t, v = offer.template or {}, offer.values or {}
+    local lines = { ('**%s** · No. %s · %s'):format(fill(t.title or 'Employment Agreement', v), v.number or '', v.date or '') }
+    if t.intro and t.intro ~= '' then lines[#lines + 1] = '' lines[#lines + 1] = '_' .. fill(t.intro, v) .. '_' end
+    local n = 0
+    for _, s in ipairs(t.sections or {}) do
+        local text = s.text or ''
+        if not ((text:find('{pay}', 1, true) and not v.pay) or (text:find('{probation}', 1, true) and not v.probation)) then
+            n = n + 1
+            lines[#lines + 1] = ''
+            lines[#lines + 1] = ('**%d. %s**'):format(n, s.title or '')
+            local i = 0
+            for line in (text .. '\n'):gmatch('(.-)\n') do
+                local item = line:match('^%s*[-*•]%s*(.+)')
+                if item then i = i + 1 lines[#lines + 1] = ('%d. %s'):format(i, fill(item, v, true))
+                elseif line:match('%S') then lines[#lines + 1] = fill(line, v, true) end
+            end
+        end
     end
-    lines[#lines + 1] = ''
-    lines[#lines + 1] = '_By signing you accept this position and agree to the terms above._'
     return table.concat(lines, '\n')
 end
 
---- Returns { accepted = bool, signature = string? }. preview = true never sends anything (test menu).
+---------------------------------------------------------------------------
+-- Paper contract page (web/contract.html): signed with the mouse
+---------------------------------------------------------------------------
+local nuiPending -- promise while the page is open
+
+--- mode 'sign' | 'view' | 'preview'. Returns what the page sent back ({ accepted, image } / { closed = true }).
+local function openPaper(mode, payload, seconds)
+    if nuiPending then return { accepted = false } end
+    local p = promise.new()
+    nuiPending = p
+    SetNuiFocus(true, true)
+    SendNUIMessage({ action = 'openContract', mode = mode, offer = payload, seconds = seconds })
+    if seconds then
+        SetTimeout((seconds + 2) * 1000, function()
+            if nuiPending ~= p then return end
+            nuiPending = nil
+            SendNUIMessage({ action = 'closeContract' })
+            SetNuiFocus(false, false)
+            p:resolve({ accepted = false, expired = true })
+        end)
+    end
+    return Citizen.Await(p)
+end
+
+local function nuiDone(data, cb)
+    cb(1)
+    local p = nuiPending
+    if not p then return end
+    nuiPending = nil
+    SetNuiFocus(false, false)
+    p:resolve(data or {})
+end
+RegisterNUICallback('contract:result', nuiDone)
+RegisterNUICallback('contract:closed', function(_, cb) nuiDone({ closed = true }, cb) end)
+
+AddEventHandler('onResourceStop', function(res)
+    if res == RES and nuiPending then SetNuiFocus(false, false) end
+end)
+
+--- A signed copy, from the profile or /myjob
+function BMC.viewContract(id)
+    local c = call('getContract', id)
+    if not c then return notify('Contract not found.', 'error', 'Contract') end
+    openPaper('view', c)
+end
+
+--- Template preview (contract editor / test menu): nothing to sign
+function BMC.previewContract(template, values)
+    openPaper('preview', { template = template, values = values })
+end
+
+---------------------------------------------------------------------------
+-- Contract editor (boss menu): title, intro and sections with {placeholders}. A draft until saved.
+---------------------------------------------------------------------------
+local PLACEHOLDERS = {
+    { '{job}', 'Job / gang name (e.g. EMS)' }, { '{rank}', 'Rank they are hired as' }, { '{pay}', 'Pay per paycheck (section hidden if none)' },
+    { '{probation}', 'Probation length (section hidden if off)' }, { '{employee}', 'New hire\'s name' }, { '{manager}', 'Who is hiring' },
+    { '{manager_rank}', 'Their rank (e.g. Chief)' }, { '{date}', 'Today' }, { '{number}', 'Contract number' },
+}
+
+local function short(s, n) s = tostring(s or ''):gsub('\n', ' ') return #s > n and (s:sub(1, n - 1) .. '…') or s end
+
+function BMC.openContractEditor(m)
+    local d = call('getContractTemplate', m.gtype, m.name)
+    if not d then return notify('You can\'t edit this contract.', 'error', 'Contract') end
+    local draft = lib.table.deepclone(d.template)
+    draft.sections = draft.sections or {}
+    local dirty = false
+    local show
+
+    local function sectionDialog(sec)
+        local v = UI.input(sec and 'Edit section' or 'Add section', {
+            { type = 'input', label = 'Section title', required = true, minLength = 1, maxLength = 60, default = sec and sec.title },
+            { type = 'textarea', label = 'Text', required = true, minLength = 1, maxLength = 1500, default = sec and sec.text,
+              description = 'Use {job}, {rank}, {pay}, {probation}, {employee}, {manager}, {manager_rank}, {date}. Lines starting with - become a numbered list.' },
+        })
+        if v and v[1] and v[2] then return { title = v[1], text = v[2] } end
+    end
+
+    local function leave()
+        CreateThread(function()
+            if dirty and not UI.confirm({ header = 'Discard changes?', content = 'You have unsaved changes to this contract. Discard them?', type = 'warning', confirm = 'Discard', cancel = 'Keep editing' }) then
+                return show()
+            end
+            UI.showMenu('blaze_boss_main')
+        end)
+    end
+
+    local function openSection(i)
+        local s = draft.sections[i]
+        UI.registerMenu({ id = 'blaze_boss_contract_sec', title = ('%d. %s'):format(i, short(s.title, 40)), menu = 'blaze_boss_contract', options = {
+            { title = 'Edit', icon = 'fa-solid fa-pen', description = short(s.text, 80), onSelect = function()
+                local ns = sectionDialog(s)
+                if ns then draft.sections[i] = ns dirty = true end
+                show()
+            end },
+            { title = 'Move up', icon = 'fa-solid fa-arrow-up', disabled = i == 1, onSelect = function()
+                draft.sections[i], draft.sections[i - 1] = draft.sections[i - 1], draft.sections[i] dirty = true show()
+            end },
+            { title = 'Move down', icon = 'fa-solid fa-arrow-down', disabled = i == #draft.sections, onSelect = function()
+                draft.sections[i], draft.sections[i + 1] = draft.sections[i + 1], draft.sections[i] dirty = true show()
+            end },
+            { title = 'Delete', icon = 'fa-solid fa-trash', iconColor = '#E5484D', disabled = #draft.sections <= 1, onSelect = function()
+                if UI.confirm({ header = 'Delete section', content = ('Delete "%s"?'):format(s.title), type = 'error', confirm = 'Delete' }) then
+                    table.remove(draft.sections, i) dirty = true
+                end
+                show()
+            end },
+        } })
+        UI.showMenu('blaze_boss_contract_sec')
+    end
+
+    show = function()
+        local help = {}
+        for _, p in ipairs(PLACEHOLDERS) do help[#help + 1] = { label = p[1], value = p[2] } end
+        local options = {
+            { title = 'Back to boss menu', icon = 'fa-solid fa-angle-left', onSelect = leave },
+            { title = 'Placeholders', icon = 'fa-solid fa-circle-info', readOnly = true, metadata = help,
+              description = 'Filled in automatically: {job}, {rank}, {pay}, {manager}, {manager_rank}…' },
+            { title = 'Title: ' .. (draft.title or ''), icon = 'fa-solid fa-heading', onSelect = function()
+                local v = UI.input('Contract title', { { type = 'input', label = 'Title', required = true, minLength = 1, maxLength = 60, default = draft.title } })
+                if v and v[1] then draft.title = v[1] dirty = true end
+                show()
+            end },
+            { title = 'Edit intro', icon = 'fa-solid fa-align-left', description = short(draft.intro ~= '' and draft.intro or 'No intro', 70), onSelect = function()
+                local v = UI.input('Intro', { { type = 'textarea', label = 'Opening paragraph (max 600)', maxLength = 600, default = draft.intro,
+                    description = 'e.g. "...between {job} (the Employer), represented by {manager}, {manager_rank}, and {employee}..."' } })
+                if v then draft.intro = v[1] or '' dirty = true end
+                show()
+            end },
+            { title = 'Add section', icon = 'fa-solid fa-plus', disabled = #draft.sections >= 12, description = ('%d of 12 sections'):format(#draft.sections), onSelect = function()
+                local s = sectionDialog(nil)
+                if s then draft.sections[#draft.sections + 1] = s dirty = true end
+                show()
+            end },
+            { title = 'Preview contract', icon = 'fa-solid fa-eye', description = 'See it on paper, filled in with example details', onSelect = function()
+                BMC.previewContract(draft, d.sample)
+                show()
+            end },
+            { title = 'Save contract', icon = 'fa-solid fa-floppy-disk', disabled = not dirty, description = dirty and 'You have unsaved changes' or 'No changes', onSelect = function()
+                if UI.confirm({ header = 'Save contract', content = 'New hires will sign this version. Contracts already signed keep their own wording.', type = 'info', confirm = 'Save' }) then
+                    local ok, msg = call('saveContractTemplate', m.gtype, m.name, draft)
+                    notify(msg or (ok and 'Saved.' or 'Failed.'), ok and 'success' or 'error', 'Contract')
+                    if ok then dirty = false end
+                end
+                show()
+            end },
+            { title = 'Reset to default', icon = 'fa-solid fa-rotate-left', description = d.custom and 'Go back to the contract in config.lua' or 'Already using the default', onSelect = function()
+                if UI.confirm({ header = 'Reset contract', content = 'Delete this job\'s saved contract and use the default from config.lua?', type = 'warning', confirm = 'Reset' }) then
+                    local ok, msg = call('resetContractTemplate', m.gtype, m.name)
+                    notify(msg or '', ok and 'success' or 'error', 'Contract')
+                    if ok then return BMC.openContractEditor(m) end
+                end
+                show()
+            end },
+        }
+        for i, s in ipairs(draft.sections) do
+            options[#options + 1] = { title = ('%d. %s'):format(i, s.title), description = short(s.text, 70), icon = 'fa-solid fa-paragraph', arrow = true,
+                onSelect = function() openSection(i) end }
+        end
+        UI.registerMenu({ id = 'blaze_boss_contract', title = 'Contract · ' .. m.label .. (dirty and ' *' or ''), options = options,
+            onExit = function() if dirty then leave() end end })
+        UI.showMenu('blaze_boss_contract')
+    end
+    show()
+end
+
+--- offer = { template, values, style = 'paper'|'typed', expectedName }
+--- Returns { accepted = bool, signature = string?, image = string? }
 function BMC.signContract(offer, seconds)
     local C = Config.contract or {}
+    if offer.style ~= 'typed' then
+        local animating = C.animation ~= false and not IsPedInAnyVehicle(cache.ped, false)
+        if animating then TaskStartScenarioInPlace(cache.ped, 'CODE_HUMAN_MEDIC_TIME_OF_DEATH', 0, true) end
+        local res = openPaper('sign', { template = offer.template, values = offer.values }, seconds or 90)
+        if animating then ClearPedTasks(cache.ped) end
+        if res.accepted then PlaySoundFrontend(-1, 'PICK_UP', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true) end
+        return { accepted = res.accepted == true, image = res.image }
+    end
     local timedOut, open = false, true
     SetTimeout((seconds or 90) * 1000, function()
         if not open then return end

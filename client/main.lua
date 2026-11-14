@@ -748,6 +748,11 @@ openGroup = function(gtype, name, fromPicker)
     if FT.announcements then
         options[#options + 1] = { title = 'Announcement', description = 'Post a message to your department', icon = 'fa-solid fa-bullhorn', arrow = true, onSelect = function() openAnnouncement(m) end }
     end
+    local CT = Config.contract or {}
+    if CT.enabled and BMC and (CT.editor == 'management' or (CT.editor == 'admin' and m.isAdmin)) then
+        options[#options + 1] = { title = 'Employment contract', description = 'Edit the contract new hires sign', icon = 'fa-solid fa-file-contract', arrow = true,
+            onSelect = function() BMC.openContractEditor(m) end }
+    end
     if FT.auditLog then
         options[#options + 1] = { title = 'Activity log', description = 'Recent hires, promotions, money moves…', icon = 'fa-solid fa-list-check', arrow = true, onSelect = function() openAudit(m) end }
     end
@@ -887,12 +892,13 @@ end
 ---------------------------------------------------------------------------
 -- Hire consent (from qbx_management)
 ---------------------------------------------------------------------------
---- offer = { from, group, rank, pay, probationDays, terms, date, contract, expectedName }
+--- offer = { template, values = { job, rank, pay, probation, employee, manager, manager_rank, date, number }, contract, style, expectedName }
 lib.callback.register(RES .. ':client:confirmHire', function(offer, seconds)
     if offer.contract then return BMC.signContract(offer, seconds) end -- client/features.lua
+    local v = offer.values or {}
     local open = true
     SetTimeout((seconds or 30) * 1000, function() if open then UI.closeConfirm() end end)
-    local ok = UI.confirm({ header = 'Job offer', content = ('%s wants to hire you into %s as %s. Do you accept?'):format(offer.from, offer.group, offer.rank),
+    local ok = UI.confirm({ header = 'Job offer', content = ('%s (%s) wants to hire you into %s as %s. Do you accept?'):format(v.manager or '?', v.manager_rank or '', v.job or '?', v.rank or '?'),
         type = 'info', confirm = 'Accept', cancel = 'Decline' })
     open = false
     return { accepted = ok }
