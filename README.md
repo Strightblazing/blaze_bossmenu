@@ -192,12 +192,12 @@ with a label, so you can see exactly where each target is and how big it is. Onl
 |---|---|
 | `/bossdebug` or `/bossdebug on` / `off` | Debug for everyone's boss menu actions in the server console, plus your own live panel |
 | `/bossdebug view` | Just your own live panel and point labels |
-| `/bossdebug move` | Drag your panel somewhere else (remembered on your PC; Enter = done, Esc = cancel) |
+| `/bossdebug move` | Move and resize your panel: drag it, mouse wheel or − / + for size, 70-150% (remembered on your PC; Enter = done, Esc = cancel) |
 
 The live panel (top right, refreshed 4 times a second) shows your job, rank, duty, admin and View-as state, the groups
 you manage and belong to, framework / target / menu library, the nearest point (id, type, distance, radius), your last
 boss menu actions with their result and time, and your position. Point labels show id, radius and distance.
-**Debug mode** in `/bossmenu` turns the same thing on for just you, and **Move debug panel** there drags it. `debug = true` in config.lua turns it on for everyone.
+**Debug mode** in `/bossmenu` turns the same thing on for just you, and **Move debug panel** there moves and resizes it. `debug = true` in config.lua turns it on for everyone.
 
 Managers can place, move and delete their own job's points from the boss menu → **Locations**
 (`managerPlacement`: which types, and whether they may teleport).

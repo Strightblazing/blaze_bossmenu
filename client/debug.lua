@@ -101,5 +101,5 @@ AddEventHandler('onResourceStop', function(res)
 end)
 
 TriggerEvent('chat:addSuggestion', '/' .. (Config.debugCommand or 'bossdebug'), 'Boss menu debug (admin)', {
-    { name = 'mode', help = 'on, off, view (just your panel) or move (drag your panel)' },
+    { name = 'mode', help = 'on, off, view (just your panel) or move (move and resize your panel)' },
 })

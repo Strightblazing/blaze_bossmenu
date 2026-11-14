@@ -4,7 +4,7 @@
 <title>Blaze Boss Menu · Debug</title>
 <!-- Live debug panel (/bossdebug), like Blaze Medical's. Runs inside web/index.html.
      in:  { action: 'dbg:live', data | false } (false hides it) | { action: 'dbg:move' } (drag it; saved on this PC)
-     out: dbg:moveDone
+     out: dbg:moveDone   (move mode also sets the size: - / + or the mouse wheel)
      Open this file in a browser for a demo. -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -16,6 +16,7 @@ body.demo{background:#3a4048}
 .hud{position:fixed;right:18px;top:18px;width:330px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;
   box-shadow:0 14px 40px rgba(0,0,0,.4);font-size:12px;backdrop-filter:blur(6px)}
 .hud[hidden]{display:none}
+.hud{transform-origin:top right}.hud.placed{transform-origin:top left}
 .hud.moving{outline:2px dashed var(--accent);outline-offset:4px;cursor:move}
 .hud-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .hud-h b{font-size:13px;font-weight:600}
@@ -39,14 +40,18 @@ body.demo{background:#3a4048}
 .movetip{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;
   display:flex;align-items:center;gap:10px;font-size:12px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 .movetip[hidden]{display:none}
+.movetip{white-space:nowrap;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 32px)}
 .movetip span{color:var(--muted)}
 .btn{border:1px solid var(--line2);background:transparent;color:var(--text);border-radius:7px;padding:5px 12px;font-family:var(--font);font-size:12px;cursor:pointer}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:#0c1220}
+.size{display:flex;align-items:center;gap:6px}.size #sizeLbl{min-width:38px;text-align:center;color:var(--text);font-family:var(--mono);font-size:11px}
+.btn.sm{padding:3px 9px}
 .k{font-family:var(--mono);font-size:10.5px;border:1px solid var(--line2);border-radius:4px;padding:0 5px;color:var(--muted)}
 </style></head>
 <body>
 <div class="hud" id="hud" hidden></div>
-<div class="movetip" id="moveTip" hidden><b>Move the debug panel</b><span>Drag it where you want it.</span>
+<div class="movetip" id="moveTip" hidden><b>Move the debug panel</b><span>Drag it, scroll or use − / + to resize.</span>
+  <span class="size"><button class="btn sm" id="smaller" aria-label="Smaller">−</button><span id="sizeLbl">100%</span><button class="btn sm" id="bigger" aria-label="Bigger">+</button></span>
   <button class="btn" id="moveReset">Reset</button><button class="btn pri" id="moveSave">Done</button><span class="k">Enter</span><span>done</span><span class="k">Esc</span><span>cancel</span></div>
 <script>
 const host = window.parent !== window ? window.parent : null;
@@ -89,27 +94,44 @@ function live(d) {
     '<div class="sec"><h4>Position</h4><div class="mono">vec4(' + [p.x, p.y, p.z, p.h].map(v => (Number(v) || 0).toFixed(2)).join(', ') + ')</div></div>';
 }
 
-/* ---------- move mode: drag the panel, remembered in this PC's storage ---------- */
+/* ---------- move mode: drag and resize the panel, remembered in this PC's storage ---------- */
 const KEY = 'blaze_bossmenu_debug_panel';
-let moving = false, pos = null;
-try { pos = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { pos = null; }
-function place(x, y) {
-  const hud = $('hud'), w = hud.offsetWidth || 330;
-  x = Math.max(0, Math.min(innerWidth - w, x)); y = Math.max(0, Math.min(innerHeight - 60, y));
-  hud.style.left = x + 'px'; hud.style.top = y + 'px'; hud.style.right = 'auto';
-  return { x: x / innerWidth, y: y / innerHeight };
+const MIN = 0.7, MAX = 1.5;
+let moving = false, pos = null; // { x, y } as a share of the screen (null = default top right), s = size
+const load = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } };
+pos = load();
+const size = () => (pos && typeof pos.s === 'number') ? pos.s : 1;
+function applySize() {
+  const k = size();
+  $('hud').style.transform = k === 1 ? '' : 'scale(' + k + ')';
+  $('sizeLbl').textContent = Math.round(k * 100) + '%';
 }
-const applyPos = () => { if (pos && typeof pos.x === 'number') place(pos.x * innerWidth, pos.y * innerHeight); };
+function setSize(k) {
+  k = Math.round(Math.max(MIN, Math.min(MAX, k)) * 10) / 10;
+  pos = Object.assign({}, pos || {}, { s: k });
+  applySize(); applyPos();
+}
+function place(x, y) {
+  const hud = $('hud'), r = hud.getBoundingClientRect(), w = r.width || 330, h = r.height || 60;
+  x = Math.max(0, Math.min(innerWidth - w, x)); y = Math.max(0, Math.min(innerHeight - Math.min(h, 60), y));
+  hud.classList.add('placed');
+  hud.style.left = x + 'px'; hud.style.top = y + 'px'; hud.style.right = 'auto';
+  return { x: x / innerWidth, y: y / innerHeight, s: size() };
+}
+function unplace() { const hud = $('hud'); hud.classList.remove('placed'); hud.style.left = ''; hud.style.top = ''; hud.style.right = ''; }
+const applyPos = () => { if (pos && typeof pos.x === 'number') place(pos.x * innerWidth, pos.y * innerHeight); else unplace(); };
+const applyAll = () => { applySize(); applyPos(); };
 addEventListener('resize', applyPos);
 function startMove() {
   if ($('hud').hidden) return post('dbg:moveDone');
-  moving = true; $('hud').classList.add('moving'); $('moveTip').hidden = false;
+  moving = true; $('hud').classList.add('moving'); $('moveTip').hidden = false; applySize();
 }
 function endMove(save) {
   if (!moving) return;
   moving = false; $('hud').classList.remove('moving'); $('moveTip').hidden = true;
-  if (save) { try { localStorage.setItem(KEY, JSON.stringify(pos)); } catch (e) {} }
-  else { try { pos = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { pos = null; } if (pos) applyPos(); else { $('hud').style.left = ''; $('hud').style.top = ''; $('hud').style.right = ''; } }
+  if (save) { try { if (pos) localStorage.setItem(KEY, JSON.stringify(pos)); else localStorage.removeItem(KEY); } catch (e) {} }
+  else pos = load();
+  applyAll();
   if (host && host.screenClosed) host.screenClosed('debug');
   post('dbg:moveDone');
 }
@@ -120,13 +142,22 @@ $('hud').addEventListener('mousedown', e => {
   const up = () => { removeEventListener('mousemove', mv); removeEventListener('mouseup', up); };
   addEventListener('mousemove', mv); addEventListener('mouseup', up);
 });
+addEventListener('wheel', e => { if (!moving) return; e.preventDefault(); setSize(size() + (e.deltaY < 0 ? 0.1 : -0.1)); }, { passive: false });
+$('smaller').onclick = () => setSize(size() - 0.1);
+$('bigger').onclick = () => setSize(size() + 0.1);
 $('moveSave').onclick = () => endMove(true);
-$('moveReset').onclick = () => { pos = null; $('hud').style.left = ''; $('hud').style.top = ''; $('hud').style.right = ''; try { localStorage.removeItem(KEY); } catch (e) {} };
-addEventListener('keydown', e => { if (!moving) return; if (e.key === 'Escape') endMove(false); else if (e.key === 'Enter') endMove(true); });
+$('moveReset').onclick = () => { pos = null; applyAll(); try { localStorage.removeItem(KEY); } catch (e) {} };
+addEventListener('keydown', e => {
+  if (!moving) return;
+  if (e.key === 'Escape') endMove(false);
+  else if (e.key === 'Enter') endMove(true);
+  else if (e.key === '+' || e.key === '=') setSize(size() + 0.1);
+  else if (e.key === '-') setSize(size() - 0.1);
+});
 
 addEventListener('message', e => {
   const m = e.data || {};
-  if (m.action === 'dbg:live') { const was = $('hud').hidden; live(m.data); if (was && m.data) applyPos(); }
+  if (m.action === 'dbg:live') { const was = $('hud').hidden; live(m.data); if (was && m.data) applyAll(); }
   else if (m.action === 'dbg:move') startMove();
 });
 
@@ -138,6 +169,7 @@ if (!isFiveM && !host) {
     nearby: 3, nearest: { id: 12, type: 'Duty point', group: 'EMS', dist: 2.4, radius: 1.0 },
     log: [{ name: 'getClockData', result: 'data', ms: 8 }, { name: 'clockPunch', result: 'ok=true', ms: 14 }, { name: 'clockPunch', result: 'ok=false "Wrong PIN. It\'s on your ID."', ms: 3 }],
     pos: { x: 311.42, y: -593.17, z: 43.28, h: 158.7 } });
+  if (location.hash === '#move') { startMove(); setSize(1.2); } // demo state: move / resize mode
 }
 </script>
 </body></html>
