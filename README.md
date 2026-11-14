@@ -174,14 +174,16 @@ gangs = {
 
 Use `/bossmenu` in game (admins only):
 
-- **Add boss desk**: pick the job or gang, aim at the spot, press **E** (Backspace cancels), then pick a size.
+- **Add boss desk**: pick the job or gang, aim at the spot and press **E** (Backspace cancels). While aiming you see a
+  **preview**: the zone ring at its real size in its color, a label and a line for the way you face. Change the size
+  with the **mouse wheel** or **↑ / ↓** (0.5-5 m). Application points also show a see-through receptionist where she'll stand.
 - **Add applications point**: same, but only for jobs with applications on.
 - **Add application review point**: where managers review that job's applications (for example an HR office),
   without needing the boss desk. Only that job's managers (and admins) see it.
 - **Add duty point**: staff of that job clock in and out here.
 - **Add wardrobe**: staff of that job change into the job's outfits here (and back to their own clothes).
 - **Manage points**: everything placed, grouped by job. **Teleport** to a point, **Move** it (aim at the new spot,
-  press E; it keeps its job, type and size), **Change size**, or **Delete** it.
+  press E; it keeps its job, type and size), **Change size** (scroll on the spot with a live ring, E saves), or **Delete** it.
   Points from `Config.locations`, or added by other scripts, can't be changed in game.
 
 **Show zones** (in `/bossmenu`, and in Locations for a manager's own job) draws every point as a colored ring on the ground

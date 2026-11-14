@@ -23,25 +23,132 @@ local function typeFits(g, ptype)
 end
 local openPlacement
 
---- Raycast marker where the player looks. E = confirm, Backspace = cancel. Returns coords, heading or nil.
-local function placeMarker(text)
-    lib.showTextUI(('%s  \n[E] Place  \n[Backspace] Cancel'):format(text))
+local ZONE_COLOR = {
+    boss = { 245, 197, 66 }, applications = { 90, 169, 255 }, review = { 167, 139, 250 },
+    duty = { 63, 185, 122 }, outfits = { 240, 169, 59 },
+}
+
+local function draw3DText(x, y, z, text)
+    SetDrawOrigin(x, y, z, 0)
+    SetTextScale(0.0, 0.3)
+    SetTextFont(4)
+    SetTextCentre(true)
+    SetTextOutline()
+    SetTextColour(255, 255, 255, 230)
+    BeginTextCommandDisplayText('STRING')
+    AddTextComponentSubstringPlayerName(text)
+    EndTextCommandDisplayText(0.0, 0.0)
+    ClearDrawOrigin()
+end
+
+local MIN_R, MAX_R, STEP_R = 0.5, 5.0, 0.25
+local function clampRadius(r) return math.max(MIN_R, math.min(MAX_R, math.floor((tonumber(r) or 1.0) / STEP_R + 0.5) * STEP_R)) end
+
+--- Mouse wheel / arrow keys change the size: returns -1, 0 or 1 (weapon wheel and phone scroll are blocked meanwhile)
+local function sizeInput()
+    for _, c in ipairs({ 14, 15, 16, 17, 99, 100, 172, 173, 241, 242, 261, 262 }) do DisableControlAction(0, c, true) end
+    if IsDisabledControlJustPressed(0, 241) or IsDisabledControlJustPressed(0, 15) or IsDisabledControlJustPressed(0, 172) then return 1 end
+    if IsDisabledControlJustPressed(0, 242) or IsDisabledControlJustPressed(0, 14) or IsDisabledControlJustPressed(0, 173) then return -1 end
+    return 0
+end
+
+--- The zone as it will be: ring at its real size in the type's colour, a center dot, a facing arrow and a label
+local function drawPreview(c, ptype, radius, heading, label)
+    local col = ZONE_COLOR[ptype] or { 61, 220, 132 }
+    local d = radius * 2.0
+    DrawMarker(1, c.x, c.y, c.z - 0.02, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, d, d, 0.6, col[1], col[2], col[3], 70, false, false, 2, false, nil, nil, false)
+    DrawMarker(28, c.x, c.y, c.z + 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.12, 0.12, 0.12, col[1], col[2], col[3], 220, false, false, 2, false, nil, nil, false)
+    if heading then -- which way you faced when placing it (the receptionist stands on that side, facing back)
+        local rad = math.rad(heading)
+        local tx, ty = c.x - math.sin(rad) * (radius + 0.6), c.y + math.cos(rad) * (radius + 0.6)
+        DrawLine(c.x, c.y, c.z + 0.1, tx, ty, c.z + 0.1, col[1], col[2], col[3], 230)
+        DrawMarker(28, tx, ty, c.z + 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.08, 0.08, 0.08, col[1], col[2], col[3], 230, false, false, 2, false, nil, nil, false)
+    end
+    if label then draw3DText(c.x, c.y, c.z + 1.0, label) end
+end
+
+--- See-through receptionist where she will stand (application points), so the counter can be lined up
+local REC = ((Config.features or {}).receptionist) or {}
+local function ghostPed(ptype)
+    if ptype ~= 'applications' or not REC.enabled then return nil end
+    local model = joaat(REC.model or 'a_f_y_business_02')
+    if not lib.requestModel(model, 3000) then return nil end
+    local ped = CreatePed(4, model, 0.0, 0.0, -100.0, 0.0, false, false)
+    SetModelAsNoLongerNeeded(model)
+    SetEntityAlpha(ped, 150, false)
+    SetEntityCollision(ped, false, false)
+    SetEntityInvincible(ped, true)
+    FreezeEntityPosition(ped, true)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    return ped
+end
+local function moveGhost(ped, c, heading)
+    local rad = math.rad(heading)
+    local x, y = c.x - math.sin(rad) * 0.8, c.y + math.cos(rad) * 0.8 -- same spot as the real one (client/features.lua)
+    local found, gz = GetGroundZFor_3dCoord(x, y, c.z + 1.0, false)
+    SetEntityCoordsNoOffset(ped, x, y, found and gz or c.z, false, false, false)
+    SetEntityHeading(ped, (heading + 180.0) % 360.0)
+end
+
+--- Aim where the point goes and see it before placing. opts = { ptype, radius, resize = true (wheel changes size) }
+--- E = place, Backspace = cancel. Returns coords, heading, radius (or nil).
+local function placeMarker(text, opts)
+    opts = opts or {}
+    local radius = clampRadius(opts.radius or 1.0)
+    local function ui()
+        lib.showTextUI(('%s  \n[E] Place  \n%s[Backspace] Cancel'):format(text,
+            opts.resize and ('[Scroll / ↑↓] Size: %.2f m  \n'):format(radius) or ('Size: %.2f m  \n'):format(radius)))
+    end
+    ui()
+    local ghost = ghostPed(opts.ptype)
     local chosen
     while true do
         Wait(0)
         DisableControlAction(0, 38, true)  -- E
         DisableControlAction(0, 177, true) -- Backspace / cancel
         DisableControlAction(0, 194, true)
+        if opts.resize then
+            local dir = sizeInput()
+            if dir ~= 0 then radius = clampRadius(radius + dir * STEP_R) ui() end
+        end
+        local heading = GetEntityHeading(cache.ped)
         local hit, _, coords = lib.raycast.fromCamera(1 | 16, cache.ped, 15.0)
         if hit and coords then
-            DrawMarker(28, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.25, 0.25, 61, 220, 132, 160, false, false, 2, false, nil, nil, false)
+            drawPreview(coords, opts.ptype, radius, heading, opts.label)
+            if ghost then moveGhost(ghost, coords, heading) end
             if IsDisabledControlJustPressed(0, 38) then chosen = coords break end
+        elseif ghost then
+            SetEntityCoordsNoOffset(ghost, 0.0, 0.0, -100.0, false, false, false)
         end
         if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 194) then break end
     end
+    if ghost and DoesEntityExist(ghost) then DeleteEntity(ghost) end
     lib.hideTextUI()
     if not chosen then return nil end
-    return chosen, GetEntityHeading(cache.ped)
+    return chosen, GetEntityHeading(cache.ped), radius
+end
+
+--- Change a placed point's size with a live ring on the spot. Returns the new radius or nil.
+local function sizeMarker(p, text)
+    local c = vec3(p.coords.x, p.coords.y, p.coords.z)
+    local radius = clampRadius(p.radius or 1.0)
+    local function ui() lib.showTextUI(('%s  \n[Scroll / ↑↓] Size: %.2f m  \n[E] Save  \n[Backspace] Cancel'):format(text, radius)) end
+    ui()
+    local saved
+    while true do
+        Wait(0)
+        DisableControlAction(0, 38, true)
+        DisableControlAction(0, 177, true)
+        DisableControlAction(0, 194, true)
+        local dir = sizeInput()
+        if dir ~= 0 then radius = clampRadius(radius + dir * STEP_R) ui() end
+        drawPreview(c, p.type, radius, p.heading)
+        if IsDisabledControlJustPressed(0, 38) then saved = radius break end
+        if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 194) then break end
+        if #(GetEntityCoords(cache.ped) - c) > 40.0 then lib.notify({ title = 'Boss menu placement', description = 'Too far from the point.', type = 'error' }) break end
+    end
+    lib.hideTextUI()
+    return saved
 end
 
 local function addFlow(info, ptype)
@@ -51,10 +158,10 @@ local function addFlow(info, ptype)
             options[#options + 1] = {
                 title = g.label, description = (g.gtype == 'gang' and 'Gang · ' or 'Job · ') .. g.name, arrow = true,
                 onSelect = function()
-                    local coords, heading = placeMarker(('%s · %s'):format(TYPE_LABEL[ptype], g.label))
+                    local coords, heading, radius = placeMarker(('%s · %s'):format(TYPE_LABEL[ptype], g.label),
+                        { ptype = ptype, radius = 1.0, resize = true, label = ('%s · %s'):format(TYPE_LABEL[ptype], g.label) })
                     if coords then
-                        local v = UI.input('Point size', { { type = 'number', label = 'Radius (0.5 - 5.0 m)', default = 1.0, min = 0.5, max = 5.0, required = true } })
-                        result(call('addPoint', g.gtype, g.name, ptype, { x = coords.x, y = coords.y, z = coords.z }, heading, v and v[1] or 1.0))
+                        result(call('addPoint', g.gtype, g.name, ptype, { x = coords.x, y = coords.y, z = coords.z }, heading, radius))
                     end
                     openPlacement()
                 end,
@@ -83,14 +190,14 @@ local function pointActions(p, groupLabel, backMenu, after, teleport)
     end }
     options[#options + 1] = { title = 'Move', icon = 'fa-solid fa-up-down-left-right', disabled = p.fixed ~= nil,
       description = fixed or 'Aim at the new spot and press E. Same job, type and size.', onSelect = function()
-        local coords, heading = placeMarker('Move: ' .. title)
+        local coords, heading = placeMarker('Move: ' .. title, { ptype = p.type, radius = p.radius or 1.0, label = title })
         if coords then result(call('movePoint', p.id, { x = coords.x, y = coords.y, z = coords.z }, heading)) end
         after()
     end }
     options[#options + 1] = { title = 'Change size', icon = 'fa-solid fa-expand', disabled = p.fixed ~= nil,
-      description = fixed or ('Now %.1f m'):format(p.radius or 1.0), onSelect = function()
-        local v = UI.input('Point size', { { type = 'number', label = 'Radius (0.5 - 5.0 m)', default = p.radius or 1.0, min = 0.5, max = 5.0, required = true } })
-        if v and v[1] then result(call('resizePoint', p.id, v[1])) end
+      description = fixed or ('Now %.2f m. Scroll to resize, see it on the spot.'):format(p.radius or 1.0), onSelect = function()
+        local r = sizeMarker(p, 'Size: ' .. title)
+        if r then result(call('resizePoint', p.id, r)) end
         after()
     end }
     options[#options + 1] = { title = 'Delete', icon = 'fa-solid fa-trash', iconColor = '#E5484D', disabled = p.fixed ~= nil,
@@ -190,10 +297,10 @@ function BMC.openLocations(m)
     table.sort(d.types, function(a, b) return (TYPE_LABEL[a] or a) < (TYPE_LABEL[b] or b) end)
     for _, t in ipairs(d.types) do
         options[#options + 1] = { title = 'Add ' .. (TYPE_LABEL[t] or t):lower(), description = TYPE_DESC[t], icon = 'fa-solid fa-plus', onSelect = function()
-            local coords, heading = placeMarker(('%s · %s'):format(TYPE_LABEL[t] or t, m.label))
+            local coords, heading, radius = placeMarker(('%s · %s'):format(TYPE_LABEL[t] or t, m.label),
+                { ptype = t, radius = 1.0, resize = true, label = ('%s · %s'):format(TYPE_LABEL[t] or t, m.label) })
             if coords then
-                local v = UI.input('Point size', { { type = 'number', label = 'Radius (0.5 - 5.0 m)', default = 1.0, min = 0.5, max = 5.0, required = true } })
-                result(call('addPoint', m.gtype, m.name, t, { x = coords.x, y = coords.y, z = coords.z }, heading, v and v[1] or 1.0))
+                result(call('addPoint', m.gtype, m.name, t, { x = coords.x, y = coords.y, z = coords.z }, heading, radius))
             end
             reopen()
         end }
@@ -221,25 +328,7 @@ local showZones = false      -- false | 'all' | { ['job:ambulance'] = true }
 local debugView = LocalPlayer.state.bossDebugView == true
 local function debugMode() return Config.debug == true or debugView end
 
-local ZONE_COLOR = {
-    boss = { 245, 197, 66 }, applications = { 90, 169, 255 }, review = { 167, 139, 250 },
-    duty = { 63, 185, 122 }, outfits = { 240, 169, 59 },
-}
-
 RegisterNetEvent(RES .. ':client:points', function(points) zonePoints = points or {} end)
-
-local function draw3DText(x, y, z, text)
-    SetDrawOrigin(x, y, z, 0)
-    SetTextScale(0.0, 0.3)
-    SetTextFont(4)
-    SetTextCentre(true)
-    SetTextOutline()
-    SetTextColour(255, 255, 255, 230)
-    BeginTextCommandDisplayText('STRING')
-    AddTextComponentSubstringPlayerName(text)
-    EndTextCommandDisplayText(0.0, 0.0)
-    ClearDrawOrigin()
-end
 
 local drawing = false
 local function startDrawing()
