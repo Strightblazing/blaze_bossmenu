@@ -123,11 +123,19 @@ body.demo{background:#2a2d33}
 .seg button.on{background:var(--raised);color:var(--text)}
 .game #wrap{display:none}.game #wrap.show{display:flex}
 .empty{font-size:13px;color:var(--faint)}
+/* minigame only: until they clock in/out, show just the clock-in area */
+.app{transition:width .35s cubic-bezier(.2,.8,.2,1)}
+.app.mini{width:min(540px,94vw)}
+.app.mini .body{grid-template-columns:1fr}
+.app.mini .col.info,.app.mini .announce-block,.app.mini #footNote{display:none}
+.app.mini .clock .t{font-size:26px}
+.app .col.info,.app .announce-block{animation:fadeIn .35s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 </style></head>
 <body>
 <div class="demobar"><span>Demo</span><button id="flip">Start off duty</button></div>
 
-<div id="wrap"><div class="app">
+<div id="wrap"><div class="app mini" id="app">
   <div class="head">
     <div class="dept"><small>Time clock</small><b id="dept"></b></div>
     <div class="clock"><div class="t" id="clock"></div><div class="d" id="date"></div></div>
@@ -152,13 +160,13 @@ body.demo{background:#2a2d33}
         </div>
         <div class="result" id="result"></div>
       </div>
-      <div>
+      <div class="announce-block">
         <div class="label">Announcement</div>
         <div class="announce" id="ann"></div>
       </div>
     </div>
 
-    <div class="col">
+    <div class="col info">
       <div>
         <div class="label">Your shift <span id="shiftNote"></span></div>
         <div class="stats">
@@ -293,6 +301,7 @@ function render() {
 // ---------- clock in / out ----------
 function done(onDuty, shift) {
   tone(true);
+  setTimeout(() => $('#app').classList.remove('mini'), 700); // show the full screen once they're clocked in/out
   const now = new Date(), hhmm = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
   if (onDuty) {
     msg('<span class="dot in"></span><b>Clocked in</b> at ' + hhmm, 'ok');
@@ -413,12 +422,13 @@ window.addEventListener('message', e => {
     methods = (d.methods && d.methods.length) ? d.methods.filter(m => NAME[m]) : ['tap', 'swipe', 'keypad'];
     clockedAt = D.onDuty ? Date.now() - (D.shiftSeconds || 0) * 1000 : null;
     busy = false; $('#result').textContent = '';
+    $('#app').classList.add('mini');
     setMethod(methods[0]); render(); tick();
     $('#wrap').classList.add('show');
   }
   if (d.action === 'closeClock') $('#wrap').classList.remove('show');
 });
-$('#flip').onclick = () => { D.onDuty = !D.onDuty; clockedAt = D.onDuty ? Date.now() - (2 * 3600 + 14 * 60) * 1000 : null; $('#result').textContent = ''; render(); };
+$('#flip').onclick = () => { $('#app').classList.add('mini'); D.onDuty = !D.onDuty; clockedAt = D.onDuty ? Date.now() - (2 * 3600 + 14 * 60) * 1000 : null; $('#result').textContent = ''; render(); };
 
 if (isFiveM) document.body.classList.add('game');
 else { document.body.classList.add('demo'); $('#wrap').classList.add('show'); }
