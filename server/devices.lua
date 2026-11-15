@@ -62,6 +62,9 @@ local function registerComputer()
         icon = RES .. '/web/apps/icon.png', -- Blaze Scriptworks flame
         size = { w = 1040, h = 700 },
         pinned = D.pinned ~= false,
+        -- the copy of the screen nearby players see on the desk prop: off by default (staff, funds and applications
+        -- are private), which also stops the mirror's mouse trail drawing long lines across the screen
+        mirror = D.mirrorScreen == true,
         groups = groups(),
         computers = D.computerIds, -- nil = every computer
         endpoints = {

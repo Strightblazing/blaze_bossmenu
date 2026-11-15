@@ -346,6 +346,7 @@ Config = {
         computers = true,
         computerIds = nil,
         pinned = true, -- also on the taskbar / dock
+        mirrorScreen = false, -- true = players walking past can read the app on the computer's screen
         -- sd-phone: an app on the phone; sd-tablet shows it too (players in a configured job)
         phone = true,
         -- false = players download it from the phone's App Store first; true = already installed

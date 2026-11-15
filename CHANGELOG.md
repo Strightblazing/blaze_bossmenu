@@ -11,7 +11,8 @@
   bonus; bonus everyone on duty; payroll by rank; manager notes on applications; a Ranks tab when the rank editor is on.
   Tablets and computers show the list and the open person / application side by side. On the phone it's downloaded
   from the App Store (`devices.preinstalled = true` to pre-install it). App icon: the Blaze Scriptworks flame. Every form uses the device's own pop-ups (the phone's pop-ups and list menu,
-  the computer's dialogs and menu), so typing works like in their own apps.
+  the computer's dialogs and menu), so typing works like in their own apps. On computers the app isn't mirrored to the
+  desk prop's screen for players walking past (`devices.mirrorScreen`), which keeps boss data private.
 - **Lation UI** (`useLationUI = true`): the boss menu, admin menu and Points menu use Lation's extras: header icon and
   subtitle, coloured icons per section (Points in the same colour as each ring on the ground), tags on the right
   (new applications, balance, On / Off, member and point counts) and a beating icon when applications are waiting.
