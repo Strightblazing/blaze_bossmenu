@@ -154,3 +154,12 @@ textarea.notes:focus { border-color: var(--accent); }
 /* no scrollbars (the game's browser draws a big white one); lists still scroll with the wheel, drag or swipe */
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* badges never squeeze the name: the name keeps room, badges wrap onto a second line */
+.row .who { min-width: 120px; }
+.row .side { flex-shrink: 1; min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px; }
+.row .side .tag { margin: 0; white-space: nowrap; }
+.split-list .row .side .tag { font-size: 10.5px; padding: 1px 7px; }
+
+/* icons: rounded line ends and corners (sharp ones can draw as long thin spikes in the game's browser) */
+svg path, svg rect, svg circle { stroke-linejoin: round; stroke-linecap: round; stroke-miterlimit: 2; }
