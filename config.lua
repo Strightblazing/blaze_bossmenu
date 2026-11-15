@@ -30,11 +30,15 @@ Config = {
     -- | 'none' (walk-up zone: a "[E]" text prompt when you stand at the point, like qbx_management without target)
     target = 'auto',
 
-    -- Ace that allows /bossmenu (placing points) and admin overrides. Framework admins also count.
+    -- Ace that allows the admin menu (/bossmenuadmin) and its tools. Framework admins also count.
     -- server.cfg: add_ace group.admin blaze_bossmenu.admin allow
     adminAce = 'blaze_bossmenu.admin',
 
-    -- true = admins can open and use ANY configured job's boss menu
+    -- Admin menu command: boss menus for any job, points, Show zones, debug, test tools, settings
+    adminCommand = 'bossmenuadmin',
+
+    -- true = admins can open ANY configured job's boss menu with full access, from the admin menu only
+    -- (Boss menus). At desks and in the radial menu admins are treated like anyone else (their real rank).
     adminsCanManage = true,
 
     -- How close (metres) a player must be to the manager to be hired from the boss menu
@@ -273,7 +277,7 @@ Config = {
         -- getEmail = function(citizenid, source) return exports['my-phone']:GetEmail(citizenid) end,
     },
 
-    -- Managers place/move/delete their OWN job's points from the boss menu (Locations). Admins can always use /bossmenu.
+    -- Managers place/move/delete their OWN job's points from the boss menu (Locations). Admins can always use /bossmenuadmin.
     managerPlacement = {
         enabled = true,
         -- Which point types managers may place
@@ -329,6 +333,9 @@ Config = {
         enabled = true,
         label = 'Work',
         icon = 'briefcase',
+        -- Admins also get a separate "Boss admin" entry that opens the admin menu
+        admin = true,
+        adminLabel = 'Boss admin',
     },
 
     -- Extras. Each one can be turned off on its own.
@@ -371,7 +378,7 @@ Config = {
         },
     },
 
-    -- Optional fixed points. In-game placed points (/bossmenu) are added on top.
+    -- Optional fixed points. In-game placed points (/bossmenuadmin) are added on top.
     -- These can't be deleted in game; remove them here.
     -- type: 'boss' (management desk), 'applications' (apply point) or 'review' (managers review applications).
     -- For a gang desk use gang = 'name' instead of job.

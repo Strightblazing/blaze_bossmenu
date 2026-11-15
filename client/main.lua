@@ -34,7 +34,7 @@ local function refreshManaged()
     managed, member, myGroups, isAdmin = {}, {}, d.groups or {}, d.isAdmin == true
     for _, g in ipairs(myGroups) do managed[g.gtype .. ':' .. g.name] = true end
     for _, k in ipairs(d.member or {}) do member[k] = true end
-    if BMC and BMC.updateRadial then BMC.updateRadial(myGroups) end -- "Work" radial entry for bosses
+    if BMC and BMC.updateRadial then BMC.updateRadial(myGroups, isAdmin) end -- "Work" for bosses, "Boss admin" for admins
 end
 Bridge.onGroupsChanged(refreshManaged)
 --- For the debug panel (client/debug.lua): groups you manage, groups you're in, admin
@@ -466,7 +466,7 @@ local function openApp(m, id, filter)
     if not a then return notify('Application not found.', 'error') end
     local decided = a.status == 'accepted' or a.status == 'denied' or a.status == 'withdrawn'
     local back = function()
-        local again = call('getMenu', m.gtype, m.name) or m
+        local again = call('getMenu', m.gtype, m.name, m.asAdmin) or m
         again.fromReview = m.fromReview
         openApps(again, filter)
     end
@@ -645,7 +645,7 @@ local function openGrades(m)
                     else data.isboss = v[2] end
                     result(call('modifyGrade', m.gtype, m.name, g.level, data))
                 end
-                openGroup(m.gtype, m.name)
+                openGroup(m.gtype, m.name, nil, m.asAdmin)
             end,
         }
     end
@@ -729,9 +729,11 @@ local function openPicker(list)
     UI.showMenu('blaze_boss_pick')
 end
 
-openGroup = function(gtype, name, fromPicker)
-    local m = call('getMenu', gtype, name)
+--- asAdmin = opened from the admin menu (/bossmenuadmin > Boss menus): full access, checked on the server
+openGroup = function(gtype, name, fromPicker, asAdmin)
+    local m = call('getMenu', gtype, name, asAdmin == true)
     if not m then return notify('You are not a manager here.', 'error') end
+    m.asAdmin = asAdmin == true and m.asAdmin
     local options = {
         { title = gtype == 'gang' and 'Members' or 'Staff', description = 'Promote, demote, ' .. (m.callsigns and 'callsigns, ' or '') .. (gtype == 'gang' and 'kick' or 'fire'),
           icon = 'fa-solid fa-users', arrow = true, onSelect = function() openStaff(m) end },
@@ -773,7 +775,8 @@ openGroup = function(gtype, name, fromPicker)
     for _, item in pairs(dynamicItems) do
         if item.args and type(item.args.type) == 'string' and item.args.type:lower() == gtype then options[#options + 1] = item end
     end
-    UI.registerMenu({ id = 'blaze_boss_main', title = m.label .. ' · Management', menu = fromPicker and 'blaze_boss_pick' or nil, options = options })
+    UI.registerMenu({ id = 'blaze_boss_main', title = m.label .. (m.asAdmin and ' · Admin' or ' · Management'),
+        menu = m.asAdmin and 'blaze_boss_admin_groups' or (fromPicker and 'blaze_boss_pick' or nil), options = options })
     UI.showMenu('blaze_boss_main')
 end
 
@@ -999,6 +1002,8 @@ RegisterNetEvent(RES .. ':client:points', function(points) buildTargets(points) 
 RegisterNetEvent(RES .. ':client:viewAs', function() refreshManaged() end)
 -- From the radial menu (client/features.lua). Local events only; the server re-checks everything.
 AddEventHandler(RES .. ':client:openGroup', function(gtype, name) openGroup(gtype, name) end)
+-- admin menu (client/admin.lua): open a group's boss menu with admin access
+if BMC then BMC.openGroupAsAdmin = function(gtype, name) openGroup(gtype, name, nil, true) end end
 AddEventHandler(RES .. ':client:openReview', function(job) openReview(job) end)
 
 CreateThread(function()

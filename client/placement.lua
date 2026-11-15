@@ -1,5 +1,5 @@
 -- blaze_bossmenu | GNU GPL v3 (see LICENSE) | based on qbx_management by the Qbox Project (see NOTICE.md)
--- /bossmenu (admins): place boss desks, application, review, duty and wardrobe points in game.
+-- /bossmenuadmin (admins): place boss desks, application, review, duty and wardrobe points in game.
 -- Managers get the same tools for their own job in the boss menu (Locations). The server checks every action.
 if not Config.enabled then return end
 
@@ -295,7 +295,7 @@ local function pointActions(p, groupLabel, backMenu, after, teleport)
     end }
     options[#options + 1] = { title = 'Move', icon = 'fa-solid fa-up-down-left-right', disabled = p.fixed ~= nil,
       description = fixed or 'Aim at the new spot and press E. Same job, type and size.', onSelect = function()
-        -- admins (/bossmenu) can also export the moved spot as a config.lua line
+        -- admins (/bossmenuadmin) can also export the moved spot as a config.lua line
         local export = backMenu == 'blaze_boss_place_list' and { gtype = p.gtype, name = p.group, ptype = p.type } or nil
         local coords, heading = placeMarker('Move: ' .. title, { ptype = p.type, radius = p.radius or 1.0, mode = 'move', title = TYPE_LABEL[p.type] or p.type,
             group = groupLabel, look = p.entity, heading = p.entity and p.heading or nil, export = export })
@@ -361,35 +361,20 @@ openPlacement = function()
     local info = call('getPlacementInfo')
     if not info then return result(false, 'Admins only.') end
     UI.registerMenu({
-        id = 'blaze_boss_place', title = 'Boss menu placement',
+        id = 'blaze_boss_place', title = 'Points', menu = 'blaze_boss_admin',
         options = {
             { title = 'Add boss desk', description = 'Managers open the boss menu here', icon = 'fa-solid fa-briefcase', arrow = true, onSelect = function() addFlow(info, 'boss') end },
             { title = 'Add applications point', description = 'Anyone can apply here', icon = TYPE_ICON.applications, arrow = true, onSelect = function() addFlow(info, 'applications') end },
             { title = 'Add application review point', description = 'Managers review that job\'s applications here', icon = TYPE_ICON.review, arrow = true, onSelect = function() addFlow(info, 'review') end },
             { title = 'Add duty point', description = TYPE_DESC.duty, icon = TYPE_ICON.duty, arrow = true, disabled = not (Config.duty or {}).enabled, onSelect = function() addFlow(info, 'duty') end },
             { title = 'Add wardrobe', description = TYPE_DESC.outfits, icon = TYPE_ICON.outfits, arrow = true, disabled = not (Config.outfits or {}).enabled, onSelect = function() addFlow(info, 'outfits') end },
-            { title = 'Manage points', description = ('%d points'):format(#info.points), icon = 'fa-solid fa-list', arrow = true, onSelect = function() manageFlow(info) end },
-            { title = 'Show zones: ' .. (BMC.zonesShown() and 'On' or 'Off'), icon = 'fa-solid fa-draw-polygon',
-              description = 'Draw every point on the ground with a label (only you see it)', onSelect = function()
-                BMC.setShowZones(not BMC.zonesShown() and 'all' or false)
-                openPlacement()
-            end },
-            { title = 'Debug mode: ' .. (BMC.debugOn() and 'On' or 'Off'), icon = 'fa-solid fa-bug',
-              description = 'Point ids / radius / distance, and your actions logged to F8 and the server console', onSelect = function()
-                BMC.setDebug(not BMC.debugOn())
-                openPlacement()
-            end },
-            { title = 'Move / resize debug panel', icon = 'fa-solid fa-up-down-left-right', disabled = LocalPlayer.state.bossDebugView ~= true,
-              description = 'Drag it, mouse wheel or - / + for size (saved on this PC). Same as /' .. (Config.debugCommand or 'bossdebug') .. ' move',
-              onSelect = function() TriggerEvent(RES .. ':client:debugMove') end },
+            { title = 'Manage points', description = ('%d points: move, change look, size, delete'):format(#info.points), icon = 'fa-solid fa-list', arrow = true, onSelect = function() manageFlow(info) end },
         },
     })
     UI.showMenu('blaze_boss_place')
 end
 
-RegisterNetEvent(RES .. ':client:placement', function() openPlacement() end)
-
-TriggerEvent('chat:addSuggestion', '/bossmenu', 'Place boss desks, duty, wardrobe and application points (admin)')
+BMC.openPlacement = function() openPlacement() end
 
 ---------------------------------------------------------------------------
 -- Boss menu > Locations: a manager's own job's points (Config.managerPlacement)
@@ -442,7 +427,7 @@ end
 ---------------------------------------------------------------------------
 local zonePoints = {}
 local showZones = false      -- false | 'all' | { ['job:ambulance'] = true }
--- debug: Config.debug, or this player's debug view (/bossdebug, or Debug mode in /bossmenu)
+-- debug: Config.debug, or this player's debug view (/bossdebug, or Debug mode in /bossmenuadmin)
 local debugView = LocalPlayer.state.bossDebugView == true
 local function debugMode() return Config.debug == true or debugView end
 

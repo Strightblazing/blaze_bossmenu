@@ -41,7 +41,11 @@ The boss menu itself uses ox_lib (or Lation UI) menus in game.
 - **Duty hours**: on/off duty time per employee, kept for 31 days (same table as qbx_management, so old hours carry over).
 - **Rank editor** (Qbox): rename ranks, change pay, boss flag and bank access, saved across restarts.
 - **Gangs**: members, hire, promote/demote, kick, rank editor, optional funds.
-- **Placement**: `/bossmenu` lets admins place boss desks, application, review, duty and wardrobe points where they're looking.
+- **Admin menu**: `/bossmenuadmin` holds every admin tool: boss menus for any job or gang (full access), placing points,
+  Show zones, debug, test tools and a settings overview. The boss menu itself stays roleplay only: at desks and in the
+  radial menu admins are treated like anyone else.
+- **Placement**: admins place boss desks, application, review, duty and wardrobe points where they're looking, as an
+  invisible point, a PED or a prop.
   Managers can do the same for their own job from the boss menu (**Locations**): add, move, resize, delete, set a waypoint.
 - **Time clock**: at a duty point, staff get a clean time clock screen with their virtual ID (name, rank, callsign, ID,
   personal PIN). They clock in by tapping the ID on the reader, swiping it, or typing the PIN (`duty.methods`). It shows
@@ -105,7 +109,7 @@ The boss menu itself uses ox_lib (or Lation UI) menus in game.
 
 | Command | Who | What |
 |---|---|---|
-| `/bossmenu` | Admins | Place / move / delete points, Show zones, Debug mode, Move debug panel |
+| `/bossmenuadmin` | Admins | Admin menu: boss menus for any job, points, Show zones, debug, test tools, settings (`adminCommand`) |
 | `/bossmenutest` | Admins | Test staff and applications, View as…, previews (`testCommand`) |
 | `/bossdebug [on|off|view|move]` | Admins | Debug: live panel, labels, action logs (`debugCommand`) |
 | `/applicationstatus` | Everyone | Your job applications (`applications.statusCommand`) |
@@ -142,7 +146,7 @@ ensure blaze_bossmenu
 # Discord logs. Set the webhook HERE only, never in a file.
 set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."
 
-# Who can use /bossmenu and admin overrides (framework admins also count)
+# Who can use the admin menu (/bossmenuadmin) (framework admins also count)
 add_ace group.admin blaze_bossmenu.admin allow
 
 # Optional, Qbox: turn on the in-game rank editor (same convar qbx_management used)
@@ -172,11 +176,15 @@ gangs = {
 
 ## Placing points
 
-Use `/bossmenu` in game (admins only):
+Use `/bossmenuadmin` → **Points** in game (admins only). Every point first asks **what stands there**: an
+**invisible point**, a **PED** (model and idle from `pointLooks`, or type any model) or a **prop**. PEDs stand still:
+they never wander off, flee or react. With ox_target / qb-target you aim at the PED or prop itself.
+
 
 - **Add boss desk**: pick the job or gang, aim at the spot and press **E** (Backspace cancels). While aiming you see a
-  **preview**: the zone ring at its real size in its color and a line for the way you face. Change the size
-  with the **mouse wheel** or **↑ / ↓** (0.5-5 m). Application points also show a see-through receptionist where she'll stand.
+  **preview**: the zone ring at its real size in its color, a line for the way it faces, and a see-through PED or prop
+  exactly where (and how) the real one will stand. Change the size with the **mouse wheel** or **↑ / ↓** (0.5-5 m) and
+  turn the PED / prop with **← / →**.
   The game HUD and minimap hide while you place. To hide your HUD resource too, set `placementHud` in config.lua
   (a function that hides / shows it), or listen to the client event `blaze_bossmenu:client:placing` (true / false). Press **G** on the card to switch **Output** to **Copy config line**:
   E then copies a ready `config.lua > locations` line (job, type, coords, heading, size) to your clipboard and F8
@@ -187,10 +195,11 @@ Use `/bossmenu` in game (admins only):
 - **Add duty point**: staff of that job clock in and out here.
 - **Add wardrobe**: staff of that job change into the job's outfits here (and back to their own clothes).
 - **Manage points**: everything placed, grouped by job. **Teleport** to a point, **Move** it (aim at the new spot,
-  press E; it keeps its job, type and size), **Change size** (scroll on the spot with a live ring, E saves), or **Delete** it.
+  press E; it keeps its job, type, size and look, and you can turn it), **Change look** (invisible / PED / prop, stays
+  where it is), **Change size** (scroll on the spot with a live ring, E saves), or **Delete** it.
   Points from `Config.locations`, or added by other scripts, can't be changed in game.
 
-**Show zones** (in `/bossmenu`, and in Locations for a manager's own job) draws every point as a colored ring on the ground
+**Show zones** (in `/bossmenuadmin`, and in Locations for a manager's own job) draws every point as a colored ring on the ground
 with a label, so you can see exactly where each target is and how big it is. Only you see it.
 **Debug** (admins):
 
@@ -203,7 +212,7 @@ with a label, so you can see exactly where each target is and how big it is. Onl
 The live panel (top right, refreshed 4 times a second) shows your job, rank, duty, admin and View-as state, the groups
 you manage and belong to, framework / target / menu library, the nearest point (id, type, distance, radius), your last
 boss menu actions with their result and time, and your position. Point labels show id, radius and distance.
-**Debug mode** in `/bossmenu` turns the same thing on for just you, and **Move debug panel** there moves and resizes it. `debug = true` in config.lua turns it on for everyone.
+**Debug mode** in `/bossmenuadmin` turns the same thing on for just you, and **Move / resize debug panel** there moves and resizes it. `debug = true` in config.lua turns it on for everyone.
 
 Managers can place, move and delete their own job's points from the boss menu → **Locations**
 (`managerPlacement`: which types, and whether they may teleport).
@@ -252,14 +261,17 @@ The applicant's full name always comes from their character. It is never a quest
 | Option | What it does |
 |---|---|
 | `enabled` | `false` = the whole resource does nothing. Saved data stays in the database. |
-| `debug` | Log every action to the server console and draw all points for everyone (testing only). Admins can turn debug on just for themself in `/bossmenu`. |
+| `debug` | Log every action to the server console and draw all points for everyone (testing only). Admins can turn debug on just for themself in `/bossmenuadmin`. |
 | `debugCommand` | Admin debug command (default `bossdebug`). |
 | `testCommand` | Admin test tools command (default `bossmenutest`), or `false` once you go live. |
 | `versionCheck` | On start, compare with the latest GitHub release and say if there's an update. |
 | `useLationUI` | `true` = menus, forms and confirms use Lation UI. Falls back to ox_lib if lation_ui isn't started. |
 | `target` | `'auto'`, `'ox_target'`, `'qb-target'` or `'none'` (walk-up `[E]` prompt). |
-| `adminAce` | Ace for `/bossmenu` and admin overrides. Framework admins also count. |
-| `adminsCanManage` | Admins can open and use any configured job's or gang's boss menu. |
+| `adminAce` | Ace for the admin menu and its tools. Framework admins also count. |
+| `adminCommand` | Admin menu command (default `bossmenuadmin`). |
+| `adminsCanManage` | Admins can open any configured job's or gang's boss menu with full access, from the admin menu only (**Boss menus**). |
+| `targetDistance` | How close you must be to use a point with ox_target / qb-target (PEDs and props: +0.5 m). |
+| `pointLooks.*` | What can stand at a point: `peds` and `props` (label + model) and PED `idles` (scenario or `anim = { dict, name }`). |
 | `hireDistance` | How close (m) someone must be to be hired. |
 | `hireConsent` / `hireConsentSeconds` | Accept/Decline popup for the person being hired, and how long they have. |
 | `contract.*` | Employment contract: `enabled`, `style` (`'paper'` mouse / `'typed'`), `seconds`, `requireExactName` (typed), `animation`, `editor` (`'management'` / `'admin'` / `false`), `template`. |
@@ -296,7 +308,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `outfits.*` | Job outfits: `enabled`, `appearance` (`'auto'` = illenium-appearance if running, `'native'`), `maxPerJob`. |
 | `contact.*` | Phone + email on the time clock and in profiles: `enabled`, `phone` (`'auto'` or a resource name), optional `getPhone` / `getEmail` functions. Auto-detects sd-phone, lb-phone, high-phone, qs-smartphone-pro, qs-smartphone, 17mov_Phone, npwd, then the character's own phone. |
 | `managerPlacement.*` | Managers place their own job's points: `enabled`, `types`, `teleport`. |
-| `radial.*` | "Work" radial entry for bosses: `enabled`, `label`, `icon`. |
+| `radial.*` | "Work" radial entry for bosses: `enabled`, `label`, `icon`; `admin` / `adminLabel`: a separate "Boss admin" entry for admins. |
 | `locations` | Fixed points from config (added to the ones placed in game). Types: boss, applications, review, duty, outfits. |
 | `logs.*` | Console, ox_lib logger, Discord, and each event on/off. |
 

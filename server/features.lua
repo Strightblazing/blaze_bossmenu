@@ -528,7 +528,7 @@ end
 local function canEditContract(src, gtype, name)
     if not C.enabled or not BM.groupCfg(gtype, name) then return false end
     if C.editor == 'management' then return BM.actorLimit(src, gtype, name) ~= nil end
-    if C.editor == 'admin' then return BM.isAdmin(src) end
+    if C.editor == 'admin' then return BM.adminFor(src, gtype, name) end
     return false
 end
 

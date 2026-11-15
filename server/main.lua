@@ -78,6 +78,15 @@ local function isAdmin(src)
     return isRealAdmin(src)
 end
 
+-- Admin access to a boss menu only exists inside the admin menu (/bossmenuadmin > Boss menus): the group an admin
+-- opened there is remembered, and only that group gets admin rights. Desks, the radial menu and every other way in
+-- treat admins like anyone else (their real rank).
+local adminOpen = {} -- [src] = 'job:police'
+AddEventHandler('playerDropped', function() adminOpen[source] = nil end)
+local function adminFor(src, gtype, name)
+    return Config.adminsCanManage ~= false and adminOpen[src] == (gtype .. ':' .. name) and isAdmin(src)
+end
+
 --- The player's grade if it makes them a manager of the group, else nil
 local function managerGrade(src, gtype, name)
     local c = groupCfg(gtype, name)
@@ -90,11 +99,11 @@ local function managerGrade(src, gtype, name)
 end
 
 --- Actor's limit: they may act on members whose grade is BELOW this, and give grades below it.
--- Managers: their own grade. Admins (adminsCanManage): top grade + 1. nil = not allowed.
+-- Managers: their own grade. Admins in an admin session for this group (/bossmenuadmin): top grade + 1. nil = not allowed.
 local function actorLimit(src, gtype, name)
     if not groupCfg(gtype, name) then return nil end
     local limit = managerGrade(src, gtype, name)
-    if Config.adminsCanManage and isAdmin(src) then
+    if adminFor(src, gtype, name) then
         local grades = Bridge.GetGrades(gtype, name)
         local top = grades[#grades]
         limit = math.max(limit or -1, (top and top.level or 0) + 1)
@@ -111,7 +120,7 @@ local function canEditForm(src, job)
     if not appsOn('job', job) then return false end
     local fe = APPS.formEditor
     if fe == 'management' then return isManager(src, job, 'job') end
-    if fe == 'admin' then return isAdmin(src) end
+    if fe == 'admin' then return adminFor(src, 'job', job) end
     return false
 end
 
@@ -155,7 +164,7 @@ local function neighbourGrade(gtype, name, level, dir)
 end
 
 --- Register a callback with error protection. Returned values go straight to the client.
--- Debug (like Blaze Medical's): /bossdebug on|off|view|move, or Debug mode in /bossmenu.
+-- Debug (like Blaze Medical's): /bossdebug on|off|view|move, or Debug mode in /bossmenuadmin.
 -- GlobalState.bossmenuDebug = log everyone's actions; an admin's own panel = their state bag 'bossDebugView'.
 local debugFor = {}
 AddEventHandler('playerDropped', function() debugFor[source] = nil end)
@@ -745,7 +754,7 @@ register('getMyJobs', function(src)
         local cfgList = gtype == 'job' and Config.jobs or Config.gangs or {}
         for name, c in pairs(cfgList) do
             if Bridge.GroupExists(gtype, name) then
-                if actorLimit(src, gtype, name) then list[#list + 1] = { gtype = gtype, name = name, label = c.label or name, apps = appsOn(gtype, name) } end
+                if managerGrade(src, gtype, name) then list[#list + 1] = { gtype = gtype, name = name, label = c.label or name, apps = appsOn(gtype, name) } end
                 -- groups they're in (duty points, wardrobes)
                 if Bridge.GetPlayerGroupGrade(src, gtype, name) then member[#member + 1] = gtype .. ':' .. name end
             end
@@ -756,14 +765,20 @@ register('getMyJobs', function(src)
 end)
 
 --- Everything the main menu needs to show/hide its options
-register('getMenu', function(src, gtype, name)
+register('getMenu', function(src, gtype, name, asAdmin)
+    -- asAdmin = opened from /bossmenuadmin (real admins only); anything else ends the admin session
+    if asAdmin and isAdmin(src) and Config.adminsCanManage ~= false and groupCfg(gtype, name) then
+        adminOpen[src] = gtype .. ':' .. name
+    else
+        adminOpen[src] = nil
+    end
     local limit = actorLimit(src, gtype, name)
     if not limit then return nil end
     local data = {
         gtype = gtype, name = name, label = groupLabel(gtype, name), limit = limit,
         apps = appsOn(gtype, name), funds = fundsOn(gtype, name),
         formEdit = gtype == 'job' and canEditForm(src, name) or false,
-        gradeEdit = gradeEditorOn(), isAdmin = isAdmin(src),
+        gradeEdit = gradeEditorOn(), isAdmin = adminFor(src, gtype, name), asAdmin = adminOpen[src] ~= nil,
         callsigns = gtype == 'job', grades = Bridge.GetGrades(gtype, name),
         ownGrade = managerGrade(src, gtype, name),
     }
@@ -962,7 +977,7 @@ register('modifyGrade', function(src, gtype, name, level, data)
         new.bankAuth = data.bankAuth == true
     end
     local wantBoss = data.isboss == true
-    if level == own and not wantBoss and not isAdmin(src) then return false, 'You can\'t remove the boss flag from your own rank.' end
+    if level == own and not wantBoss and not adminFor(src, gtype, name) then return false, 'You can\'t remove the boss flag from your own rank.' end
     new.isboss = wantBoss
     Bridge.UpsertGrade(gtype, name, level, new)
     Logs.log('gradeEdit', src, ('%s edited rank %s of %s'):format(Logs.who(src), level, groupLabel(gtype, name)),
@@ -1245,7 +1260,7 @@ if APPS.enabled then
 end
 
 ---------------------------------------------------------------------------
--- Points. Admins place anything (/bossmenu). Managers can place their own job's points from the
+-- Points. Admins place anything (/bossmenuadmin). Managers can place their own job's points from the
 -- boss menu (Locations), limited to Config.managerPlacement.types.
 ---------------------------------------------------------------------------
 local PTYPES = { boss = true, applications = true, review = true, duty = true, outfits = true }
@@ -1269,7 +1284,7 @@ BM.canPlace, BM.typeAllowed = canPlace, typeAllowed
 
 register('getPoints', function() return allPoints() end)
 
---- Debug mode for one admin (/bossmenu toggle): their live panel + their actions logged to F8 and the server console
+--- Debug mode for one admin (/bossmenuadmin toggle): their live panel + their actions logged to F8 and the server console
 local function setView(src, on)
     debugFor[src] = on == true or nil
     Player(src).state:set('bossDebugView', on == true, true)
@@ -1421,11 +1436,55 @@ register('resizePoint', function(src, id, radius)
     return false, 'Point not found.'
 end)
 
-RegisterCommand('bossmenu', function(src)
-    if src == 0 then return print('[blaze_bossmenu] /bossmenu is an in-game command.') end
+---------------------------------------------------------------------------
+-- Admin menu (/bossmenuadmin): everything admin lives here, the boss menu itself is roleplay only.
+-- Real admins only (ace or framework admin; not while previewing with "View as").
+---------------------------------------------------------------------------
+local ADMIN_CMD = Config.adminCommand or 'bossmenuadmin'
+RegisterCommand(ADMIN_CMD, function(src)
+    if src == 0 then return print(('[blaze_bossmenu] /%s is an in-game command.'):format(ADMIN_CMD)) end
     if not isAdmin(src) then return notify(src, 'You don\'t have permission to use this.', 'error') end
-    TriggerClientEvent(RES .. ':client:placement', src)
+    TriggerClientEvent(RES .. ':client:adminMenu', src)
 end, false)
+-- old command from 1.2.x: point admins to the new one
+if ADMIN_CMD ~= 'bossmenu' then
+    RegisterCommand('bossmenu', function(src)
+        if src > 0 and isAdmin(src) then notify(src, ('Admin tools moved to /%s.'):format(ADMIN_CMD), 'inform') end
+    end, false)
+end
+
+--- Every configured job and gang (Boss menus in the admin menu)
+register('adminGroups', function(src)
+    if not isAdmin(src) then return nil end
+    local list = {}
+    for _, gtype in ipairs({ 'job', 'gang' }) do
+        for name, c in pairs((gtype == 'job' and Config.jobs or Config.gangs) or {}) do
+            if Bridge.GroupExists(gtype, name) then
+                list[#list + 1] = { gtype = gtype, name = name, label = c.label or name, members = #Bridge.GetMembers(gtype, name) }
+            end
+        end
+    end
+    table.sort(list, function(a, b) return a.label < b.label end)
+    return { groups = list, canManage = Config.adminsCanManage ~= false }
+end)
+
+--- Settings overview (read-only) for the admin menu
+register('adminSettings', function(src)
+    if not isAdmin(src) then return nil end
+    local mp = Config.managerPlacement or {}
+    return {
+        { 'Framework', Bridge.framework == 'qb' and 'QBCore' or 'Qbox' },
+        { 'Banking', Banking.resource() or 'none (funds off)' },
+        { 'Admins open any boss menu', Config.adminsCanManage ~= false and 'Yes (from this menu)' or 'No' },
+        { 'Application forms edited by', APPS.formEditor or 'off' },
+        { 'Contracts edited by', (Config.contract or {}).enabled and ((Config.contract or {}).editor or 'off') or 'contracts off' },
+        { 'Managers place points', mp.enabled and 'Yes' or 'No' },
+        { 'Rank editor', gradeEditorOn() and 'On' or 'Off' },
+        { 'Duty', (Config.duty or {}).enabled and ((Config.duty or {}).style or 'clock') or 'off' },
+        { 'Discord logs', (Config.logs or {}).discord and (GetConvar('blaze_bossmenu_webhook', '') ~= '' and 'On' or 'On, no webhook set') or 'Off' },
+        { 'Debug for everyone', GlobalState.bossmenuDebug == true and 'On' or 'Off' },
+    }
+end)
 
 ---------------------------------------------------------------------------
 -- qbx_management compatibility: RegisterBossMenu export
@@ -1457,7 +1516,7 @@ end
 ---------------------------------------------------------------------------
 local function withdrawLeft(src, gtype, name)
     local c = groupCfg(gtype, name)
-    if not c or type(c.withdrawLimits) ~= 'table' or isAdmin(src) then return nil end
+    if not c or type(c.withdrawLimits) ~= 'table' or adminFor(src, gtype, name) then return nil end
     local grade = Bridge.GetPlayerGroupGrade(src, gtype, name)
     local limit = grade and c.withdrawLimits[grade]
     if not limit then return nil end
@@ -1470,6 +1529,7 @@ end
 BM.register, BM.groupCfg, BM.gkey, BM.appsOn, BM.fundsOn = register, groupCfg, gkey, appsOn, fundsOn
 BM.isAdmin, BM.managerGrade, BM.actorLimit, BM.checkTarget = isAdmin, managerGrade, actorLimit, checkTarget
 BM.isRealAdmin = isRealAdmin
+BM.adminFor = adminFor
 BM.notifyMember, BM.groupLabel, BM.gradeName, BM.cleanText, BM.cleanLong = notifyMember, groupLabel, gradeName, cleanText, cleanLong
 BM.isOpen, BM.activityFor, BM.allPoints, BM.withdrawLeft = isOpen, activityFor, allPoints, withdrawLeft
 BM.clockedIn = clockedIn

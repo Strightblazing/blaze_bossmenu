@@ -754,9 +754,16 @@ end
 local RAD = Config.radial or {}
 local radialShown = false
 
---- groups = the groups this player manages (from getMyJobs)
-function BMC.updateRadial(groups)
+--- groups = the groups this player really manages (from getMyJobs; admins only get theirs here)
+--- admin = real admin: a separate "Boss admin" entry that opens /bossmenuadmin (radial.admin = false hides it)
+local adminShown = false
+function BMC.updateRadial(groups, admin)
     if not RAD.enabled or not lib.addRadialItem then return end
+    if adminShown then lib.removeRadialItem('blaze_boss_admin') adminShown = false end
+    if admin and RAD.admin ~= false and BMC.openAdmin then
+        lib.addRadialItem({ id = 'blaze_boss_admin', label = RAD.adminLabel or 'Boss admin', icon = 'user-shield', onSelect = function() BMC.openAdmin() end })
+        adminShown = true
+    end
     if radialShown then lib.removeRadialItem('blaze_boss_work') radialShown = false end
     if #groups == 0 then return end
     local items = {}
@@ -777,7 +784,9 @@ function BMC.updateRadial(groups)
 end
 
 AddEventHandler('onResourceStop', function(res)
-    if res == RES and radialShown and lib.removeRadialItem then lib.removeRadialItem('blaze_boss_work') end
+    if res ~= RES or not lib.removeRadialItem then return end
+    if radialShown then lib.removeRadialItem('blaze_boss_work') end
+    if adminShown then lib.removeRadialItem('blaze_boss_admin') end
 end)
 
 ---------------------------------------------------------------------------

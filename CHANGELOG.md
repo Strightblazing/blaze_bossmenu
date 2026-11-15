@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Admin menu `/bossmenuadmin`** (`adminCommand`): boss menus for any job or gang with full access, points, Show zones,
+  debug, test tools and a settings overview. The boss menu is roleplay only now: admin rights (`adminsCanManage`) only
+  apply to a group opened from the admin menu, checked on the server; at desks and in the radial menu admins are
+  treated like anyone else. Admin-only form / contract editing works from there too. The radial menu gets a separate
+  **Boss admin** entry for admins (`radial.admin`). `/bossmenu` now just points admins to `/bossmenuadmin`.
 - **Points can have a PED or a prop** (or stay invisible): picked when placing (`pointLooks` in config.lua: models,
   idle scenarios / animations, or type any model), changed later with **Change look**, also in `config.lua > locations`
   (`entity = { ... }`). PEDs stand still and never wander, flee or react. Targeting aims at the PED / prop itself, not

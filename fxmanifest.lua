@@ -32,6 +32,7 @@ client_scripts {
     'client/features.lua', -- extras (profiles, /myjob, /jobs, celebrations, receptionist)
     'client/main.lua',
     'client/placement.lua',
+    'client/admin.lua',    -- /bossmenuadmin: admin tools (needs client/main.lua and client/placement.lua first)
     'client/test.lua',
     'client/debug.lua',   -- live debug panel (/bossdebug)
 }
