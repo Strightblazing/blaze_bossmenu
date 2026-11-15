@@ -1205,8 +1205,21 @@ if APPS.enabled then
         elseif filter == 'denied' then where = "status = 'denied'"
         elseif filter == 'withdrawn' then where = "status = 'withdrawn'"
         elseif filter == 'interview' then where = "status = 'interview'"
-        elseif filter == 'new' then where = "status = 'new'" end
+        elseif filter == 'new' then where = "status = 'new'"
+        elseif filter == 'all' then where = '1 = 1' end
         return MySQL.query.await(("SELECT id, name, status, DATE_FORMAT(created_at, '%%m-%%d-%%Y %%H:%%i') AS created FROM blaze_boss_applications WHERE job = ? AND %s ORDER BY id DESC LIMIT 100"):format(where), { job }) or {}
+    end)
+
+    --- How many applications this job has per status (the Applications menu's filters), and in all
+    register('getApplicationCounts', function(src, job)
+        if not managerCheck(src, job) then return nil end
+        local out = { all = 0, new = 0, interview = 0, accepted = 0, denied = 0, withdrawn = 0 }
+        for _, r in ipairs(MySQL.query.await('SELECT status, COUNT(*) AS n FROM blaze_boss_applications WHERE job = ? GROUP BY status', { job }) or {}) do
+            local n = tonumber(r.n) or 0
+            if out[r.status] ~= nil then out[r.status] = n end
+            out.all = out.all + n
+        end
+        return out
     end)
 
     register('getApplication', function(src, job, id)
@@ -1224,6 +1237,9 @@ if APPS.enabled then
                 row.votes.voters[#row.votes.voters + 1] = ('%s: %s'):format(v.vote > 0 and 'For' or 'Against', v.name or '?')
             end
         end
+        -- when it was sent, for the detail menu (oxmysql gives timestamps in ms)
+        local sent = tonumber(row.created_at)
+        row.created = sent and os.date('%m-%d-%Y %H:%M', math.floor(sent / 1000)) or nil
         row.created_at, row.updated_at = nil, nil
         return row
     end)

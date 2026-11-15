@@ -434,8 +434,16 @@ end
 ---------------------------------------------------------------------------
 -- Applications (managers)
 ---------------------------------------------------------------------------
-local FILTERS = { review = 'To review', interview = 'Pending interviews', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
-local NEXT_FILTER = { review = 'interview', interview = 'accepted', accepted = 'denied', denied = 'withdrawn', withdrawn = 'review' }
+--- The Applications menu's filters, in order: key (server filter / status), title, short description, icon, colour
+local FILTERS = {
+    { key = 'all',       title = 'All applications',  tip = 'Every application',          icon = 'fa-solid fa-layer-group', color = '#8F99A5' },
+    { key = 'new',       title = 'To review',         tip = 'Waiting for a review',       icon = 'fa-solid fa-clock',       color = '#F0A93B' },
+    { key = 'interview', title = 'Pending interview', tip = 'Invited, not decided yet',   icon = 'fa-solid fa-comments',    color = '#5AA9FF' },
+    { key = 'accepted',  title = 'Accepted',          tip = 'Accepted applicants',        icon = 'fa-solid fa-check',       color = '#3DDC84' },
+    { key = 'denied',    title = 'Denied',            tip = 'Denied applications',        icon = 'fa-solid fa-xmark',       color = '#E5484D' },
+    { key = 'withdrawn', title = 'Withdrawn',         tip = 'Withdrawn by the applicant', icon = 'fa-solid fa-rotate-left', color = '#8F99A5' },
+}
+local STATUS_LABEL = { new = 'To review', interview = 'Pending interview', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
 local STATUS_ICON = { new = 'fa-solid fa-envelope', interview = 'fa-solid fa-comments', accepted = 'fa-solid fa-check', denied = 'fa-solid fa-xmark', withdrawn = 'fa-solid fa-rotate-left' }
 
 --- Message dialog with optional ready-made replies (Config.applications.quickReplies[kind]).
@@ -465,20 +473,22 @@ local function openApp(m, id, filter)
     local a = call('getApplication', m.name, id)
     if not a then return notify('Application not found.', 'error') end
     local decided = a.status == 'accepted' or a.status == 'denied' or a.status == 'withdrawn'
-    local back = function()
+    -- back to the list (same filter), or after an action to the applicant's new status so the result shows right away
+    local back = function(newFilter)
         local again = call('getMenu', m.gtype, m.name, m.asAdmin) or m
         again.fromReview = m.fromReview
-        openApps(again, filter)
+        openApps(again, newFilter or filter)
     end
     local reopen = function() openApp(m, id, filter) end
-    local statusLine = a.statusLabel or a.status
+    local statusLine = STATUS_LABEL[a.status] or a.statusLabel or a.status
     if a.reviewed_by then statusLine = statusLine .. ' · by ' .. a.reviewed_by end
     local meta = {}
     if a.deny_reason then meta[#meta + 1] = { label = 'Deny reason', value = a.deny_reason } end
     if a.interview_msg then meta[#meta + 1] = { label = 'Interview message', value = a.interview_msg } end
     local options = {
-        { title = a.name, description = statusLine, icon = STATUS_ICON[a.status] or 'fa-solid fa-file', readOnly = true,
+        { title = ('%s (#%d)'):format(a.name, a.id), description = statusLine, icon = STATUS_ICON[a.status] or 'fa-solid fa-file', readOnly = true,
           metadata = #meta > 0 and meta or nil },
+        { title = 'Applied for: ' .. m.label, description = 'Sent ' .. (a.created or '?'), icon = 'fa-solid fa-briefcase', readOnly = true },
     }
     for _, ans in ipairs(a.answers or {}) do
         local text = answerText(ans)
@@ -503,20 +513,20 @@ local function openApp(m, id, filter)
     end
     options[#options + 1] = { title = 'Invite to interview', icon = 'fa-solid fa-comments', disabled = decided, onSelect = function()
         local msg = messageDialog('Invite ' .. a.name, 'Message (when / where)', 'interview', a.interview_msg)
-        if msg then result(call('interview', m.name, a.id, msg)) end
+        if msg and result(call('interview', m.name, a.id, msg)) then return back('interview') end
         reopen()
     end }
     options[#options + 1] = { title = 'Accept & hire', icon = 'fa-solid fa-user-check', iconColor = '#3DDC84', disabled = decided, onSelect = function()
         local grade = pickRank(m, 'Hire ' .. a.name)
         if grade and UI.confirm({ header = 'Accept & hire', content = ('Hire %s into %s?'):format(a.name, m.label), type = 'info', confirm = 'Hire' }) then
-            if result(call('accept', m.name, a.id, grade)) then return back() end
+            if result(call('accept', m.name, a.id, grade)) then return back('accepted') end
         end
         reopen()
     end }
     options[#options + 1] = { title = 'Deny', icon = 'fa-solid fa-xmark', iconColor = '#E5484D', disabled = decided, onSelect = function()
         local reason = messageDialog('Deny ' .. a.name, 'Reason (the applicant sees this)', 'deny')
         if reason and UI.confirm({ header = 'Deny application', content = ('Deny %s\'s application?'):format(a.name), type = 'error', confirm = 'Deny' }) then
-            if result(call('deny', m.name, a.id, reason)) then return back() end
+            if result(call('deny', m.name, a.id, reason)) then return back('denied') end
         end
         reopen()
     end }
@@ -531,8 +541,9 @@ local function openApp(m, id, filter)
 end
 
 openApps = function(m, filter)
-    filter = filter or 'review'
+    filter = filter or 'new'
     local list = call('getApplications', m.name, filter) or {}
+    local counts = call('getApplicationCounts', m.name) or {}
     local options = {
         { title = 'Accepting applications: ' .. (m.appsOpen and 'On' or 'Off'), icon = m.appsOpen and 'fa-solid fa-toggle-on' or 'fa-solid fa-toggle-off',
           iconColor = m.appsOpen and '#3DDC84' or '#8F99A5', description = 'Click to turn ' .. (m.appsOpen and 'off' or 'on'), onSelect = function()
@@ -545,23 +556,29 @@ openApps = function(m, filter)
     if m.formEdit then
         options[#options + 1] = { title = 'Edit application form', icon = 'fa-solid fa-pen-to-square', arrow = true, onSelect = function() openFormEditor(m) end }
     end
-    -- straight to the people invited to an interview who haven't been decided yet
-    if filter ~= 'interview' then
-        local pending = call('getApplications', m.name, 'interview') or {}
-        options[#options + 1] = { title = 'Pending interviews', icon = 'fa-solid fa-comments', iconColor = '#F0A93B', arrow = true,
-            description = #pending == 0 and 'Nobody is waiting for an interview' or (#pending .. (#pending == 1 and ' person invited' or ' people invited') .. ', not decided yet'),
-            keybind = #pending > 0 and tostring(#pending) or nil, onSelect = function() openApps(m, 'interview') end }
+    -- filters right in this menu: one pick shows the matching applicants below (no separate "Showing" step)
+    options[#options + 1] = { title = 'FILTER APPLICATIONS', disabled = true }
+    local showing
+    for _, f in ipairs(FILTERS) do
+        local active = f.key == filter
+        if active then showing = f end
+        options[#options + 1] = {
+            title = ('%s (%d)'):format(f.title, counts[f.key] or 0),
+            description = active and ('Showing now · ' .. f.tip) or f.tip,
+            icon = active and 'fa-solid fa-circle-check' or f.icon, iconColor = f.color,
+            onSelect = function() openApps(m, f.key) end,
+        }
     end
-    options[#options + 1] = { title = 'Showing: ' .. FILTERS[filter], icon = 'fa-solid fa-filter', description = 'Click for ' .. FILTERS[NEXT_FILTER[filter]],
-        onSelect = function() openApps(m, NEXT_FILTER[filter]) end }
+    options[#options + 1] = { title = ('SHOWING: %s · %d'):format((showing and showing.title or filter):upper(), #list), disabled = true }
     for _, a in ipairs(list) do
         options[#options + 1] = {
-            title = a.name, description = ('%s · %s'):format(a.status == 'new' and 'New' or (a.status == 'interview' and 'Interview' or a.status:gsub('^%l', string.upper)), a.created or ''),
+            title = a.name,
+            description = ('#%d · %s · Sent %s'):format(a.id, STATUS_LABEL[a.status] or a.status, a.created or '?'),
             icon = STATUS_ICON[a.status] or 'fa-solid fa-file', arrow = true,
             onSelect = function() openApp(m, a.id, filter) end,
         }
     end
-    if #list == 0 then options[#options + 1] = { title = 'No applications here', readOnly = true } end
+    if #list == 0 then options[#options + 1] = { title = 'No applications in this category', disabled = true } end
     -- opened from a review point: no "back" to the boss menu (they may not be at a desk)
     UI.registerMenu({ id = 'blaze_boss_apps', title = 'Applications · ' .. m.label, menu = not m.fromReview and 'blaze_boss_main' or nil, options = options })
     UI.showMenu('blaze_boss_apps')

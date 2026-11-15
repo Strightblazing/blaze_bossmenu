@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- **Pending interviews:** the boss menu's Applications has a Pending interviews view (with a count) and filter, the main
-  Applications line shows how many interviews are waiting, and the phone / tablet app has an Interviews filter.
+- **Applications menu, faster to review:** the status filters sit right in the menu (All, To review, Pending interview,
+  Accepted, Denied, Withdrawn), each with its live count, the current one checked; one click shows those applicants
+  below a "SHOWING" line (no separate "Showing" step). Applicants show their ID, status and date; the detail menu adds the
+  ID, the job and the date sent, Back keeps the filter, and after interview / accept / deny it opens the new status.
+  The main Applications line shows how many interviews are waiting; the phone / tablet app has an Interviews filter.
 - Application result mails (phone) arrive after a short random delay instead of the same instant
   (`features.phoneMailDelay`, 15-45 seconds by default).
 - **Name, age, phone number and email on job applications:** the character's full name and age (from their birthdate,
