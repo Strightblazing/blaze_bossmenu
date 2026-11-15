@@ -1,12 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.2.3
 
 - **Lation UI** (`useLationUI = true`): the boss menu, admin menu and Points menu use Lation's extras: header icon and
   subtitle, coloured icons per section (Points in the same colour as each ring on the ground), tags on the right
   (new applications, balance, On / Off, member and point counts) and a beating icon when applications are waiting.
   ox_lib keeps its plain look.
 - Discord log titles start with **Blaze Boss Menu** (for example "Blaze Boss Menu · Form edit").
+- Startup banner: the Discord link is a full, clickable https:// link.
 
 ## 1.2.2
 
