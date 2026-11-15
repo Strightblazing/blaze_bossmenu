@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.2
 
 - **Blaze Scriptworks** branding: the startup banner is the logo as console art (red flame with </>, white BLAZE, gold
   SCRIPTWORKS, red bar, gold frame), no image or URL needed. Logo in the README (`docs/branding`). The banner and README
