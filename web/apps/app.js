@@ -96,8 +96,10 @@
       shade.innerHTML = '<div class="modal"><h3>' + esc(o.title) + '</h3>' + (o.text ? '<p>' + esc(o.text) + '</p>' : '') + fields +
         '<div class="acts"><button class="btn" data-a="no">Cancel</button><button class="btn ' + (o.danger ? 'bad' : 'pri') + '" data-a="yes">' + esc(o.ok || 'OK') + '</button></div></div>';
       document.body.appendChild(shade);
+      // computer: put the cursor in the first box. Phone / tablet: wait for a tap, since a focused text box switches
+      // the character into sd-phone's typing pose (and the keyboard to the phone).
       var first = shade.querySelector('input, select, textarea');
-      if (first) first.focus();
+      if (first && DEVICE !== 'phone') first.focus();
       function done(yes) {
         var out = null;
         if (yes) {
