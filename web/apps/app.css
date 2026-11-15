@@ -157,3 +157,7 @@ textarea.notes:focus { border-color: var(--accent); }
 .narrow .brand-foot { display: block; width: 150px; margin: 22px auto 4px; opacity: .8; }
 /* phone / tablet: no logo inside the app, the app icon is enough */
 [data-device="phone"] .brand, [data-device="phone"] .brand-foot { display: none !important; }
+
+/* no scrollbars (the game's browser draws a big white one); lists still scroll with the wheel, drag or swipe */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
