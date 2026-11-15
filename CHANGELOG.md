@@ -5,6 +5,8 @@
 - **Phone number and email on job applications:** pulled from the applicant's phone (the same phone resources as profiles)
   and sent with the application, shown at the top of the form and to managers. If one isn't set up, the applicant is told
   to set it up on their phone first (`applications.contact`: `phone`, `email`, `phoneRequired`, `emailRequired`).
+  The default form no longer asks for a phone number, and a saved form's phone / email questions are skipped for
+  applicants while those come from the phone (managers still see them in the form editor).
 
 ## 1.2.3
 

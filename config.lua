@@ -198,11 +198,11 @@ Config = {
         intro = 'Thanks for your interest in joining. Answer honestly — managers will review your application.',
         -- The STARTING form for every job. Once a job's form is edited in game, that saved version is used
         -- ("Reset to default" in game goes back to these). The applicant's full name is always taken from
-        -- their character automatically, so it is never a question.
+        -- their character automatically, so it is never a question; their phone number and email come from their
+        -- phone (contact above), so those aren't questions either (a saved form's phone / email questions are skipped).
         -- Types: 'input' (short answer), 'textarea' (long answer), 'number', 'select' (dropdown), 'checkbox'
         -- input/textarea: min/max = length in characters. number: min/max = value.
         defaultQuestions = {
-            { label = 'Phone number', type = 'input', required = true },
             { label = 'Age', type = 'number', required = true, min = 18, max = 80 },
             { label = 'Relevant experience', type = 'textarea', required = true, min = 10 },
             { label = 'Why do you want to join?', type = 'textarea', required = true, min = 10 },

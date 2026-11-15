@@ -836,7 +836,7 @@ local function openApplication(job)
     if contact.email then fixed[#fixed + 1] = { type = 'input', label = 'Email address', default = contact.email, disabled = true, icon = 'envelope' } end
     local fields, answers = nil, nil
     while true do
-        fields = buildFields(form.questions, answers)
+        fields = buildFields(form.applyQuestions or form.questions, answers)
         for i = #fixed, 1, -1 do table.insert(fields, 1, fixed[i]) end
         local v = UI.input('Apply · ' .. form.label, fields, { submitText = 'Send application' })
         if not v then return end

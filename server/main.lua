@@ -563,6 +563,20 @@ local function currentForm(job)
     return { intro = APPS.intro or '', questions = APPS.defaultQuestions or {}, custom = false }
 end
 
+--- The questions an applicant answers: the job's form, minus phone / email questions while those come from their phone
+--- (applications.contact), so nobody is asked twice. Saved forms aren't changed.
+local function applicantQuestions(job)
+    local C = APPS.contact or {}
+    local out = {}
+    for _, q in ipairs(currentForm(job).questions or {}) do
+        local label = type(q.label) == 'string' and q.label:lower() or ''
+        local text = q.type == 'input' or q.type == 'number' or q.type == 'textarea'
+        local skip = text and ((C.phone ~= false and label:find('phone')) or (C.email ~= false and label:find('e%-?mail')))
+        if not skip then out[#out + 1] = q end
+    end
+    return out
+end
+
 local function isOpen(job)
     if appsOpen[job] == nil then return APPS.startOpen ~= false end
     return appsOpen[job]
@@ -1094,8 +1108,9 @@ if APPS.enabled then
         if not appsOn('job', job) then return nil end
         local f = currentForm(job)
         local contact, missing = applicantContact(src)
-        return { intro = f.intro, questions = f.questions, custom = f.custom, open = isOpen(job), label = groupLabel('job', job), maxQuestions = APPS.maxQuestions or 15,
-            contact = contact, contactMissing = missing }
+        -- questions = the whole form (the form editor); applyQuestions = what the applicant answers (no phone / email)
+        return { intro = f.intro, questions = f.questions, applyQuestions = applicantQuestions(job), custom = f.custom, open = isOpen(job),
+            label = groupLabel('job', job), maxQuestions = APPS.maxQuestions or 15, contact = contact, contactMissing = missing }
     end)
 
     register('submitApplication', function(src, job, answers)
@@ -1114,7 +1129,7 @@ if APPS.enabled then
         -- phone number and email come from their phone here (never from the form), and must be set up when required
         local contact, missing = applicantContact(src)
         if missing then return false, missing end
-        local snapshot, err, badIndex = validateAnswers(currentForm(job).questions, answers)
+        local snapshot, err, badIndex = validateAnswers(applicantQuestions(job), answers)
         if not snapshot then return false, err, badIndex end
         if contact.email then table.insert(snapshot, 1, { label = 'Email', type = 'input', answer = contact.email, contact = true }) end
         if contact.phone then table.insert(snapshot, 1, { label = 'Phone number', type = 'input', answer = contact.phone, contact = true }) end
