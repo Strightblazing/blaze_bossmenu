@@ -173,6 +173,10 @@ Config = {
             phone = true, phoneRequired = true,
             email = true, emailRequired = true,
         },
+        -- The applicant's age, worked out from their character's birthdate and sent with the application
+        age = true,
+        -- Youngest age that can apply (from the birthdate). nil = no minimum
+        minAge = 18,
         -- Managers vote for/against applications and see the tally
         votes = true,
         -- Applicants invited to an interview can "Check in" at the review point; online managers are told
@@ -199,11 +203,11 @@ Config = {
         -- The STARTING form for every job. Once a job's form is edited in game, that saved version is used
         -- ("Reset to default" in game goes back to these). The applicant's full name is always taken from
         -- their character automatically, so it is never a question; their phone number and email come from their
-        -- phone (contact above), so those aren't questions either (a saved form's phone / email questions are skipped).
+        -- phone (contact above) and their age from their birthdate (age above), so those aren't questions either
+        -- (a saved form's name / phone / email / age questions are skipped).
         -- Types: 'input' (short answer), 'textarea' (long answer), 'number', 'select' (dropdown), 'checkbox'
         -- input/textarea: min/max = length in characters. number: min/max = value.
         defaultQuestions = {
-            { label = 'Age', type = 'number', required = true, min = 18, max = 80 },
             { label = 'Relevant experience', type = 'textarea', required = true, min = 10 },
             { label = 'Why do you want to join?', type = 'textarea', required = true, min = 10 },
             { label = 'Availability', type = 'select', required = true,

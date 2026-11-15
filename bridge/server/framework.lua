@@ -54,6 +54,22 @@ function Bridge.GetName(src)
     return p and charName(p.PlayerData.charinfo) or ('ID %s'):format(src)
 end
 
+--- The character's age in years from their birthdate ('YYYY-MM-DD' or 'MM/DD/YYYY'), or nil when it can't be read
+function Bridge.GetAge(src)
+    local p = Bridge.GetPlayer(src)
+    local info = p and p.PlayerData.charinfo
+    if type(info) == 'string' then info = json.decode(info) end
+    local b = type(info) == 'table' and tostring(info.birthdate or '') or ''
+    local y, m, d = b:match('^(%d%d%d%d)%-(%d%d?)%-(%d%d?)')
+    if not y then m, d, y = b:match('^(%d%d?)/(%d%d?)/(%d%d%d%d)') end
+    y, m, d = tonumber(y), tonumber(m), tonumber(d)
+    if not y or not m or not d then return nil end
+    local now = os.date('*t')
+    local age = now.year - y
+    if now.month < m or (now.month == m and now.day < d) then age = age - 1 end
+    return (age >= 0 and age < 150) and age or nil
+end
+
 --- Name for a citizenid, online or offline
 function Bridge.GetNameByCitizenId(cid)
     local p = byCitizenId(cid)

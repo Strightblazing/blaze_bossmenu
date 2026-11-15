@@ -573,6 +573,7 @@ local function applicantQuestions(job)
         local text = q.type == 'input' or q.type == 'number' or q.type == 'textarea'
         local plain = label:gsub('[%p]', ''):gsub('^%s+', ''):gsub('%s+$', '')
         local isName = plain == 'name' or plain == 'full name' or plain == 'your name' or plain == 'your full name'
+            or (APPS.age ~= false and (plain == 'age' or plain == 'your age'))
         local skip = text and (isName or (C.phone ~= false and label:find('phone')) or (C.email ~= false and label:find('e%-?mail')))
         if not skip then out[#out + 1] = q end
     end
@@ -1110,10 +1111,14 @@ if APPS.enabled then
         if not appsOn('job', job) then return nil end
         local f = currentForm(job)
         local contact, missing = applicantContact(src)
+        local age, minAge = APPS.age ~= false and Bridge.GetAge(src) or nil, tonumber(APPS.minAge)
+        if not missing and minAge and age and age < minAge then
+            missing = ('You need to be at least %d to work here. Come back when you are.'):format(minAge)
+        end
         -- questions = the whole form (the form editor); applyQuestions = what the applicant answers (no phone / email)
         return { intro = f.intro, questions = f.questions, applyQuestions = applicantQuestions(job), custom = f.custom, open = isOpen(job),
             label = groupLabel('job', job), maxQuestions = APPS.maxQuestions or 15, contact = contact, contactMissing = missing,
-            applicant = Bridge.GetName(src) }
+            applicant = Bridge.GetName(src), age = age }
     end)
 
     register('submitApplication', function(src, job, answers)
@@ -1132,10 +1137,16 @@ if APPS.enabled then
         -- phone number and email come from their phone here (never from the form), and must be set up when required
         local contact, missing = applicantContact(src)
         if missing then return false, missing end
+        local age = APPS.age ~= false and Bridge.GetAge(src) or nil
+        local minAge = tonumber(APPS.minAge)
+        if minAge and age and age < minAge then
+            return false, ('You need to be at least %d to work here. Come back when you are.'):format(minAge)
+        end
         local snapshot, err, badIndex = validateAnswers(applicantQuestions(job), answers)
         if not snapshot then return false, err, badIndex end
         if contact.email then table.insert(snapshot, 1, { label = 'Email', type = 'input', answer = contact.email, contact = true }) end
         if contact.phone then table.insert(snapshot, 1, { label = 'Phone number', type = 'input', answer = contact.phone, contact = true }) end
+        if age then table.insert(snapshot, 1, { label = 'Age', type = 'number', answer = age, contact = true }) end
         local name = Bridge.GetName(src)
         MySQL.insert.await('INSERT INTO blaze_boss_applications (citizenid, job, name, answers) VALUES (?, ?, ?, ?)', { cid, job, name, json.encode(snapshot) })
         for target in pairs(Bridge.GetPlayers() or {}) do

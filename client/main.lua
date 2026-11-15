@@ -833,6 +833,7 @@ local function openApplication(job)
     -- shown at the top of the form, filled in and locked (the server reads them from the phone again on send)
     local fixed = {}
     if form.applicant then fixed[#fixed + 1] = { type = 'input', label = 'Full name', default = form.applicant, disabled = true, icon = 'user' } end
+    if form.age then fixed[#fixed + 1] = { type = 'input', label = 'Age', default = tostring(form.age), disabled = true, icon = 'cake-candles' } end
     if contact.phone then fixed[#fixed + 1] = { type = 'input', label = 'Contact number', default = contact.phone, disabled = true, icon = 'phone' } end
     if contact.email then fixed[#fixed + 1] = { type = 'input', label = 'Email address', default = contact.email, disabled = true, icon = 'envelope' } end
     local fields, answers = nil, nil
@@ -847,7 +848,7 @@ local function openApplication(job)
         local ok, msg = call('submitApplication', job, v)
         if ok then return notify(msg, 'success', 'Application') end
         notify(msg or 'Your application could not be sent.', 'error', 'Application')
-        if msg and (msg:find('already') or msg:find('not accepting') or msg:find('denied') or msg:find('turned off') or msg:find('doesn\'t take') or msg:find('before you apply')) then return end
+        if msg and (msg:find('already') or msg:find('not accepting') or msg:find('denied') or msg:find('turned off') or msg:find('doesn\'t take') or msg:find('before you apply') or msg:find('at least %d+ to work here')) then return end
         answers = v
     end
 end

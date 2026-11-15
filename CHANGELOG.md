@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- **Name, phone number and email on job applications:** the character's full name is shown locked at the top of the form.
+- **Name, age, phone number and email on job applications:** the character's full name and age (from their birthdate,
+  `applications.age`; `minAge = 18` keeps younger characters from applying) are shown locked at the top of the form.
   Phone number and email: pulled from the applicant's phone (the same phone resources as profiles)
   and sent with the application, shown at the top of the form and to managers. If one isn't set up, the applicant is told
   to set it up on their phone first (`applications.contact`: `phone`, `email`, `phoneRequired`, `emailRequired`).
