@@ -127,17 +127,24 @@
     return call('getMenu', S.g.gtype, S.g.name).then(function (r) { S.m = r[0] || null; });
   }
   function refresh() {
-    return loadGroups().then(loadMenu).then(render).catch(failed);
+    return loadGroups().then(loadMenu).then(render).catch(function (e) { noAccess((e && e.message) || String(e)); });
+  }
+
+  /** Full screen "no access": not a manager, the app is turned off, or the server refused */
+  function noAccess(reason) {
+    S.g = null; S.m = null;
+    var app = $('#app');
+    app.innerHTML = '<header class="top"><img src="icon.svg" alt=""><div class="t"><h1>Boss Menu</h1><p>Blaze Boss Menu</p></div>' +
+      '<button class="refresh" id="refresh" title="Try again">&#x21bb;</button></header>' +
+      '<div class="main"><div class="notice"><b>You don\'t have access to the Boss Menu.</b>' +
+      '<small>' + esc(reason || 'Only managers of a job or gang can use it: the same people who can open that job\'s boss desk.') + '</small></div></div>';
+    $('#refresh').onclick = function () { refresh(); };
   }
 
   // ---------------------------------------------------------------- shell
   function render() {
     var app = $('#app');
-    if (!S.g || !S.m) {
-      app.innerHTML = head() + '<div class="main"><div class="notice">You don\'t manage a job or gang.<small>The Boss Menu app shows the jobs you are a manager of: the same ones you could open at a boss desk.</small></div></div>';
-      wireHead();
-      return;
-    }
+    if (!S.g || !S.m) return noAccess(); // not a manager of anything (the server decides)
     var tabs = [['overview', 'Overview'], ['staff', S.g.gtype === 'gang' ? 'Members' : 'Staff']];
     if (S.m.apps) tabs.push(['apps', 'Applications']);
     if (S.m.funds) tabs.push(['funds', 'Funds']);

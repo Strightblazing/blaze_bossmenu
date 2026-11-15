@@ -5,7 +5,8 @@
 - **Boss Menu app for sd-computers, sd-phone and sd-tablet** (`devices` in config.lua): overview, staff (promote,
   demote, callsign, fire, hire), applications (votes, interview, accept, deny, open / close), funds (deposit, withdraw,
   history) and the activity log. Every button runs the same server checks as the boss menu, through a fixed list of
-  actions (never admin access). Only active when that resource is running; the tablet shows the phone app.
+  actions (never admin access). Only active when that resource is running; the tablet shows the phone app. Anyone who isn't a manager (or when the
+  server refuses) gets a "You don't have access to the Boss Menu" screen instead of any data.
 - **Lation UI** (`useLationUI = true`): the boss menu, admin menu and Points menu use Lation's extras: header icon and
   subtitle, coloured icons per section (Points in the same colour as each ring on the ground), tags on the right
   (new applications, balance, On / Off, member and point counts) and a beating icon when applications are waiting.
