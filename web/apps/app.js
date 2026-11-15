@@ -60,6 +60,8 @@
   function failed(e) { toast((e && e.message) || String(e), 'bad'); }
 
   // ---------------------------------------------------------------- toasts and modals
+  /** On the phone / tablet, a text box needs the keyboard (otherwise typing also moves the character) */
+  function typing(on) { try { if (DEVICE === 'phone' && typeof window.ToggleInput === 'function') window.ToggleInput(on); } catch (e) { /* ignore */ } }
   var toastTimer;
   function toast(text, kind) {
     var t = $('#toast');
@@ -92,6 +94,7 @@
       shade.innerHTML = '<div class="modal"><h3>' + esc(o.title) + '</h3>' + (o.text ? '<p>' + esc(o.text) + '</p>' : '') + fields +
         '<div class="acts"><button class="btn" data-a="no">Cancel</button><button class="btn ' + (o.danger ? 'bad' : 'pri') + '" data-a="yes">' + esc(o.ok || 'OK') + '</button></div></div>';
       document.body.appendChild(shade);
+      typing(true); // sd-phone / sd-tablet: let the text box have the keyboard, not the game
       var first = shade.querySelector('input, select, textarea');
       if (first) first.focus();
       function done(yes) {
@@ -101,6 +104,7 @@
           shade.querySelectorAll('[data-id]').forEach(function (el) { out[el.getAttribute('data-id')] = el.value; });
         }
         shade.remove();
+        typing(false);
         resolve(out);
       }
       shade.addEventListener('click', function (e) {

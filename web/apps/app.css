@@ -118,3 +118,7 @@ h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--muted); l
 .toast.bad { border-color: rgba(229, 83, 75, .5); }
 .narrow .toast { bottom: 76px; }
 .loading { color: var(--faint); font-size: 13px; padding: 20px 0; }
+
+/* phone / tablet: keep clear of the status bar + camera notch at the top and the home bar at the bottom */
+[data-device="phone"] #app { padding-top: 44px; padding-bottom: 22px; }
+[data-device="phone"] .top { padding-top: 8px; }
