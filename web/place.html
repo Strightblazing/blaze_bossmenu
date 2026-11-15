@@ -4,7 +4,7 @@
 <title>Blaze Boss Menu · Placement</title>
 <!-- Placement card shown while placing, moving or resizing a point (client/placement.lua). Runs inside web/index.html,
      never takes the mouse. Open this file in a browser for a demo.
-     in: { action: 'place:show', mode: 'place'|'move'|'size', type, title, group, color: [r,g,b], size, resize, canExport, exportOn, exportKey }
+     in: { action: 'place:show', mode: 'place'|'move'|'size', type, title, group, color: [r,g,b], size, resize, canExport, exportOn, exportKey, rotate }
          { action: 'place:size', size } | { action: 'place:aim', ok } | { action: 'place:export', on } | { action: 'place:hide' } -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -69,7 +69,7 @@ let S = { mode: 'place', resize: true, size: 1 };
 function keys() {
   const k = (key, label, pri) => '<span' + (pri ? ' class="pri"' : '') + '><span class="k">' + key + '</span>' + label + '</span>';
   const act = S.exportOn ? 'Copy line' : (S.mode === 'size' ? 'Save' : (S.mode === 'move' ? 'Move here' : 'Place'));
-  $('keys').innerHTML = k('E', act, true) + (S.resize ? k('Scroll / ↑↓', 'Size') : '') + k('Backspace', 'Cancel');
+  $('keys').innerHTML = k('E', act, true) + (S.resize ? k('Scroll / ↑↓', 'Size') : '') + (S.rotate ? k('← →', 'Rotate') : '') + k('Backspace', 'Cancel');
 }
 function output(on) {
   S.exportOn = !!on;

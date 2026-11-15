@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Points can have a PED or a prop** (or stay invisible): picked when placing (`pointLooks` in config.lua: models,
+  idle scenarios / animations, or type any model), changed later with **Change look**, also in `config.lua > locations`
+  (`entity = { ... }`). PEDs stand still and never wander, flee or react. Targeting aims at the PED / prop itself, not
+  the floor. The see-through preview is spawned like the real one (standing on the ground, not in it), turn it with
+  **← →**, and **Move** keeps the look.
+- **E prompts** (no target script): one prompt for the nearest point only, fires once per press, never while a menu is
+  open, no prompts stacking on overlapping points. Duplicate points on one spot are registered once.
+  `targetDistance` sets how close you must be with ox_target / qb-target.
 - Placing points shows a live preview: the zone ring at its real size and color, the facing direction, and a
   see-through receptionist for application points. Size with the mouse wheel or arrow keys while aiming (no more typing
   it in); **Change size** previews the ring on the spot. A new placement card (web/place.html) replaces the ox_lib text

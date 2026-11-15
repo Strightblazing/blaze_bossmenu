@@ -926,8 +926,15 @@ local handles = {}
 local function buildTargets(points)
     for _, h in ipairs(handles) do Target.remove(h) end
     handles = {}
+    local seen = {} -- the same kind of point for the same group twice on one spot would show its options twice
     for _, p in ipairs(points or {}) do
         local coords = vec3(p.coords.x, p.coords.y, p.coords.z)
+        local key = p.type .. ':' .. p.gtype .. ':' .. p.group
+        local dup = false
+        for _, c in ipairs(seen[key] or {}) do if #(c - coords) < 1.5 then dup = true break end end
+        seen[key] = seen[key] or {}
+        table.insert(seen[key], coords)
+        if dup then p.dup = true goto continue end
         local cfg = (p.gtype == 'gang' and (Config.gangs or {}) or Config.jobs)[p.group] or {}
         local label = cfg.label or p.group
         local options
@@ -976,11 +983,15 @@ local function buildTargets(points)
                 { name = 'blaze_boss_apply', label = 'Apply for ' .. label, icon = 'fa-solid fa-file-signature', onSelect = function() openApplication(p.group) end },
                 { name = 'blaze_boss_status', label = 'My application status', icon = 'fa-solid fa-circle-info', onSelect = function() openApplicationStatus(p.group) end },
             }
-            p.targetOptions = options -- the receptionist NPC gets the same options (client/features.lua)
         end
-        handles[#handles + 1] = Target.addPoint({ coords = coords, radius = p.radius or 1.0, options = options })
+        p.targetOptions = options -- a PED / prop at the point gets the same options (client/features.lua)
+        -- With a target script, a point with a PED or prop is targeted on that entity only (not the floor under it)
+        if not (Bridge.target ~= 'none' and BMC and BMC.pointLook and BMC.pointLook(p)) then
+            handles[#handles + 1] = Target.addPoint({ coords = coords, radius = p.radius or 1.0, options = options })
+        end
+        ::continue::
     end
-    if BMC then BMC.onPoints(points) end -- receptionist NPCs (client/features.lua)
+    if BMC then BMC.onPoints(points) end -- PEDs / props at points (client/features.lua)
 end
 
 RegisterNetEvent(RES .. ':client:points', function(points) buildTargets(points) end)

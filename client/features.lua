@@ -450,62 +450,131 @@ RegisterNetEvent(RES .. ':client:handshake', function(partnerServerId, role)
 end)
 
 ---------------------------------------------------------------------------
--- Receptionist NPC at applications points (client-side only, spawned when you're near)
+-- PEDs and props at points (client-side only, spawned when you're within 40 m)
+-- A point's look is p.entity = { kind = 'ped' | 'prop', model, scenario?, anim? }. Application points without one
+-- still get the classic receptionist (features.receptionist) standing behind the counter.
+-- The same helpers draw the see-through preview while placing (client/placement.lua), so the preview is the result.
 ---------------------------------------------------------------------------
 local R = F.receptionist or {}
 local pedPoints = {}
 
-local function clearReceptionists()
+local function modelHash(m) return type(m) == 'number' and m or joaat(m) end
+
+--- Put an entity on the spot: feet / base on z, facing heading
+function BMC.setEntitySpot(ent, x, y, z, heading)
+    local min = GetModelDimensions(GetEntityModel(ent))
+    SetEntityCoordsNoOffset(ent, x, y, z - (min and min.z or 0.0), false, false, false)
+    SetEntityHeading(ent, (heading or 0.0) % 360.0)
+end
+
+--- Stationary PED: never wanders, flees, fights, ragdolls or reacts to anything around it
+local function calmPed(ped)
+    SetEntityInvincible(ped, true)
+    SetEntityCanBeDamaged(ped, false)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    TaskSetBlockingOfNonTemporaryEvents(ped, true)
+    SetPedFleeAttributes(ped, 0, false)
+    SetPedCombatAttributes(ped, 17, false)
+    SetPedCombatAttributes(ped, 46, false)
+    SetPedSeeingRange(ped, 0.0)
+    SetPedHearingRange(ped, 0.0)
+    SetPedAlertness(ped, 0)
+    SetPedKeepTask(ped, true)
+    SetPedCanRagdoll(ped, false)
+    SetPedCanEvasiveDive(ped, false)
+    SetPedCanBeTargetted(ped, false)
+    SetPedDiesWhenInjured(ped, false)
+    SetPedConfigFlag(ped, 185, true) -- no reacting to bumps
+    SetPedConfigFlag(ped, 208, true) -- no shocking-event reactions
+end
+
+--- Spawn what a look describes at x, y, z (ground) facing heading. ghost = see-through preview without collision.
+--- Returns the entity or nil (bad model, didn't load in time).
+function BMC.spawnLook(look, x, y, z, heading, ghost)
+    if type(look) ~= 'table' or not look.model then return nil end
+    local model = modelHash(look.model)
+    if not IsModelInCdimage(model) or not lib.requestModel(model, 5000) then return nil end
+    local ent
+    if look.kind == 'ped' then
+        ent = CreatePed(4, model, x, y, z, heading or 0.0, false, false)
+    else
+        ent = CreateObjectNoOffset(model, x, y, z, false, false, false)
+    end
+    SetModelAsNoLongerNeeded(model)
+    if not ent or ent == 0 then return nil end
+    BMC.setEntitySpot(ent, x, y, z, heading)
+    FreezeEntityPosition(ent, true)
+    if look.kind == 'ped' then calmPed(ent) end
+    if ghost then
+        SetEntityAlpha(ent, 150, false)
+        SetEntityCollision(ent, false, false)
+        return ent
+    end
+    if look.kind == 'ped' then
+        if look.scenario then
+            TaskStartScenarioInPlace(ent, look.scenario, 0, false)
+        elseif type(look.anim) == 'table' and lib.requestAnimDict(look.anim.dict, 3000) then
+            TaskPlayAnim(ent, look.anim.dict, look.anim.name, 8.0, -8.0, -1, 1, 0.0, false, false, false)
+            RemoveAnimDict(look.anim.dict)
+        end
+    end
+    return ent
+end
+
+--- What stands at a point and where: look, x, y, z, heading (nil = invisible point)
+function BMC.pointLook(p)
+    if type(p.entity) == 'table' then
+        return p.entity, p.coords.x, p.coords.y, p.coords.z, p.heading or 0.0
+    end
+    if p.type == 'applications' and R.enabled then -- classic receptionist: ~0.8 m behind the point, facing whoever placed it
+        local h = p.heading or 0.0
+        local rad = math.rad(h)
+        local x, y = p.coords.x - math.sin(rad) * 0.8, p.coords.y + math.cos(rad) * 0.8
+        local found, gz = GetGroundZFor_3dCoord(x, y, p.coords.z + 1.0, false)
+        return { kind = 'ped', model = R.model or 'a_f_y_business_02', scenario = R.scenario or nil }, x, y, found and gz or p.coords.z, (h + 180.0) % 360.0
+    end
+    return nil
+end
+
+local function clearLooks()
     for _, p in ipairs(pedPoints) do
         if p.target then Target.remove(p.target) p.target = nil end
-        if p.ped and DoesEntityExist(p.ped) then DeleteEntity(p.ped) end
+        if p.ent and DoesEntityExist(p.ent) then DeleteEntity(p.ent) end
         p:remove()
     end
     pedPoints = {}
 end
 
---- Stands ~0.8 m behind the point (the other side of the counter from the admin who placed it), facing them
-local function spawnReceptionist(point)
-    local h = (point.heading or 0.0)
-    local rad = math.rad(h)
-    local x = point.coords.x - math.sin(rad) * 0.8
-    local y = point.coords.y + math.cos(rad) * 0.8
-    local found, groundZ = GetGroundZFor_3dCoord(x, y, point.coords.z + 1.0, false)
-    local z = found and groundZ or (point.coords.z - 1.0)
-    local model = joaat(R.model or 'a_f_y_business_02')
-    if not lib.requestModel(model, 5000) then return nil end
-    local ped = CreatePed(4, model, x, y, z, (h + 180.0) % 360.0, false, false)
-    SetModelAsNoLongerNeeded(model)
-    SetEntityInvincible(ped, true)
-    SetBlockingOfNonTemporaryEvents(ped, true)
-    FreezeEntityPosition(ped, true)
-    SetPedCanRagdoll(ped, false)
-    if R.scenario then TaskStartScenarioInPlace(ped, R.scenario, 0, true) end
-    return ped
-end
-
 function BMC.onPoints(points)
-    clearReceptionists()
-    if not R.enabled then return end
+    clearLooks()
     for _, p in ipairs(points or {}) do
-        if p.type == 'applications' then
+        local look = not p.dup and BMC.pointLook(p)
+        if look then
             local lastGreet = 0
             local point = lib.points.new({ coords = vec3(p.coords.x, p.coords.y, p.coords.z), distance = 40.0 })
             function point:onEnter()
-                if self.ped then return end
-                self.ped = spawnReceptionist(p)
-                -- look at her to apply (same options as the point)
-                if self.ped and p.targetOptions then self.target = Target.addEntity(self.ped, p.targetOptions) end
+                if self.ent or self.target then return end
+                local l, x, y, z, h = BMC.pointLook(p)
+                self.ent = BMC.spawnLook(l, x, y, z, h)
+                -- aim at the PED / prop itself (same options as the point). If it didn't spawn, fall back to the spot.
+                if p.targetOptions then
+                    if self.ent then self.target = Target.addEntity(self.ent, p.targetOptions) end
+                    if not self.target and Bridge.target ~= 'none' then
+                        self.target = Target.addPoint({ coords = vec3(p.coords.x, p.coords.y, p.coords.z), radius = p.radius or 1.0, options = p.targetOptions })
+                    end
+                end
             end
             function point:onExit()
                 if self.target then Target.remove(self.target) self.target = nil end
-                if self.ped and DoesEntityExist(self.ped) then DeleteEntity(self.ped) end
-                self.ped = nil
+                if self.ent and DoesEntityExist(self.ent) then DeleteEntity(self.ent) end
+                self.ent = nil
             end
-            function point:nearby()
-                if R.greet and self.ped and self.currentDistance < 2.5 and GetGameTimer() - lastGreet > 60000 then
-                    lastGreet = GetGameTimer()
-                    PlayPedAmbientSpeechNative(self.ped, 'GENERIC_HI', 'SPEECH_PARAMS_FORCE_NORMAL')
+            if p.type == 'applications' and R.greet then
+                function point:nearby()
+                    if self.ent and IsEntityAPed(self.ent) and self.currentDistance < 2.5 and GetGameTimer() - lastGreet > 60000 then
+                        lastGreet = GetGameTimer()
+                        PlayPedAmbientSpeechNative(self.ent, 'GENERIC_HI', 'SPEECH_PARAMS_FORCE_NORMAL')
+                    end
                 end
             end
             pedPoints[#pedPoints + 1] = point
@@ -513,7 +582,7 @@ function BMC.onPoints(points)
     end
 end
 
-AddEventHandler('onResourceStop', function(res) if res == RES then clearReceptionists() end end)
+AddEventHandler('onResourceStop', function(res) if res == RES then clearLooks() end end)
 
 ---------------------------------------------------------------------------
 -- Outfits: read / apply clothes. Uses illenium-appearance when it's running (auto), else plain GTA natives.

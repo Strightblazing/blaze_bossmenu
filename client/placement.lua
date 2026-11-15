@@ -67,27 +67,41 @@ local function drawPreview(c, ptype, radius, heading, label)
     if label then draw3DText(c.x, c.y, c.z + 1.0, label) end
 end
 
---- See-through receptionist where she will stand (application points), so the counter can be lined up
-local REC = ((Config.features or {}).receptionist) or {}
-local function ghostPed(ptype)
-    if ptype ~= 'applications' or not REC.enabled then return nil end
-    local model = joaat(REC.model or 'a_f_y_business_02')
-    if not lib.requestModel(model, 3000) then return nil end
-    local ped = CreatePed(4, model, 0.0, 0.0, -100.0, 0.0, false, false)
-    SetModelAsNoLongerNeeded(model)
-    SetEntityAlpha(ped, 150, false)
-    SetEntityCollision(ped, false, false)
-    SetEntityInvincible(ped, true)
-    FreezeEntityPosition(ped, true)
-    SetBlockingOfNonTemporaryEvents(ped, true)
-    return ped
-end
-local function moveGhost(ped, c, heading)
-    local rad = math.rad(heading)
-    local x, y = c.x - math.sin(rad) * 0.8, c.y + math.cos(rad) * 0.8 -- same spot as the real one (client/features.lua)
-    local found, gz = GetGroundZFor_3dCoord(x, y, c.z + 1.0, false)
-    SetEntityCoordsNoOffset(ped, x, y, found and gz or c.z, false, false, false)
-    SetEntityHeading(ped, (heading + 180.0) % 360.0)
+--- What stands at a point: invisible, a PED or a prop (config.lua > pointLooks). Returns look (table),
+--- false (invisible) or nil (cancelled). current = the point's look now (for "Change look").
+local LOOKS = Config.pointLooks or {}
+local function chooseLook(ptype, current)
+    local peds, props, idles = { { value = 'custom', label = 'Custom model (below)' } }, { { value = 'custom', label = 'Custom model (below)' } }, { { value = 'none', label = 'Just stand' } }
+    for i, m in ipairs(LOOKS.peds or {}) do table.insert(peds, i, { value = m.model, label = ('%s (%s)'):format(m.label or m.model, m.model) }) end
+    for i, m in ipairs(LOOKS.props or {}) do table.insert(props, i, { value = m.model, label = ('%s (%s)'):format(m.label or m.model, m.model) }) end
+    for i, a in ipairs(LOOKS.idles or {}) do idles[#idles + 1] = { value = tostring(i), label = a.label or a.scenario or (a.anim and a.anim.name) or ('Idle ' .. i) } end
+    local kind = current and current.kind or (current == nil and ptype == 'applications' and 'ped' or 'none')
+    local idleNow = 'none'
+    if current and current.kind == 'ped' then
+        for i, a in ipairs(LOOKS.idles or {}) do
+            if (a.scenario and a.scenario == current.scenario) or (a.anim and current.anim and a.anim.name == current.anim.name) then idleNow = tostring(i) end
+        end
+    end
+    local v = UI.input('What stands here?', {
+        { type = 'select', label = 'Look', required = true, default = kind, options = {
+            { value = 'none', label = 'Invisible point' }, { value = 'ped', label = 'PED (person)' }, { value = 'prop', label = 'Prop (object)' } } },
+        { type = 'select', label = 'PED model', default = current and current.kind == 'ped' and current.model or (peds[1] and peds[1].value), options = peds },
+        { type = 'select', label = 'PED idle', default = idleNow, options = idles },
+        { type = 'select', label = 'Prop model', default = current and current.kind == 'prop' and current.model or (props[1] and props[1].value), options = props },
+        { type = 'input', label = 'Custom model (optional)', placeholder = 'e.g. s_m_m_doctor_01 or prop_laptop_01a' },
+    })
+    if not v then return nil end
+    if v[1] == 'none' then return false end
+    local model = (v[5] and v[5] ~= '') and v[5] or (v[1] == 'ped' and v[2] or v[4])
+    if not model or model == 'custom' then result(false, 'Pick a model or type a custom one.') return nil end
+    model = tostring(model):gsub('%s', '')
+    if not IsModelInCdimage(joaat(model)) then result(false, ('"%s" isn\'t a model in the game.'):format(model)) return nil end
+    if v[1] == 'ped' and not IsModelAPed(joaat(model)) then result(false, ('"%s" isn\'t a PED model.'):format(model)) return nil end
+    if v[1] == 'prop' and IsModelAPed(joaat(model)) then result(false, ('"%s" is a PED, not a prop.'):format(model)) return nil end
+    local look = { kind = v[1], model = model }
+    local idle = v[1] == 'ped' and (LOOKS.idles or {})[tonumber(v[3]) or 0]
+    if idle then look.scenario, look.anim = idle.scenario, idle.anim end
+    return look
 end
 
 --- The placement card (web/place.html): what you're placing, its size and the keys. Never takes the mouse.
@@ -127,16 +141,22 @@ local function keyName()
     return (ok and k and k ~= '') and k or 'G'
 end
 
-local function cardShow(mode, ptype, title, group, radius, resize, canExport)
+local function cardShow(mode, ptype, title, group, radius, resize, canExport, rotate)
     setPlacing(true)
     SendNUIMessage({ action = 'place:show', mode = mode, type = ptype, title = title, group = group,
         color = ZONE_COLOR[ptype] or { 122, 162, 255 }, size = radius, resize = resize == true,
-        canExport = canExport == true, exportOn = exportOn, exportKey = keyName() })
+        canExport = canExport == true, exportOn = exportOn, exportKey = keyName(), rotate = rotate == true })
 end
 local function fmt(n) return ('%.2f'):format(n + 0.0) end
-local function exportPoint(e, coords, heading, radius)
-    local line = ('{ %s = \'%s\', type = \'%s\', coords = vec3(%s, %s, %s), heading = %s, radius = %s },'):format(
-        e.gtype == 'gang' and 'gang' or 'job', e.name, e.ptype, fmt(coords.x), fmt(coords.y), fmt(coords.z), fmt(heading), fmt(radius))
+local function lookLua(look)
+    if not look then return '' end
+    local idle = look.scenario and (", scenario = '%s'"):format(look.scenario)
+        or (look.anim and (", anim = { dict = '%s', name = '%s' }"):format(look.anim.dict, look.anim.name)) or ''
+    return (", entity = { kind = '%s', model = '%s'%s }"):format(look.kind, look.model, idle)
+end
+local function exportPoint(e, coords, heading, radius, look)
+    local line = ("{ %s = '%s', type = '%s', coords = vec3(%s, %s, %s), heading = %s, radius = %s%s },"):format(
+        e.gtype == 'gang' and 'gang' or 'job', e.name, e.ptype, fmt(coords.x), fmt(coords.y), fmt(coords.z), fmt(heading), fmt(radius), lookLua(look))
     lib.setClipboard(line)
     print('^5[blaze_bossmenu]^7 config.lua > locations:  ' .. line)
     lib.notify({ title = 'Boss menu placement', description = 'Config line copied (also in F8). Paste it into config.lua > locations. Nothing was saved in game.', type = 'success', duration = 7000 })
@@ -146,16 +166,21 @@ local function cardHide() SendNUIMessage({ action = 'place:hide' }) setPlacing(f
 AddEventHandler('onResourceStop', function(res) if res == RES then cardHide() end end)
 
 --- Aim where the point goes and see it before placing.
---- opts = { ptype, radius, resize = true (wheel changes size), title, group, mode = 'place' | 'move', label (3D text),
+--- opts = { ptype, radius, resize = true (wheel changes size), title, group, mode = 'place' | 'move',
+---         look = PED / prop that stands there (see-through preview, rotate with arrow keys), heading = its start heading,
 ---         export = { gtype, name, ptype } (G switches to copying a config.lua line) }
 --- E = place, Backspace = cancel. Returns coords, heading, radius (or nil). With export on it copies the line and returns nil.
+--- The preview is spawned with the same code as the real thing (BMC.spawnLook / BMC.pointLook), so what you see is what you get.
 local function placeMarker(text, opts)
     opts = opts or {}
     local radius = clampRadius(opts.radius or 1.0)
-    cardShow(opts.mode or 'place', opts.ptype, opts.title or text, opts.group, radius, opts.resize, opts.export ~= nil)
+    local look = opts.look or nil
+    cardShow(opts.mode or 'place', opts.ptype, opts.title or text, opts.group, radius, opts.resize, opts.export ~= nil, look ~= nil)
     if opts.export then exportKey:disable(false) end
     local aimOk = true
-    local ghost = ghostPed(opts.ptype)
+    local rot = opts.heading or ((GetEntityHeading(cache.ped) + 180.0) % 360.0) -- a PED / prop starts facing you
+    local ghost, ghostTried = nil, false
+    local pointHeading = GetEntityHeading(cache.ped)
     local chosen
     while true do
         Wait(0)
@@ -171,13 +196,22 @@ local function placeMarker(text, opts)
             DisableControlAction(0, 47, true) -- G: no detonate / other G actions while placing (the toggle itself is the key binding)
             DisableControlAction(0, 58, true)
         end
-        local heading = GetEntityHeading(cache.ped)
+        if look then -- arrow keys turn the PED / prop (hold to keep turning)
+            DisableControlAction(0, 174, true)
+            DisableControlAction(0, 175, true)
+            if IsDisabledControlPressed(0, 174) then rot = (rot + 2.0) % 360.0 end
+            if IsDisabledControlPressed(0, 175) then rot = (rot - 2.0) % 360.0 end
+        end
+        pointHeading = look and rot or GetEntityHeading(cache.ped)
         local hit, _, coords = lib.raycast.fromCamera(1 | 16, cache.ped, 15.0)
         local ok = (hit and coords) and true or false
         if ok ~= aimOk then aimOk = ok SendNUIMessage({ action = 'place:aim', ok = ok }) end
         if hit and coords then
-            drawPreview(coords, opts.ptype, radius, heading) -- the card names it, so no 3D text
-            if ghost then moveGhost(ghost, coords, heading) end
+            drawPreview(coords, opts.ptype, radius, pointHeading) -- the card names it, so no 3D text
+            -- see-through PED / prop exactly where the real one will stand (classic receptionist: behind the counter)
+            local gl, gx, gy, gz, gh = BMC.pointLook({ entity = look, type = opts.ptype, coords = coords, heading = pointHeading })
+            if gl and not ghostTried then ghostTried = true ghost = BMC.spawnLook(gl, gx, gy, gz, gh, true) end
+            if ghost then BMC.setEntitySpot(ghost, gx, gy, gz, gh) end
             if IsDisabledControlJustPressed(0, 38) then chosen = coords break end
         elseif ghost then
             SetEntityCoordsNoOffset(ghost, 0.0, 0.0, -100.0, false, false, false)
@@ -189,10 +223,10 @@ local function placeMarker(text, opts)
     cardHide()
     if not chosen then return nil end
     if opts.export and exportOn then
-        exportPoint(opts.export, chosen, GetEntityHeading(cache.ped), radius)
+        exportPoint(opts.export, chosen, pointHeading, radius, look)
         return nil
     end
-    return chosen, GetEntityHeading(cache.ped), radius
+    return chosen, pointHeading, radius
 end
 
 --- Change a placed point's size with a live ring on the spot. Returns the new radius or nil.
@@ -225,11 +259,14 @@ local function addFlow(info, ptype)
             options[#options + 1] = {
                 title = g.label, description = (g.gtype == 'gang' and 'Gang · ' or 'Job · ') .. g.name, arrow = true,
                 onSelect = function()
+                    local look = chooseLook(ptype)
+                    if look == nil then return openPlacement() end
+                    look = look or nil
                     local coords, heading, radius = placeMarker(('%s · %s'):format(TYPE_LABEL[ptype], g.label),
-                        { ptype = ptype, radius = 1.0, resize = true, title = TYPE_LABEL[ptype], group = g.label, label = ('%s · %s'):format(TYPE_LABEL[ptype], g.label),
+                        { ptype = ptype, radius = 1.0, resize = true, title = TYPE_LABEL[ptype], group = g.label, look = look,
                           export = { gtype = g.gtype, name = g.name, ptype = ptype } })
                     if coords then
-                        result(call('addPoint', g.gtype, g.name, ptype, { x = coords.x, y = coords.y, z = coords.z }, heading, radius))
+                        result(call('addPoint', g.gtype, g.name, ptype, { x = coords.x, y = coords.y, z = coords.z }, heading, radius, look))
                     end
                     openPlacement()
                 end,
@@ -260,8 +297,16 @@ local function pointActions(p, groupLabel, backMenu, after, teleport)
       description = fixed or 'Aim at the new spot and press E. Same job, type and size.', onSelect = function()
         -- admins (/bossmenu) can also export the moved spot as a config.lua line
         local export = backMenu == 'blaze_boss_place_list' and { gtype = p.gtype, name = p.group, ptype = p.type } or nil
-        local coords, heading = placeMarker('Move: ' .. title, { ptype = p.type, radius = p.radius or 1.0, mode = 'move', title = TYPE_LABEL[p.type] or p.type, group = groupLabel, label = title, export = export })
+        local coords, heading = placeMarker('Move: ' .. title, { ptype = p.type, radius = p.radius or 1.0, mode = 'move', title = TYPE_LABEL[p.type] or p.type,
+            group = groupLabel, look = p.entity, heading = p.entity and p.heading or nil, export = export })
         if coords then result(call('movePoint', p.id, { x = coords.x, y = coords.y, z = coords.z }, heading)) end
+        after()
+    end }
+    local lookNow = p.entity and ('%s · %s'):format(p.entity.kind == 'ped' and 'PED' or 'Prop', p.entity.model) or 'Invisible'
+    options[#options + 1] = { title = 'Change look', icon = 'fa-solid fa-person', disabled = p.fixed ~= nil,
+      description = fixed or ('Now: %s. Invisible, a PED or a prop. Stays where it is.'):format(lookNow), onSelect = function()
+        local look = chooseLook(p.type, p.entity or false)
+        if look ~= nil then result(call('setPointEntity', p.id, look or nil)) end
         after()
     end }
     options[#options + 1] = { title = 'Change size', icon = 'fa-solid fa-expand', disabled = p.fixed ~= nil,
@@ -367,10 +412,13 @@ function BMC.openLocations(m)
     table.sort(d.types, function(a, b) return (TYPE_LABEL[a] or a) < (TYPE_LABEL[b] or b) end)
     for _, t in ipairs(d.types) do
         options[#options + 1] = { title = 'Add ' .. (TYPE_LABEL[t] or t):lower(), description = TYPE_DESC[t], icon = 'fa-solid fa-plus', onSelect = function()
+            local look = chooseLook(t)
+            if look == nil then return reopen() end
+            look = look or nil
             local coords, heading, radius = placeMarker(('%s · %s'):format(TYPE_LABEL[t] or t, m.label),
-                { ptype = t, radius = 1.0, resize = true, title = TYPE_LABEL[t] or t, group = m.label, label = ('%s · %s'):format(TYPE_LABEL[t] or t, m.label) })
+                { ptype = t, radius = 1.0, resize = true, title = TYPE_LABEL[t] or t, group = m.label, look = look })
             if coords then
-                result(call('addPoint', m.gtype, m.name, t, { x = coords.x, y = coords.y, z = coords.z }, heading, radius))
+                result(call('addPoint', m.gtype, m.name, t, { x = coords.x, y = coords.y, z = coords.z }, heading, radius, look))
             end
             reopen()
         end }

@@ -255,8 +255,13 @@ local function createTables()
         `heading` FLOAT NOT NULL DEFAULT 0,
         `radius` FLOAT NOT NULL DEFAULT 1.0,
         `created_by` VARCHAR(128) NULL,
+        `entity` LONGTEXT NULL,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    -- 1.2.2: points can have a PED or prop (older installs get the column added once)
+    if (MySQL.scalar.await("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blaze_boss_points' AND COLUMN_NAME = 'entity'") or 0) == 0 then
+        MySQL.query.await('ALTER TABLE `blaze_boss_points` ADD COLUMN `entity` LONGTEXT NULL')
+    end
     -- Member extras: hire date + probation (rows exist for people hired through blaze_bossmenu)
     MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_members` (
         `citizenid` VARCHAR(64) NOT NULL,
@@ -359,12 +364,13 @@ local function loadData()
         appsOpen[r.job] = r.applications_open == 1 or r.applications_open == true
     end
     points = {}
-    for _, r in ipairs(MySQL.query.await('SELECT id, job, type, coords, heading, radius FROM blaze_boss_points') or {}) do
+    for _, r in ipairs(MySQL.query.await('SELECT id, job, type, coords, heading, radius, entity FROM blaze_boss_points') or {}) do
         local c = json.decode(r.coords)
         if c then
             local gtype, name = 'job', r.job
             if r.job:sub(1, 5) == 'gang:' then gtype, name = 'gang', r.job:sub(6) end
-            points[#points + 1] = { id = r.id, gtype = gtype, group = name, type = r.type, coords = c, heading = r.heading, radius = r.radius }
+            points[#points + 1] = { id = r.id, gtype = gtype, group = name, type = r.type, coords = c, heading = r.heading, radius = r.radius,
+                entity = BM.pointEntity(r.entity and json.decode(r.entity)) }
         end
     end
 end
@@ -499,12 +505,30 @@ local function pointVisible(p)
     return p.type == 'boss'
 end
 
+--- What stands at a point: nil (invisible) or { kind = 'ped' | 'prop', model, scenario?, anim? = { dict, name } }.
+--- Anything a client sends goes through here, so only plain names get stored.
+function BM.pointEntity(e)
+    if type(e) ~= 'table' or (e.kind ~= 'ped' and e.kind ~= 'prop') then return nil end
+    local function name(v, max) return type(v) == 'string' and #v > 0 and #v <= (max or 64) and v:match('^[%w_%-@/%.]+$') and v or nil end
+    local model = name(e.model) or (math.type(e.model) == 'integer' and e.model or nil)
+    if not model then return nil end
+    local out = { kind = e.kind, model = model }
+    if e.kind == 'ped' then
+        out.scenario = name(e.scenario)
+        if not out.scenario and type(e.anim) == 'table' and name(e.anim.dict, 128) and name(e.anim.name) then
+            out.anim = { dict = e.anim.dict, name = e.anim.name }
+        end
+    end
+    return out
+end
+
 local function allPoints()
     local out = {}
     for i, l in ipairs(Config.locations or {}) do
         local gtype = l.gang and 'gang' or 'job'
         local p = { id = 'cfg' .. i, gtype = gtype, group = l.gang or l.job, type = l.type or 'boss',
-            coords = { x = l.coords.x, y = l.coords.y, z = l.coords.z }, heading = l.heading or 0.0, radius = l.radius or 1.0, fixed = 'config' }
+            coords = { x = l.coords.x, y = l.coords.y, z = l.coords.z }, heading = l.heading or 0.0, radius = l.radius or 1.0, fixed = 'config',
+            entity = BM.pointEntity(l.entity) }
         if pointVisible(p) then out[#out + 1] = p end
     end
     for _, p in ipairs(runtimePoints) do if pointVisible(p) then out[#out + 1] = p end end
@@ -1306,7 +1330,7 @@ register('getPlacementInfo', function(src)
     return { groups = groups, points = allPoints() }
 end)
 
-register('addPoint', function(src, gtype, name, ptype, coords, heading, radius)
+register('addPoint', function(src, gtype, name, ptype, coords, heading, radius, entity)
     if not groupCfg(gtype, name) then return false, 'That group isn\'t configured.' end
     local okType, why = typeAllowed(gtype, name, ptype)
     if not okType then return false, why end
@@ -1317,9 +1341,10 @@ register('addPoint', function(src, gtype, name, ptype, coords, heading, radius)
     radius = math.min(5.0, math.max(0.5, tonumber(radius) or 1.0))
     heading = (tonumber(heading) or 0.0) % 360
     local c = { x = math.floor(x * 100) / 100, y = math.floor(y * 100) / 100, z = math.floor(z * 100) / 100 }
-    local id = MySQL.insert.await('INSERT INTO blaze_boss_points (job, type, coords, heading, radius, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-        { gkey(gtype, name), ptype, json.encode(c), heading, radius, Bridge.GetName(src) })
-    points[#points + 1] = { id = id, gtype = gtype, group = name, type = ptype, coords = c, heading = heading, radius = radius }
+    entity = BM.pointEntity(entity)
+    local id = MySQL.insert.await('INSERT INTO blaze_boss_points (job, type, coords, heading, radius, created_by, entity) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        { gkey(gtype, name), ptype, json.encode(c), heading, radius, Bridge.GetName(src), entity and json.encode(entity) or nil })
+    points[#points + 1] = { id = id, gtype = gtype, group = name, type = ptype, coords = c, heading = heading, radius = radius, entity = entity }
     syncPoints()
     Logs.log('placement', src, ('%s added a %s point for %s'):format(Logs.who(src), ptype, groupLabel(gtype, name)), { Group = gkey(gtype, name), Id = id, Coords = json.encode(c) })
     return true, 'Point saved.'
@@ -1358,6 +1383,23 @@ register('movePoint', function(src, id, coords, heading)
             syncPoints()
             Logs.log('placement', src, ('%s moved %s point #%d for %s'):format(Logs.who(src), p.type, id, groupLabel(p.gtype, p.group)), { Group = gkey(p.gtype, p.group), Id = id, Coords = json.encode(c) })
             return true, 'Point moved.'
+        end
+    end
+    return false, 'Point not found.'
+end)
+
+--- Change what stands at a placed point (PED / prop / nothing) without moving it
+register('setPointEntity', function(src, id, entity)
+    id = tonumber(id)
+    if not id then return false, "Built-in points can't be changed in game. Change them in config.lua." end
+    for _, p in ipairs(points) do
+        if p.id == id then
+            if not canPlace(src, p.gtype, p.group, p.type) then return false, "You can't change that point." end
+            p.entity = BM.pointEntity(entity)
+            MySQL.update.await('UPDATE blaze_boss_points SET entity = ? WHERE id = ?', { p.entity and json.encode(p.entity) or nil, id })
+            syncPoints()
+            Logs.log('placement', src, ('%s changed the look of %s point #%d for %s'):format(Logs.who(src), p.type, id, groupLabel(p.gtype, p.group)), { Group = gkey(p.gtype, p.group), Id = id })
+            return true, p.entity and 'Look changed.' or 'Now an invisible point.'
         end
     end
     return false, 'Point not found.'

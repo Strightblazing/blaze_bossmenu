@@ -282,6 +282,42 @@ Config = {
         teleport = false,
     },
 
+    -- How close you must be to use a point with ox_target / qb-target (PEDs and props: +0.5 m)
+    targetDistance = 2.0,
+
+    -- What can stand at a point (picked when placing it, or "Change look" later). Any model name can also be typed in.
+    -- PEDs stand still: they never wander off, flee or react to what happens around them.
+    pointLooks = {
+        peds = {
+            { label = 'Receptionist', model = 'a_f_y_business_02' },
+            { label = 'Business man', model = 'a_m_y_business_03' },
+            { label = 'Doctor', model = 's_m_m_doctor_01' },
+            { label = 'Nurse', model = 's_f_y_scrubs_01' },
+            { label = 'Paramedic', model = 's_m_m_paramedic_01' },
+            { label = 'Police officer', model = 's_m_y_cop_01' },
+            { label = 'Security guard', model = 's_m_m_security_01' },
+            { label = 'Mechanic', model = 's_m_y_xmech_02' },
+        },
+        -- Idle: a GTA scenario, or an animation { dict, name } (played on a loop)
+        idles = {
+            { label = 'Clipboard', scenario = 'WORLD_HUMAN_CLIPBOARD' },
+            { label = 'Stand guard', scenario = 'WORLD_HUMAN_GUARD_STAND' },
+            { label = 'On the phone', scenario = 'WORLD_HUMAN_STAND_MOBILE' },
+            { label = 'Coffee', scenario = 'WORLD_HUMAN_AA_COFFEE' },
+            { label = 'Police idle', scenario = 'WORLD_HUMAN_COP_IDLES' },
+            { label = 'Arms crossed', anim = { dict = 'amb@world_human_hang_out_street@female_arms_crossed@idle_a', name = 'idle_a' } },
+        },
+        props = {
+            { label = 'Laptop', model = 'prop_laptop_01a' },
+            { label = 'Computer screen', model = 'prop_monitor_w_large' },
+            { label = 'Cash register', model = 'prop_till_01' },
+            { label = 'Office desk', model = 'prop_office_desk_01' },
+            { label = 'Tool chest', model = 'prop_toolchest_05' },
+            { label = 'Notepad', model = 'prop_notepad_01' },
+            { label = 'Cardboard box', model = 'prop_cs_cardbox_01' },
+        },
+    },
+
     -- Hide your HUD resource while placing, moving or resizing points (the GTA HUD and minimap always hide).
     -- false = off, or function(hidden) that hides/shows your HUD. It runs on the client. Example:
     --   placementHud = function(hidden) exports['your_hud']:setVisible(not hidden) end,
@@ -343,6 +379,8 @@ Config = {
         -- { job = 'ambulance', type = 'boss', coords = vec3(0.0, 0.0, 0.0), radius = 1.0 },
         -- { job = 'ambulance', type = 'applications', coords = vec3(0.0, 0.0, 0.0), radius = 1.0 },
         -- { gang = 'lostmc', type = 'boss', coords = vec3(983.69, -90.92, 74.85), radius = 1.0 },
+        -- With a PED or prop (entity): kind = 'ped' or 'prop', model, and for PEDs scenario = '...' or anim = { dict, name }
+        -- { job = 'ambulance', type = 'applications', coords = vec3(0.0, 0.0, 0.0), heading = 90.0, radius = 1.0, entity = { kind = 'ped', model = 'a_f_y_business_02', scenario = 'WORLD_HUMAN_CLIPBOARD' } },
     },
 
     logs = {
