@@ -2,7 +2,7 @@
 
 ## 1.2.3
 
-- **Boss Menu app for sd-computers, sd-phone and sd-tablet** (`devices` in config.lua): overview, staff (promote,
+- **Boss Menu app for sd-phone and sd-tablet** (`devices` in config.lua; sd-computers too, experimental and off by default): overview, staff (promote,
   demote, callsign, fire, hire), applications (votes, interview, accept, deny, open / close), funds (deposit, withdraw,
   history) and the activity log. Every button runs the same server checks as the boss menu, through a fixed list of
   actions (never admin access). Only active when that resource is running; the tablet shows the phone app. Anyone who isn't a manager (or when the

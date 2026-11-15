@@ -51,7 +51,7 @@ end
 -- sd-computers
 ---------------------------------------------------------------------------
 local function registerComputer()
-    if D.computers == false or GetResourceState('sd-computers') ~= 'started' then return end
+    if D.computers ~= true or GetResourceState('sd-computers') ~= 'started' then return end -- experimental: only when turned on
     local ok, err = exports['sd-computers']:AddCustomApp({
         id = 'blaze_bossmenu',
         label = D.label or 'Boss Menu',

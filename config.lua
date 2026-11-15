@@ -342,8 +342,10 @@ Config = {
     -- as the boss menu. Each only does anything when that resource is running.
     devices = {
         label = 'Boss Menu',
-        -- sd-computers: an app on the desktop of every computer (computerIds = { 'pc_1', ... } for only those)
-        computers = true,
+        -- sd-computers (experimental, off by default): an app on the desktop of every computer
+        -- (computerIds = { 'pc_1', ... } for only those). Known issues on some servers: typing in computer apps, and
+        -- thin lines drawn across the screen while the app is open.
+        computers = false,
         computerIds = nil,
         pinned = true, -- also on the taskbar / dock
         mirrorScreen = false, -- true = players walking past can read the app on the computer's screen
