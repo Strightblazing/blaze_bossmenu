@@ -11,6 +11,9 @@
   with a message (quick replies in `applications.quickReplies.training`). The applicant is told and gets a phone mail.
   From there they can be accepted & hired or denied. It has its own filter in the boss menu and the phone / tablet app,
   and the main Applications line shows how many are in training. Older installs get the new column added automatically.
+- **Clear application data** in Hiring settings: delete the closed applications (accepted, denied, withdrawn) or every
+  application of the job, with their votes and notes, after a confirm. The form is kept. Who can use it:
+  `applications.clearData` (`'management'` by default, `'admin'`, or `false`). Logged as `clearApps`.
 - **Applications menu, easier to read:**
   - Applicants come right after the filters.
   - Accepting on / off and Edit form moved into a **Hiring settings** option at the bottom.

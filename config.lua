@@ -201,6 +201,9 @@ Config = {
         -- Who can build/edit the application form in game:
         -- 'management' = managers (+ admins), 'admin' = admins only, false = no in-game editing
         formEditor = 'management',
+        -- Who sees "Clear application data" in Hiring settings (delete closed or all applications of the job):
+        -- 'management' = managers (+ admins), 'admin' = admins only (in /bossmenuadmin), false = nobody
+        clearData = 'management',
         -- Most questions a form can have
         maxQuestions = 15,
         -- Default intro text shown before the form (managers can change it per job in the form editor)

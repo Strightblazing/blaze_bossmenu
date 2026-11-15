@@ -632,6 +632,27 @@ local function openHiringSettings(m, filter)
         options[#options + 1] = { title = 'Edit application form', description = 'Name, age, phone and email are added automatically',
             icon = 'fa-solid fa-pen-to-square', arrow = true, onSelect = function() openFormEditor(m) end }
     end
+    if m.clearApps then
+        options[#options + 1] = { title = 'Clear application data', description = 'Delete old or all applications (can\'t be undone)',
+            icon = 'fa-solid fa-trash-can', iconColor = UI.color.red, onSelect = function()
+            local v = UI.input('Clear application data · ' .. m.label, {
+                { type = 'select', label = 'What to delete', required = true, default = 'closed', options = {
+                    { value = 'closed', label = 'Closed only (accepted, denied, withdrawn)' },
+                    { value = 'all', label = 'Everything (also ones still being reviewed)' },
+                } },
+            }, { submitText = 'Next' })
+            local scope = v and v[1]
+            if scope and UI.confirm({ header = 'Clear application data',
+                    content = scope == 'all'
+                        and ('Delete EVERY application for %s, including ones still being reviewed, with their votes and notes? Applicants lose their history and any re-apply wait. This can\'t be undone.'):format(m.label)
+                        or ('Delete all accepted, denied and withdrawn applications for %s, with their votes and notes? Re-apply waits after a denial are cleared too. This can\'t be undone.'):format(m.label),
+                    type = 'error', confirm = 'Delete' }) then
+                result(call('clearApplications', m.name, scope))
+                openApps(m, nil, true) -- the list behind it shows the new counts
+            end
+            openHiringSettings(m, filter)
+        end }
+    end
     UI.registerMenu({ id = 'blaze_boss_apps_settings', title = 'Hiring settings · ' .. m.label, menu = 'blaze_boss_apps', options = options,
         headerIcon = 'fa-solid fa-gear' })
     UI.showMenu('blaze_boss_apps_settings')

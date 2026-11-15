@@ -297,6 +297,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `funds.confirmAbove` | Deposits/withdrawals of this amount or more ask to confirm. |
 | `funds.historyLimit` | Transactions shown in Recent history. |
 | `applications.allowWithdraw` / `votes` / `interviewCheckIn` | Applicant withdraw, manager votes, interview check-in at the review point. |
+| `applications.clearData` | Who sees **Clear application data** in Hiring settings: `'management'`, `'admin'` or `false`. Deletes closed or all applications of the job (the form is kept). |
 | `applications.quickReplies` | Ready-made `deny`, `interview` and `training` messages. |
 | `funds.bonuses` / `maxBonus` / `payroll` | Bonuses from society funds, biggest bonus per person, the Payroll page. |
 | `jobs[x].description` | Text shown on the `/jobs` board. |
@@ -331,7 +332,7 @@ The applicant's full name always comes from their character. It is never a quest
 
 Set `set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."` in `server.cfg`.
 The webhook is **never** read from a file, so it can't end up in the repo. Logs are batched to stay under Discord's rate limit.
-Events: hire, fire, promote, demote, callsign, accept, deny, interview, training, deposit, withdraw, toggle, formEdit,
+Events: hire, fire, promote, demote, callsign, accept, deny, interview, training, clearApps, deposit, withdraw, toggle, formEdit,
 formReset, placement, gradeEdit, record, eotw, announce, bonus, withdrawApp, checkin, contractEdit, outfit.
 Turn single events off in `Config.logs.events`.
 

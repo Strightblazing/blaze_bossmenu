@@ -124,6 +124,15 @@ local function canEditForm(src, job)
     return false
 end
 
+--- Who may clear a job's application data (applications.clearData: 'management' | 'admin' | false)
+local function canClearApps(src, job)
+    if not appsOn('job', job) then return false end
+    local cd = APPS.clearData
+    if cd == 'management' then return isManager(src, job, 'job') or adminFor(src, 'job', job) end
+    if cd == 'admin' then return adminFor(src, 'job', job) end
+    return false
+end
+
 ---------------------------------------------------------------------------
 -- Helpers
 ---------------------------------------------------------------------------
@@ -808,6 +817,7 @@ register('getMenu', function(src, gtype, name, asAdmin)
         gtype = gtype, name = name, label = groupLabel(gtype, name), limit = limit,
         apps = appsOn(gtype, name), funds = fundsOn(gtype, name),
         formEdit = gtype == 'job' and canEditForm(src, name) or false,
+        clearApps = gtype == 'job' and canClearApps(src, name) or false,
         gradeEdit = gradeEditorOn(), isAdmin = adminFor(src, gtype, name), asAdmin = adminOpen[src] ~= nil,
         callsigns = gtype == 'job', grades = Bridge.GetGrades(gtype, name),
         ownGrade = managerGrade(src, gtype, name),
@@ -1354,6 +1364,20 @@ if APPS.enabled then
         -- keep updated_at so a note doesn't restart the denial cooldown
         MySQL.update.await('UPDATE blaze_boss_applications SET notes = ?, updated_at = updated_at WHERE id = ?', { note, row.id })
         return true, 'Note saved.'
+    end)
+
+    --- Delete this job's applications (and their votes). scope 'closed' = only accepted / denied / withdrawn,
+    --- 'all' = every application, including ones still being reviewed. The application form is kept.
+    register('clearApplications', function(src, job, scope)
+        if not canClearApps(src, job) then return false, 'You can\'t clear application data.' end
+        local where = scope == 'all' and '1 = 1' or "status IN ('accepted','denied','withdrawn')"
+        local n = tonumber(MySQL.scalar.await(('SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND %s'):format(where), { job })) or 0
+        if n == 0 then return false, 'There is nothing to clear.' end
+        MySQL.query.await(('DELETE FROM blaze_boss_app_votes WHERE app_id IN (SELECT id FROM blaze_boss_applications WHERE job = ? AND %s)'):format(where), { job })
+        MySQL.query.await(('DELETE FROM blaze_boss_applications WHERE job = ? AND %s'):format(where), { job })
+        Logs.log('clearApps', src, ('%s cleared %d %s application%s for %s'):format(Logs.who(src), n, scope == 'all' and 'total' or 'closed',
+            n == 1 and '' or 's', groupLabel('job', job)), { Job = job, Cleared = n, Scope = scope == 'all' and 'all' or 'closed' })
+        return true, ('Cleared %d application%s.'):format(n, n == 1 and '' or 's')
     end)
 
     register('toggleApplications', function(src, job)
