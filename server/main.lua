@@ -571,7 +571,9 @@ local function applicantQuestions(job)
     for _, q in ipairs(currentForm(job).questions or {}) do
         local label = type(q.label) == 'string' and q.label:lower() or ''
         local text = q.type == 'input' or q.type == 'number' or q.type == 'textarea'
-        local skip = text and ((C.phone ~= false and label:find('phone')) or (C.email ~= false and label:find('e%-?mail')))
+        local plain = label:gsub('[%p]', ''):gsub('^%s+', ''):gsub('%s+$', '')
+        local isName = plain == 'name' or plain == 'full name' or plain == 'your name' or plain == 'your full name'
+        local skip = text and (isName or (C.phone ~= false and label:find('phone')) or (C.email ~= false and label:find('e%-?mail')))
         if not skip then out[#out + 1] = q end
     end
     return out
@@ -1110,7 +1112,8 @@ if APPS.enabled then
         local contact, missing = applicantContact(src)
         -- questions = the whole form (the form editor); applyQuestions = what the applicant answers (no phone / email)
         return { intro = f.intro, questions = f.questions, applyQuestions = applicantQuestions(job), custom = f.custom, open = isOpen(job),
-            label = groupLabel('job', job), maxQuestions = APPS.maxQuestions or 15, contact = contact, contactMissing = missing }
+            label = groupLabel('job', job), maxQuestions = APPS.maxQuestions or 15, contact = contact, contactMissing = missing,
+            applicant = Bridge.GetName(src) }
     end)
 
     register('submitApplication', function(src, job, answers)

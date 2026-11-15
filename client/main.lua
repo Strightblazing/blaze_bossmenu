@@ -832,6 +832,7 @@ local function openApplication(job)
             type = 'info', confirm = 'Start' }) then return end
     -- shown at the top of the form, filled in and locked (the server reads them from the phone again on send)
     local fixed = {}
+    if form.applicant then fixed[#fixed + 1] = { type = 'input', label = 'Full name', default = form.applicant, disabled = true, icon = 'user' } end
     if contact.phone then fixed[#fixed + 1] = { type = 'input', label = 'Contact number', default = contact.phone, disabled = true, icon = 'phone' } end
     if contact.email then fixed[#fixed + 1] = { type = 'input', label = 'Email address', default = contact.email, disabled = true, icon = 'envelope' } end
     local fields, answers = nil, nil

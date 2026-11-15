@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- **Phone number and email on job applications:** pulled from the applicant's phone (the same phone resources as profiles)
+- **Name, phone number and email on job applications:** the character's full name is shown locked at the top of the form.
+  Phone number and email: pulled from the applicant's phone (the same phone resources as profiles)
   and sent with the application, shown at the top of the form and to managers. If one isn't set up, the applicant is told
   to set it up on their phone first (`applications.contact`: `phone`, `email`, `phoneRequired`, `emailRequired`).
   The default form no longer asks for a phone number, and a saved form's phone / email questions are skipped for
