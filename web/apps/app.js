@@ -76,7 +76,48 @@
   }
 
   /** modal({ title, text, fields: [{ id, label, type, value, options, placeholder }], ok, danger }) -> Promise(values | null) */
+  /** sd-phone / sd-tablet: a text box inside an app's page can't hold the keyboard (the phone takes focus back the
+   *  moment it switches to typing mode), so on those devices every form uses the phone's own pop-ups instead:
+   *  one pop-up per text field, the phone's list menu for a choice, a pop-up for a confirm. */
+  var NATIVE = false; // set in start(): sd-phone puts SetPopUp into the page just before it says componentsLoaded
+  function phoneModal(o) {
+    var fields = o.fields || [];
+    var out = {};
+    var okColor = o.danger ? '#E5484D' : undefined;
+    function ask(i) {
+      if (i >= fields.length) return Promise.resolve(out);
+      var f = fields[i], last = i === fields.length - 1;
+      if (f.type === 'select') {
+        var pick = typeof window.SetContextMenu === 'function' ? window.SetContextMenu : null;
+        if (!pick) { out[f.id] = f.value; return ask(i + 1); }
+        return Promise.resolve(pick({ title: f.label, description: i === 0 ? (o.text || o.title) : o.title,
+          buttons: f.options.map(function (op) { return { title: String(op.label) }; }) })).then(function (idx) {
+          if (typeof idx !== 'number' || !f.options[idx]) return null;
+          out[f.id] = String(f.options[idx].value);
+          return ask(i + 1);
+        });
+      }
+      var value = f.value == null ? '' : String(f.value);
+      return Promise.resolve(window.SetPopUp({
+        title: o.title,
+        description: (i === 0 && o.text ? o.text + '\n\n' : '') + f.label,
+        input: { type: f.type === 'number' ? 'number' : 'text', placeholder: f.placeholder || '', value: value, onChange: function (v) { value = v; } },
+        buttons: [{ title: 'Cancel' }, { title: last ? (o.ok || 'OK') : 'Next', color: last ? okColor : undefined }],
+      })).then(function (idx) {
+        if (idx !== 1) return null;
+        out[f.id] = value;
+        return ask(i + 1);
+      });
+    }
+    if (!fields.length) {
+      return Promise.resolve(window.SetPopUp({ title: o.title, description: o.text || '', buttons: [{ title: 'Cancel' }, { title: o.ok || 'OK', color: okColor }] }))
+        .then(function (idx) { return idx === 1 ? {} : null; });
+    }
+    return ask(0);
+  }
+
   function modal(o) {
+    if (NATIVE) return phoneModal(o);
     return new Promise(function (resolve) {
       var shade = document.createElement('div');
       shade.className = 'shade';
@@ -390,8 +431,11 @@
         (a.interview_msg ? '<div class="notice" style="margin-bottom:12px">Interview: ' + esc(a.interview_msg) + '</div>' : '') +
         votes + '<div class="section">' + (answers || '<div class="empty">No answers.</div>') + '</div>' +
         (open ? '<div class="section"><div class="bar"><button class="btn pri" id="accept">Accept &amp; hire</button><button class="btn" id="interview">Invite to interview</button><button class="btn bad" id="deny">Deny</button></div></div>' : '') +
-        '<div class="section"><h2>Manager notes</h2><textarea class="notes" id="notes" placeholder="Only managers see these.">' + esc(a.notes || '') + '</textarea>' +
-        '<div class="bar" style="margin-top:8px"><span class="grow"></span><button class="btn" id="saveNotes">Save notes</button></div></div>');
+        '<div class="section"><h2>Manager notes</h2>' + (NATIVE
+          ? '<div class="notice">' + (a.notes ? esc(a.notes) : '<span style="color:var(--faint)">No notes yet. Only managers see these.</span>') + '</div>' +
+            '<div class="bar" style="margin-top:8px"><span class="grow"></span><button class="btn" id="editNotes">Edit notes</button></div>'
+          : '<textarea class="notes" id="notes" placeholder="Only managers see these.">' + esc(a.notes || '') + '</textarea>' +
+            '<div class="bar" style="margin-top:8px"><span class="grow"></span><button class="btn" id="saveNotes">Save notes</button></div>') + '</div>');
       var back = function () { S.sub = null; loadMenu().then(render).catch(failed); };
       var again = function () { application(job, id).catch(failed); };
       var bb = $('#back', el);
@@ -399,8 +443,15 @@
       el.querySelectorAll('[data-vote]').forEach(function (b) {
         b.onclick = function () { call('voteApplication', job, id, Number(b.getAttribute('data-vote'))).then(function (res) { result(res, 'Vote saved.'); again(); }).catch(failed); };
       });
-      var notes = $('#notes', el);
-      $('#saveNotes', el).onclick = function () { call('saveNote', job, id, notes.value).then(function (res) { result(res, 'Notes saved.'); }).catch(failed); };
+      if (NATIVE) {
+        $('#editNotes', el).onclick = function () {
+          modal({ title: 'Manager notes', text: 'Only managers see these.', ok: 'Save', fields: [{ id: 'notes', label: 'Notes', type: 'textarea', value: a.notes || '' }] })
+            .then(function (v) { if (v) return call('saveNote', job, id, v.notes).then(function (res) { result(res, 'Notes saved.'); again(); }); }).catch(failed);
+        };
+      } else {
+        var notes = $('#notes', el);
+        $('#saveNotes', el).onclick = function () { call('saveNote', job, id, notes.value).then(function (res) { result(res, 'Notes saved.'); }).catch(failed); };
+      }
       if (!open) return;
       $('#accept', el).onclick = function () {
         var opts = grades.filter(function (gr) { return gr.level < limit; }).map(function (gr) { return { value: gr.level, label: gr.name }; });
@@ -547,6 +598,7 @@
   function layout() { document.getElementById('app').classList.toggle('narrow', window.innerWidth < 640); }
   function start() {
     api = makeApi();
+    NATIVE = DEVICE === 'phone' && typeof window.SetPopUp === 'function';
     if (api.theme) document.documentElement.setAttribute('data-theme', api.theme);
     document.body.classList.remove('phone-wait');
     document.body.style.visibility = 'visible';
