@@ -10,7 +10,7 @@
   Also in the app: staff profiles (hours, contact, contracts, record) with commend, write-up, Employee of the Week and
   bonus; bonus everyone on duty; payroll by rank; manager notes on applications; a Ranks tab when the rank editor is on.
   Tablets and computers show the list and the open person / application side by side. On the phone it's downloaded
-  from the App Store (`devices.preinstalled = true` to pre-install it). App icon and in-app logo: Blaze Scriptworks.
+  from the App Store (`devices.preinstalled = true` to pre-install it). App icon: the Blaze Scriptworks flame (computers also show the logo in the sidebar).
 - **Lation UI** (`useLationUI = true`): the boss menu, admin menu and Points menu use Lation's extras: header icon and
   subtitle, coloured icons per section (Points in the same colour as each ring on the ground), tags on the right
   (new applications, balance, On / Off, member and point counts) and a beating icon when applications are waiting.

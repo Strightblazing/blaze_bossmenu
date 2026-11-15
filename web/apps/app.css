@@ -155,3 +155,5 @@ textarea.notes:focus { border-color: var(--accent); }
 .narrow .brand { display: none; }
 .brand-foot { display: none; }
 .narrow .brand-foot { display: block; width: 150px; margin: 22px auto 4px; opacity: .8; }
+/* phone / tablet: no logo inside the app, the app icon is enough */
+[data-device="phone"] .brand, [data-device="phone"] .brand-foot { display: none !important; }
