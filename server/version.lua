@@ -108,7 +108,7 @@ function StartupBanner(stats)
     print(boxed(('  ^7BOSS MENU ^1v%s^7  ·  %s · %s · %s'):format(VERSION, fw, targetName(), ui)))
     print(boxed(('  %d jobs · %d gangs · %d points · %s'):format(stats.jobs or 0, stats.gangs or 0, stats.points or 0, bank)))
     print(boxed('  ^2Fully started.^7 ' .. TAGLINES[math.random(#TAGLINES)]))
-    print(boxed('  ^3Discord (support + updates):^7 ' .. DISCORD:gsub('^https://', '')))
+    print(boxed('  ^3Support & updates:^7 ' .. DISCORD .. ' ')) -- full https:// link so consoles make it clickable
     print(line)
     check()
 end
