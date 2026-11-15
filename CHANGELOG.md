@@ -13,7 +13,7 @@
   idle scenarios / animations, or type any model), changed later with **Change look**, also in `config.lua > locations`
   (`entity = { ... }`). PEDs stand still and never wander, flee or react. Targeting aims at the PED / prop itself, not
   the floor. The see-through preview is spawned like the real one (standing on the ground, not in it), turn it with
-  **← →**, and **Move** keeps the look.
+  **← →**, raise or lower it with **Page Up / Page Down** (±2 m), and **Move** keeps the look.
 - **E prompts** (no target script): one prompt for the nearest point only, fires once per press, never while a menu is
   open, no prompts stacking on overlapping points. Duplicate points on one spot are registered once.
   `targetDistance` sets how close you must be with ox_target / qb-target.

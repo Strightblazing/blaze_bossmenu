@@ -186,7 +186,8 @@ they never wander off, flee or react. With ox_target / qb-target you aim at the 
 - **Add boss desk**: pick the job or gang, aim at the spot and press **E** (Backspace cancels). While aiming you see a
   **preview**: the zone ring at its real size in its color, a line for the way it faces, and a see-through PED or prop
   exactly where (and how) the real one will stand. Change the size with the **mouse wheel** or **↑ / ↓** (0.5-5 m) and
-  turn the PED / prop with **← / →**.
+  turn the PED / prop with **← / →**. **Page Up / Page Down** raise or lower the point and its PED / prop (±2 m),
+  for counters, upper floors or uneven ground.
   The game HUD and minimap hide while you place. To hide your HUD resource too, set `placementHud` in config.lua
   (a function that hides / shows it), or listen to the client event `blaze_bossmenu:client:placing` (true / false). Press **G** on the card to switch **Output** to **Copy config line**:
   E then copies a ready `config.lua > locations` line (job, type, coords, heading, size) to your clipboard and F8

@@ -5,7 +5,7 @@
 <!-- Placement card shown while placing, moving or resizing a point (client/placement.lua). Runs inside web/index.html,
      never takes the mouse. Open this file in a browser for a demo.
      in: { action: 'place:show', mode: 'place'|'move'|'size', type, title, group, color: [r,g,b], size, resize, canExport, exportOn, exportKey, rotate }
-         { action: 'place:size', size } | { action: 'place:aim', ok } | { action: 'place:export', on } | { action: 'place:hide' } -->
+         { action: 'place:size', size } | { action: 'place:aim', ok } | { action: 'place:export', on } | { action: 'place:height', height } | { action: 'place:hide' } -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 :root{--panel:rgba(20,21,24,.94);--surface:#1a1c20;--line:#26292e;--line2:#30343a;--text:#f2f3f5;--muted:#8b9099;--faint:#5c616a;
@@ -69,7 +69,7 @@ let S = { mode: 'place', resize: true, size: 1 };
 function keys() {
   const k = (key, label, pri) => '<span' + (pri ? ' class="pri"' : '') + '><span class="k">' + key + '</span>' + label + '</span>';
   const act = S.exportOn ? 'Copy line' : (S.mode === 'size' ? 'Save' : (S.mode === 'move' ? 'Move here' : 'Place'));
-  $('keys').innerHTML = k('E', act, true) + (S.resize ? k('Scroll / ↑↓', 'Size') : '') + (S.rotate ? k('← →', 'Rotate') : '') + k('Backspace', 'Cancel');
+  $('keys').innerHTML = k('E', act, true) + (S.resize ? k('Scroll / ↑↓', 'Size') : '') + (S.rotate ? k('← →', 'Rotate') : '') + (S.mode !== 'size' ? k('PgUp / PgDn', 'Height') : '') + k('Backspace', 'Cancel');
 }
 function output(on) {
   S.exportOn = !!on;
@@ -91,10 +91,12 @@ function aim(ok) {
   if (S.mode === 'size') { $('aim').style.display = 'none'; return; }
   $('aim').style.display = '';
   $('aim').classList.toggle('off', !ok);
-  $('aimText').textContent = ok ? (S.mode === 'move' ? 'Shows where it will go' : 'Shows where it will be placed') : 'Aim at the ground or a surface';
+  S.aimOk = ok;
+  const h = S.height ? ' · height ' + (S.height > 0 ? '+' : '') + Number(S.height).toFixed(2) + ' m' : '';
+  $('aimText').textContent = ok ? (S.mode === 'move' ? 'Shows where it will go' : 'Shows where it will be placed') + h : 'Aim at the ground or a surface';
 }
 function show(d) {
-  S = Object.assign({ mode: 'place', resize: false, size: 1 }, d);
+  S = Object.assign({ mode: 'place', resize: false, size: 1, height: 0 }, d);
   const c = Array.isArray(d.color) ? d.color : [122, 162, 255];
   document.documentElement.style.setProperty('--c', c.join(','));
   $('title').textContent = d.title || 'Point';
@@ -108,6 +110,7 @@ addEventListener('message', e => {
   else if (d.action === 'place:size') size(d.size, true);
   else if (d.action === 'place:aim') aim(!!d.ok);
   else if (d.action === 'place:export') output(d.on);
+  else if (d.action === 'place:height') { S.height = Number(d.height) || 0; aim(S.aimOk !== false); }
   else if (d.action === 'place:hide') $('card').classList.remove('show');
 });
 

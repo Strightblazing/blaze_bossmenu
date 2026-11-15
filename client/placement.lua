@@ -181,6 +181,7 @@ local function placeMarker(text, opts)
     local rot = opts.heading or ((GetEntityHeading(cache.ped) + 180.0) % 360.0) -- a PED / prop starts facing you
     local ghost, ghostTried = nil, false
     local pointHeading = GetEntityHeading(cache.ped)
+    local lift, shownLift = 0.0, 0.0 -- Page Up / Page Down: raise or lower the point (and its PED / prop), -2 to +2 m
     local chosen
     while true do
         Wait(0)
@@ -202,11 +203,19 @@ local function placeMarker(text, opts)
             if IsDisabledControlPressed(0, 174) then rot = (rot + 2.0) % 360.0 end
             if IsDisabledControlPressed(0, 175) then rot = (rot - 2.0) % 360.0 end
         end
+        -- Page Up / Page Down: height (hold to keep moving, ~0.6 m a second)
+        DisableControlAction(0, 10, true)
+        DisableControlAction(0, 11, true)
+        if IsDisabledControlPressed(0, 10) then lift = math.min(2.0, lift + 0.01) end
+        if IsDisabledControlPressed(0, 11) then lift = math.max(-2.0, lift - 0.01) end
+        local rounded = math.floor(lift * 100 + 0.5) / 100
+        if rounded ~= shownLift then shownLift = rounded SendNUIMessage({ action = 'place:height', height = rounded }) end
         pointHeading = look and rot or GetEntityHeading(cache.ped)
         local hit, _, coords = lib.raycast.fromCamera(1 | 16, cache.ped, 15.0)
         local ok = (hit and coords) and true or false
         if ok ~= aimOk then aimOk = ok SendNUIMessage({ action = 'place:aim', ok = ok }) end
         if hit and coords then
+            coords = vec3(coords.x, coords.y, coords.z + shownLift)
             drawPreview(coords, opts.ptype, radius, pointHeading) -- the card names it, so no 3D text
             -- see-through PED / prop exactly where the real one will stand (classic receptionist: behind the counter)
             local gl, gx, gy, gz, gh = BMC.pointLook({ entity = look, type = opts.ptype, coords = coords, heading = pointHeading })
