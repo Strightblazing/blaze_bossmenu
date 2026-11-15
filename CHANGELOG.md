@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Pending interviews:** the boss menu's Applications has a Pending interviews view (with a count) and filter, the main
+  Applications line shows how many interviews are waiting, and the phone / tablet app has an Interviews filter.
+- Application result mails (phone) arrive after a short random delay instead of the same instant
+  (`features.phoneMailDelay`, 15-45 seconds by default).
 - **Name, age, phone number and email on job applications:** the character's full name and age (from their birthdate,
   `applications.age`; `minAge = 18` keeps younger characters from applying) are shown locked at the top of the form.
   Phone number and email: pulled from the applicant's phone (the same phone resources as profiles)

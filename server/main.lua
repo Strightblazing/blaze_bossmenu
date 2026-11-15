@@ -807,6 +807,7 @@ register('getMenu', function(src, gtype, name, asAdmin)
     if data.apps then
         data.appsOpen = isOpen(name)
         data.newApps = MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status = 'new'", { name }) or 0
+        data.interviews = MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status = 'interview'", { name }) or 0
     end
     if data.funds then data.balance = Banking.getBalance(groupCfg(gtype, name).society) end
     return data
@@ -1202,7 +1203,9 @@ if APPS.enabled then
         local where = "status IN ('new','interview')"
         if filter == 'accepted' then where = "status = 'accepted'"
         elseif filter == 'denied' then where = "status = 'denied'"
-        elseif filter == 'withdrawn' then where = "status = 'withdrawn'" end
+        elseif filter == 'withdrawn' then where = "status = 'withdrawn'"
+        elseif filter == 'interview' then where = "status = 'interview'"
+        elseif filter == 'new' then where = "status = 'new'" end
         return MySQL.query.await(("SELECT id, name, status, DATE_FORMAT(created_at, '%%m-%%d-%%Y %%H:%%i') AS created FROM blaze_boss_applications WHERE job = ? AND %s ORDER BY id DESC LIMIT 100"):format(where), { job }) or {}
     end)
 

@@ -433,7 +433,7 @@
     if (S.sub && !wide()) return application(job, S.sub);
     return call('getApplications', job, S.filter === 'open' ? null : S.filter).then(function (r) {
       var rows = arr(r[0]);
-      var f = [['open', 'Open'], ['accepted', 'Accepted'], ['denied', 'Denied'], ['withdrawn', 'Withdrawn']];
+      var f = [['open', 'Open'], ['interview', 'Interviews'], ['accepted', 'Accepted'], ['denied', 'Denied'], ['withdrawn', 'Withdrawn']];
       var listHtml = '<div class="bar"><div class="seg">' + f.map(function (x) { return '<button data-f="' + x[0] + '" class="' + (S.filter === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') +
         '</div><span class="grow"></span><button class="btn ' + (S.m.appsOpen ? 'bad' : 'good') + '" id="toggle">' + (S.m.appsOpen ? 'Close' : 'Open') + ' applications</button></div>' +
         '<div class="list">' + (rows.length ? rows.map(function (a) {

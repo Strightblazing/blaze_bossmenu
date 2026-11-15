@@ -121,7 +121,13 @@ BM.hooks.applicationUpdate = function(row)
     else
         return
     end
-    Bridge.SendMail(row.citizenid, jl .. ' Management', ('hr@%s.jobs'):format(row.job), subject, body)
+    -- a short, random delay (features.phoneMailDelay), so the reply doesn't land the instant the manager clicks
+    local d = F.phoneMailDelay
+    local lo = math.max(0, math.floor(tonumber(type(d) == 'table' and d.min or d) or 0))
+    local hi = math.max(lo, math.floor(tonumber(type(d) == 'table' and d.max or d) or lo))
+    local wait = (hi > lo and math.random(lo, hi) or lo) * 1000
+    local cid, from, address = row.citizenid, jl .. ' Management', ('hr@%s.jobs'):format(row.job)
+    SetTimeout(wait, function() Bridge.SendMail(cid, from, address, subject, body) end)
 end
 
 --- Going on duty: show the department announcement they haven't seen yet

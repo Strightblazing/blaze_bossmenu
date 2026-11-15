@@ -309,7 +309,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `features.announcements` / `employeeOfWeek` / `auditLog` | Announcements, Employee of the Week, Activity log (`auditShow`, `auditKeepDays`). |
 | `features.celebrations` / `handshake` | On-screen celebrations and the hire handshake. |
 | `features.myJobCommand` / `jobBoardCommand` | `/myjob` and `/jobs` command names, or `false`. |
-| `features.phoneMail` | Send application results by sd-phone mail. |
+| `features.phoneMail` / `phoneMailDelay` | Send application results by sd-phone mail, after a random delay (`{ min = 15, max = 45 }` seconds). |
 | `features.receptionist` | NPC at applications points: `enabled`, `model`, `scenario`, `greet`. |
 | `duty.*` | Duty points: `enabled`, `style` (`'clock'` screen / `'instant'` toggle), `methods` (`'tap'`, `'swipe'`, `'keypad'`), `size` (starting size of the time clock; players change their own), `view` (what the full time clock shows: `layout` = `'full'` / `'standard'` / `'minimal'`, `sections` to turn single parts on or off, `aboutYou` to pick the About you lines; phone / email turned off aren't looked up). |
 | `outfits.*` | Job outfits: `enabled`, `appearance` (`'auto'` = illenium-appearance if running, `'native'`), `maxPerJob`. |

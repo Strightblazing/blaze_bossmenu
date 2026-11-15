@@ -434,8 +434,8 @@ end
 ---------------------------------------------------------------------------
 -- Applications (managers)
 ---------------------------------------------------------------------------
-local FILTERS = { review = 'To review', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
-local NEXT_FILTER = { review = 'accepted', accepted = 'denied', denied = 'withdrawn', withdrawn = 'review' }
+local FILTERS = { review = 'To review', interview = 'Pending interviews', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
+local NEXT_FILTER = { review = 'interview', interview = 'accepted', accepted = 'denied', denied = 'withdrawn', withdrawn = 'review' }
 local STATUS_ICON = { new = 'fa-solid fa-envelope', interview = 'fa-solid fa-comments', accepted = 'fa-solid fa-check', denied = 'fa-solid fa-xmark', withdrawn = 'fa-solid fa-rotate-left' }
 
 --- Message dialog with optional ready-made replies (Config.applications.quickReplies[kind]).
@@ -544,6 +544,13 @@ openApps = function(m, filter)
     }
     if m.formEdit then
         options[#options + 1] = { title = 'Edit application form', icon = 'fa-solid fa-pen-to-square', arrow = true, onSelect = function() openFormEditor(m) end }
+    end
+    -- straight to the people invited to an interview who haven't been decided yet
+    if filter ~= 'interview' then
+        local pending = call('getApplications', m.name, 'interview') or {}
+        options[#options + 1] = { title = 'Pending interviews', icon = 'fa-solid fa-comments', iconColor = '#F0A93B', arrow = true,
+            description = #pending == 0 and 'Nobody is waiting for an interview' or (#pending .. (#pending == 1 and ' person invited' or ' people invited') .. ', not decided yet'),
+            keybind = #pending > 0 and tostring(#pending) or nil, onSelect = function() openApps(m, 'interview') end }
     end
     options[#options + 1] = { title = 'Showing: ' .. FILTERS[filter], icon = 'fa-solid fa-filter', description = 'Click for ' .. FILTERS[NEXT_FILTER[filter]],
         onSelect = function() openApps(m, NEXT_FILTER[filter]) end }
@@ -742,7 +749,8 @@ openGroup = function(gtype, name, fromPicker, asAdmin)
     if m.apps then
         local new = m.newApps or 0
         options[#options + 1] = { title = 'Applications', icon = 'fa-solid fa-file-signature', arrow = true,
-            description = ('%d new · %s'):format(new, m.appsOpen and 'Open' or 'Closed'), onSelect = function() openApps(m) end,
+            description = ('%d new%s · %s'):format(new, (m.interviews or 0) > 0 and (' · %d interview%s'):format(m.interviews, m.interviews == 1 and '' or 's') or '', m.appsOpen and 'Open' or 'Closed'),
+            onSelect = function() openApps(m) end,
             keybind = new > 0 and (new .. ' new') or (m.appsOpen and 'Open' or 'Closed'), iconAnimation = new > 0 and 'beat' or nil }
     end
     if m.funds then

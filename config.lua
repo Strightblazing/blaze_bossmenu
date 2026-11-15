@@ -394,6 +394,8 @@ Config = {
         jobBoardCommand = 'jobs',
         -- Also send application results by phone mail (sd-phone, if it's running). false = off
         phoneMail = true,
+        -- Seconds before that mail arrives, picked at random between min and max (a reply doesn't land the same instant)
+        phoneMailDelay = { min = 15, max = 45 },
         -- A receptionist NPC stands at each applications point and greets people who walk up
         receptionist = {
             enabled = true,
