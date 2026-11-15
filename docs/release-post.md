@@ -46,7 +46,9 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 **And more**
 - Duty points, job outfits and wardrobes (illenium-appearance), starter items (ox_inventory)
 - Phone number / email from sd-phone, lb-phone, high-phone, qs-smartphone(-pro), 17mov_Phone, npwd
-- Admins and managers place points in game (aim + E), Show zones, `/bossdebug` live debug panel, `/bossmenutest` test tools with "View as"
+- `/bossmenuadmin` admin menu: boss menus for any job, points, Show zones, debug, test tools (the boss menu stays roleplay only)
+- Admins and managers place points in game with a live preview: invisible, a PED (idle animations, never wanders) or a prop
+- `/bossdebug` live debug panel, `/bossmenutest` test tools with "View as"
 - Console, ox_lib logger and Discord logs (webhook only in server.cfg)
 - Drop-in for qbx_management / qb-bossmenu: keeps their tables, exports and events
 - …and many more!

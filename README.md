@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/branding/blaze-scriptworks.webp" alt="Blaze Scriptworks" width="520"></p>
+
 # blaze_bossmenu
 
 Boss menu + job application system for **any job** (EMS, fire, police, mechanic, …) and gangs.

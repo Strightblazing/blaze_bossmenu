@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Blaze Scriptworks** branding: the startup banner is the logo as console art (red flame with </>, white BLAZE, gold
+  SCRIPTWORKS, red bar, gold frame), no image or URL needed. Logo in the README (`docs/branding`).
 - **Admin menu `/bossmenuadmin`** (`adminCommand`): boss menus for any job or gang with full access, points, Show zones,
   debug, test tools and a settings overview. The boss menu is roleplay only now: admin rights (`adminsCanManage`) only
   apply to a group opened from the admin menu, checked on the server; at desks and in the radial menu admins are

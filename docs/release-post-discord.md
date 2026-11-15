@@ -16,7 +16,8 @@ A drop-in replacement for **qbx_management** (GPL-3.0 fork). Keeps its tables, e
 • Time clock styles: full, standard or minimal
 • Employment contracts signed with the mouse, per-job templates
 • Duty points, job outfits and wardrobes, starter items
-• Place every point in game (aim + E), Show zones
+• `/bossmenuadmin` admin menu; the boss menu stays roleplay only
+• Place points in game with a live preview: invisible, a PED or a prop
 • `/bossdebug` live panel (move + resize), `/bossmenutest` with **View as**
 • Auto-detects ox_target / qb-target, illenium-appearance, ox_inventory, popular phones and banking
 • Discord logs (webhook only in server.cfg)

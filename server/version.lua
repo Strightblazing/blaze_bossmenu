@@ -29,12 +29,38 @@ local function compare(a, b)
     return 0
 end
 
-local WIDTH = 52
+local WIDTH = 58
 -- one boxed line: pads to WIDTH, ignoring colour codes (^1 etc) and counting characters, not bytes
 local function boxed(text)
     local visible = text:gsub('%^%d', '')
     local len = (utf8 and utf8.len(visible)) or #visible
-    return '^1|^7' .. text .. (' '):rep(math.max(0, WIDTH - len)) .. '^1|^7'
+    return '^3|^7' .. text .. (' '):rep(math.max(0, WIDTH - len)) .. '^3|^7'
+end
+
+-- Blaze Scriptworks logo as console art: red flame with a white </>, white BLAZE, gold SCRIPTWORKS, red bar,
+-- gold frame (^1 red, ^3 gold, ^7 white). Plain ASCII, so it lines up in any console. No image needed.
+local FLAME = {
+    [[^1      (     ]],
+    [[^1     ) )    ]],
+    [[^1    ( ( (   ]],
+    [[^1   ) )/\ )  ]],
+    [[^1  ( ^7</>^1 (   ]],
+    [[^1   \____/   ]],
+}
+local WORD = {
+    [[                                     ]],
+    [[ ____   _         _     _____  _____ ]],
+    [[| __ ) | |       / \   |__  / | ____|]],
+    [[|  _ \ | |      / _ \    / /  |  _|  ]],
+    [[| |_) || |___  / ___ \  / /_  | |___ ]],
+    [[|____/ |_____|/_/   \_\/____| |_____|]],
+}
+local function logo()
+    local out = {}
+    for i = 1, #FLAME do out[#out + 1] = boxed('  ' .. FLAME[i] .. '^7' .. WORD[i]) end
+    out[#out + 1] = boxed((' '):rep(22) .. '^3S C R I P T W O R K S^7')
+    out[#out + 1] = boxed((' '):rep(14) .. '^1' .. ('='):rep(37) .. '^7')
+    return out
 end
 
 local function targetName()
@@ -73,12 +99,13 @@ function StartupBanner(stats)
     local fw = Bridge.framework == 'qb' and 'QBCore' or 'Qbox'
     local ui = (Config.useLationUI and GetResourceState('lation_ui') == 'started') and 'Lation UI' or 'ox_lib'
     local bank = Banking.resource() or 'no banking'
-    local line = '^1+' .. ('-'):rep(WIDTH) .. '+^7'
+    local line = '^3+' .. ('-'):rep(WIDTH) .. '+^7'
     print(line)
-    print(boxed(('  ^1+^7 BLAZE BOSS MENU  ^1v%s^7'):format(VERSION)))
-    print(boxed(('    %s · %s · %s'):format(fw, targetName(), ui)))
-    print(boxed(('    %d jobs · %d gangs · %d points · %s'):format(stats.jobs or 0, stats.gangs or 0, stats.points or 0, bank)))
-    print(boxed('    ^2Fully started.^7 ' .. TAGLINES[math.random(#TAGLINES)]))
+    for _, l in ipairs(logo()) do print(l) end
+    print(boxed(''))
+    print(boxed(('  ^7BOSS MENU ^1v%s^7  ·  %s · %s · %s'):format(VERSION, fw, targetName(), ui)))
+    print(boxed(('  %d jobs · %d gangs · %d points · %s'):format(stats.jobs or 0, stats.gangs or 0, stats.points or 0, bank)))
+    print(boxed('  ^2Fully started.^7 ' .. TAGLINES[math.random(#TAGLINES)]))
     print(line)
     check()
 end
