@@ -1,38 +1,36 @@
 # Changelog
 
-## Unreleased
+## 1.2.4
 
-- **Applications menu, faster to review:** the status filters sit right in the menu (All, To review, Pending interview,
-  Accepted, Denied, Withdrawn), each with its live count, the current one checked; one click shows those applicants
-  below a "SHOWING" line (no separate "Showing" step). Applicants show their ID, status and date; the detail menu adds the
-  ID, the job and the date sent, Back keeps the filter, and after interview / accept / deny it opens the new status.
-  The main Applications line shows how many interviews are waiting; the phone / tablet app has an Interviews filter.
-- **Needs training:** a new step between the interview and hiring. Managers mark an applicant as needing training
-  with a message (quick replies in `applications.quickReplies.training`). The applicant is told and gets a phone mail.
-  From there they can be accepted & hired or denied. It has its own filter in the boss menu and the phone / tablet app,
-  and the main Applications line shows how many are in training. Older installs get the new column added automatically.
-- **Clear application data** in Hiring settings: delete the closed applications (accepted, denied, withdrawn) or every
-  application of the job, with their votes and notes, after a confirm. The form is kept. Who can use it:
-  `applications.clearData` (`'management'` by default, `'admin'`, or `false`). Logged as `clearApps`.
-- **Applications menu, easier to read:**
-  - Applicants come right after the filters.
-  - Accepting on / off and Edit form moved into a **Hiring settings** option at the bottom.
-  - The header says whether you're Open or Closed.
-  - To review, Pending interview, Needs training, Accepted, Denied and All always show; Withdrawn only when it has any.
+- **Applications menu, rebuilt to be easier to read and faster to review:**
+  - Filters sit right in the menu, each with a live count: All, To review, Pending interview, Needs training, Accepted
+    and Denied always show; Withdrawn only when it has any. One click shows those applicants below a "SHOWING" line.
   - When nothing is waiting for review, the menu opens on the first status that has applications.
   - Applicant lines are short ("#1042 · 2h ago · 2 for · 0 against"); hover for age, phone and the first answer.
+  - Accepting on / off, Edit form and Clear application data moved into a **Hiring settings** option at the bottom.
+    The header says whether you're Open or Closed.
   - The applicant menu is split into sections (Applicant, Actions, Team vote, Answers, Notes), with the actions first.
-  - The team vote has a for / against bar, and closed applications show "Decided" instead of greyed-out buttons.
+    The team vote has a for / against bar, and closed applications show "Decided" instead of greyed-out buttons.
   - **Read full answers** shows every answer in one popup.
-- Application result mails (phone) arrive after a short random delay instead of the same instant
-  (`features.phoneMailDelay`, 15-45 seconds by default).
+  - Back keeps your filter, and after interview / training / accept / deny the menu opens on the new status.
+  - The main Applications line shows how many interviews and trainees are waiting; the phone / tablet app has
+    Interviews and Training filters.
+- **Needs training:** a new step between the interview and hiring. Managers mark an applicant as needing training
+  with a message (quick replies in `applications.quickReplies.training`). The applicant is told and gets a phone mail,
+  and sees the message in "My applications". From there they can be accepted & hired or denied.
+  Older installs get the new database column added automatically.
+- **Clear application data** (Hiring settings): delete the closed applications (accepted, denied, withdrawn) or every
+  application of the job, with their votes and notes, after a confirm. The form is kept. Who can use it:
+  `applications.clearData` (`'management'` by default, `'admin'`, or `false`). Logged as `clearApps`.
 - **Name, age, phone number and email on job applications:** the character's full name and age (from their birthdate,
   `applications.age`; `minAge = 18` keeps younger characters from applying) are shown locked at the top of the form.
-  Phone number and email: pulled from the applicant's phone (the same phone resources as profiles)
+  Phone number and email are pulled from the applicant's phone (the same phone resources as profiles)
   and sent with the application, shown at the top of the form and to managers. If one isn't set up, the applicant is told
   to set it up on their phone first (`applications.contact`: `phone`, `email`, `phoneRequired`, `emailRequired`).
   The default form no longer asks for a phone number, and a saved form's phone / email questions are skipped for
   applicants while those come from the phone (managers still see them in the form editor).
+- Application result mails (phone) arrive after a short random delay instead of the same instant
+  (`features.phoneMailDelay`, 15-45 seconds by default).
 
 ## 1.2.3
 
