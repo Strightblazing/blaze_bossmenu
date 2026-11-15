@@ -1,4 +1,5 @@
 <p align="center"><img src="docs/branding/blaze-scriptworks.webp" alt="Blaze Scriptworks" width="520"></p>
+<p align="center"><a href="https://discord.gg/u6b6nCDJMa"><img src="https://img.shields.io/badge/Discord-Blaze%20Scriptworks-5865F2?logo=discord&logoColor=white" alt="Join the Blaze Scriptworks Discord"></a></p>
 
 # blaze_bossmenu
 
@@ -7,6 +8,7 @@ Runs on **Qbox** and **QBCore**. Menus use **ox_lib** by default, with optional 
 the time clock and the debug panel are small web screens (`web/`).
 
 Free and open source under **GPL-3.0** (see [License & credits](#license--credits)).
+Support, updates and suggestions: **[Blaze Scriptworks Discord](https://discord.gg/u6b6nCDJMa)** (or GitHub issues).
 
 It is a fork of [qbx_management](https://github.com/Qbox-project/qbx_management) (GPL-3.0) and replaces it:
 everything qbx_management did is here, plus applications, funds, callsigns and in-game placement. See `NOTICE.md`.

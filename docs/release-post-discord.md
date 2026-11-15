@@ -25,6 +25,7 @@ A drop-in replacement for **qbx_management** (GPL-3.0 fork). Keeps its tables, e
 
 **Download:** <https://github.com/Strightblazing/blaze_bossmenu/releases/latest>
 **GitHub / setup:** <https://github.com/Strightblazing/blaze_bossmenu>
+**Support / updates:** https://discord.gg/u6b6nCDJMa
 Requires ox_lib + oxmysql. Free and open source.
 
 > **Heads up:** this resource was built with the help of AI (Claude). I've tested it on my own server, but it hasn't been tested by other people or on other setups yet, so expect some rough edges. Please report bugs on GitHub and I'll fix them.

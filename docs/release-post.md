@@ -63,6 +63,7 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 ## Download
 - Download: https://github.com/Strightblazing/blaze_bossmenu/releases/latest
 - GitHub: https://github.com/Strightblazing/blaze_bossmenu
+- Discord (support and updates): https://discord.gg/u6b6nCDJMa
 - Setup and every config option: README on GitHub
 
 | | |
@@ -71,7 +72,7 @@ Free and open source (GPL-3.0). Works on **Qbox** and **QBCore** with **ox_lib**
 | Subscription-based | No |
 | Lines (approximately) | ~7,300 |
 | Requirements & dependencies | ox_lib, oxmysql, Qbox or QBCore |
-| Support | Yes (GitHub issues) |
+| Support | Yes ([Discord](https://discord.gg/u6b6nCDJMa) and GitHub issues) |
 
 Based on [qbx_management](https://github.com/Qbox-project/qbx_management) by the Qbox Project. Licensed under GPL-3.0.
 

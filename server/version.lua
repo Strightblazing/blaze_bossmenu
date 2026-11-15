@@ -9,6 +9,8 @@ local RES = GetCurrentResourceName()
 local VERSION = GetResourceMetadata(RES, 'version', 0) or '0.0.0'
 local REPO = GetResourceMetadata(RES, 'repository', 0)
 
+local DISCORD = 'https://discord.gg/u6b6nCDJMa' -- Blaze Scriptworks: support and updates
+
 local TAGLINES = {
     'Desk cleared, coffee poured.', 'Applications open for business.', 'Payroll balanced.', 'Rosters up to date.',
     'Interview room is ready.', 'The boss is in.', 'Clipboards at the ready.', 'Now hiring.',
@@ -106,6 +108,7 @@ function StartupBanner(stats)
     print(boxed(('  ^7BOSS MENU ^1v%s^7  ·  %s · %s · %s'):format(VERSION, fw, targetName(), ui)))
     print(boxed(('  %d jobs · %d gangs · %d points · %s'):format(stats.jobs or 0, stats.gangs or 0, stats.points or 0, bank)))
     print(boxed('  ^2Fully started.^7 ' .. TAGLINES[math.random(#TAGLINES)]))
+    print(boxed('  ^3Discord (support + updates):^7 ' .. DISCORD:gsub('^https://', '')))
     print(line)
     check()
 end
