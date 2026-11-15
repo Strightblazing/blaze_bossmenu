@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Discord log titles start with **Blaze Boss Menu** (for example "Blaze Boss Menu · Form edit").
+
 ## 1.2.2
 
 - **Blaze Scriptworks** branding: the startup banner is the logo as console art (red flame with </>, white BLAZE, gold

@@ -88,8 +88,10 @@ function Logs.log(event, src, message, fields)
         for k, v in pairs(fields) do
             embedFields[#embedFields + 1] = { name = tostring(k), value = tostring(v):sub(1, 1000), inline = true }
         end
+        -- Title always starts with the resource name: "Blaze Boss Menu · Form edit"
+        local label = event:gsub('(%l)(%u)', '%1 %2'):lower():gsub('^%l', string.upper)
         queue[#queue + 1] = {
-            title = event:gsub('^%l', string.upper), description = message:sub(1, 2000),
+            title = 'Blaze Boss Menu · ' .. label, description = message:sub(1, 2000),
             color = COLOURS[event] or 0x8F99A5, fields = embedFields,
             footer = { text = 'Blaze Boss Menu' }, timestamp = os.date('!%Y-%m-%dT%H:%M:%SZ'),
         }
