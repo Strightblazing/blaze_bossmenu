@@ -61,6 +61,9 @@
   function failed(e) { toast((e && e.message) || String(e), 'bad'); }
 
   // ---------------------------------------------------------------- toasts and modals
+  /** sd-phone / sd-tablet hand the keyboard to a text box on focus and back on blur. A text box that is removed
+   *  while focused never blurs, which leaves the phone stuck in typing mode, so blur it first. */
+  function letGo() { var a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); }
   var toastTimer;
   function toast(text, kind) {
     var t = $('#toast');
@@ -101,6 +104,7 @@
           out = {};
           shade.querySelectorAll('[data-id]').forEach(function (el) { out[el.getAttribute('data-id')] = el.value; });
         }
+        letGo();
         shade.remove();
         resolve(out);
       }
@@ -146,6 +150,7 @@
   function wide() { var a = $('#app'); return !!a && !a.classList.contains('narrow'); }
   function render() {
     var app = $('#app');
+    letGo();
     if (!S.g || !S.m) return noAccess(); // not a manager of anything (the server decides)
     var tabs = [['overview', 'Overview'], ['staff', S.g.gtype === 'gang' ? 'Members' : 'Staff']];
     if (S.m.apps) tabs.push(['apps', 'Applications']);
@@ -177,12 +182,12 @@
     if (pick) pick.onchange = function () { S.g = S.groups[Number(pick.value)]; S.tab = 'overview'; S.sub = null; loadMenu().then(render).catch(failed); };
     $('#refresh').onclick = function () { refresh(); };
   }
-  function main(html) { var m = $('#main'); if (m) m.innerHTML = html; return m; }
+  function main(html) { letGo(); var m = $('#main'); if (m) m.innerHTML = html; return m; }
   /** Tablet / computer: a list on the left and what's open on the right. Phone: one screen at a time. */
   function split(listHtml, detailHtml) {
     return '<div class="split"><div class="split-list">' + listHtml + '</div><div class="split-detail" id="detail">' + detailHtml + '</div></div>';
   }
-  function pane(html) { var d = $('#detail'); if (d) { d.innerHTML = html; return d; } return main(html); }
+  function pane(html) { letGo(); var d = $('#detail'); if (d) { d.innerHTML = html; return d; } return main(html); }
   function pickHint(text) { return '<div class="pick-hint">' + esc(text) + '</div>'; }
 
   // ---------------------------------------------------------------- overview
