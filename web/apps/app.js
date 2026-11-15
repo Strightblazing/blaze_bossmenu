@@ -84,6 +84,8 @@
     var fields = o.fields || [];
     var out = {};
     var okColor = o.danger ? '#E5484D' : undefined;
+    // the phone animates a pop-up away: opening the next one right away can leave it stuck (looks frozen)
+    var pause = function () { return new Promise(function (r) { setTimeout(r, 450); }); };
     function ask(i) {
       if (i >= fields.length) return Promise.resolve(out);
       var f = fields[i], last = i === fields.length - 1;
@@ -94,7 +96,7 @@
           buttons: f.options.map(function (op) { return { title: String(op.label) }; }) })).then(function (idx) {
           if (typeof idx !== 'number' || !f.options[idx]) return null;
           out[f.id] = String(f.options[idx].value);
-          return ask(i + 1);
+          return last ? out : pause().then(function () { return ask(i + 1); });
         });
       }
       var value = f.value == null ? '' : String(f.value);
@@ -106,7 +108,7 @@
       })).then(function (idx) {
         if (idx !== 1) return null;
         out[f.id] = value;
-        return ask(i + 1);
+        return last ? out : pause().then(function () { return ask(i + 1); });
       });
     }
     if (!fields.length) {
