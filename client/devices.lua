@@ -22,9 +22,9 @@ local function register()
             name = D.label or 'Boss Menu',
             description = 'Staff, applications, funds and activity for the jobs you manage.',
             developer = 'Blaze Scriptworks',
-            defaultApp = true, -- pre-installed, no App Store download
+            defaultApp = D.preinstalled == true, -- false: players download it from the App Store first
             ui = RES .. '/web/apps/phone.html',
-            icon = ('https://cfx-nui-%s/web/apps/icon.svg'):format(RES),
+            icon = ('https://cfx-nui-%s/web/apps/icon.png'):format(RES), -- Blaze Scriptworks flame
             jobs = jobs(),
         })
     end)

@@ -19,6 +19,7 @@ local ALLOWED = {
     getFunds = 2, deposit = 4, withdraw = 4,
     getApplications = 2, getApplication = 2, interview = 3, accept = 3, deny = 3, voteApplication = 3, toggleApplications = 1,
     getAnnouncement = 2, postAnnouncement = 3, getAudit = 2,
+    getProfile = 3, addRecord = 5, setEmployeeOfWeek = 4, bonus = 6, getPayroll = 2, saveNote = 3, modifyGrade = 4,
 }
 
 --- Run one boss menu action for a player from a device. Returns { ok, a, b } (a, b = what the boss menu gets back).
@@ -58,7 +59,7 @@ local function registerComputer()
         developer = 'Blaze Scriptworks',
         color = '#3B82F6',
         ui = RES .. '/web/apps/computer.html',
-        icon = RES .. '/web/apps/icon.svg',
+        icon = RES .. '/web/apps/icon.png', -- Blaze Scriptworks flame
         size = { w = 1040, h = 700 },
         pinned = D.pinned ~= false,
         groups = groups(),

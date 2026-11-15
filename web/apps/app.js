@@ -17,6 +17,7 @@
     staff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.5c2.3.2 4 1.9 4.5 4.5"/></svg>',
     apps: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>',
     funds: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></svg>',
+    ranks: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z"/></svg>',
     activity: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>',
   };
 
@@ -138,7 +139,7 @@
   function noAccess(reason) {
     S.g = null; S.m = null;
     var app = $('#app');
-    app.innerHTML = '<header class="top"><img src="icon.svg" alt=""><div class="t"><h1>Boss Menu</h1><p>Blaze Boss Menu</p></div>' +
+    app.innerHTML = '<header class="top"><img src="icon.png" alt=""><div class="t"><h1>Boss Menu</h1><p>Blaze Boss Menu</p></div>' +
       '<button class="refresh" id="refresh" title="Try again">&#x21bb;</button></header>' +
       '<div class="main"><div class="notice"><b>You don\'t have access to the Boss Menu.</b>' +
       '<small>' + esc(reason || 'Only managers of a job or gang can use it: the same people who can open that job\'s boss desk.') + '</small></div></div>';
@@ -146,23 +147,25 @@
   }
 
   // ---------------------------------------------------------------- shell
+  function wide() { var a = $('#app'); return !!a && !a.classList.contains('narrow'); }
   function render() {
     var app = $('#app');
     if (!S.g || !S.m) return noAccess(); // not a manager of anything (the server decides)
     var tabs = [['overview', 'Overview'], ['staff', S.g.gtype === 'gang' ? 'Members' : 'Staff']];
     if (S.m.apps) tabs.push(['apps', 'Applications']);
     if (S.m.funds) tabs.push(['funds', 'Funds']);
+    if (S.m.gradeEdit) tabs.push(['ranks', 'Ranks']);
     tabs.push(['activity', 'Activity']);
     if (!tabs.some(function (t) { return t[0] === S.tab; })) S.tab = 'overview';
     app.innerHTML = head() + '<div class="body"><nav class="nav">' + tabs.map(function (t) {
       var count = t[0] === 'apps' && S.m.newApps > 0 ? '<span class="count">' + S.m.newApps + '</span>' : '';
       return '<button data-tab="' + t[0] + '" class="' + (S.tab === t[0] ? 'on' : '') + '">' + ICON[t[0]] + '<span>' + t[1] + '</span>' + count + '</button>';
-    }).join('') + '</nav><div class="main" id="main"><div class="loading">Loading…</div></div></div>';
+    }).join('') + '<img class="brand" src="brand.webp" alt="Blaze Scriptworks"></nav><div class="main" id="main"><div class="loading">Loading…</div></div></div>';
     wireHead();
     app.querySelectorAll('[data-tab]').forEach(function (b) {
       b.onclick = function () { S.tab = b.getAttribute('data-tab'); S.sub = null; render(); };
     });
-    var view = { overview: overview, staff: staff, apps: apps, funds: funds, activity: activity }[S.tab];
+    var view = { overview: overview, staff: staff, apps: apps, funds: funds, ranks: ranks, activity: activity }[S.tab];
     Promise.resolve().then(view).catch(failed);
   }
   function head() {
@@ -170,7 +173,7 @@
       return '<option value="' + i + '"' + (S.g && g.name === S.g.name && g.gtype === S.g.gtype ? ' selected' : '') + '>' + esc(g.label) + '</option>';
     }).join('') + '</select>' : '';
     var sub = S.m ? (S.g.gtype === 'gang' ? 'Gang management' : 'Department management') : 'Blaze Boss Menu';
-    return '<header class="top"><img src="icon.svg" alt=""><div class="t"><h1>' + esc(S.m ? S.m.label : 'Boss Menu') + '</h1><p>' + sub + '</p></div>' +
+    return '<header class="top"><img src="icon.png" alt=""><div class="t"><h1>' + esc(S.m ? S.m.label : 'Boss Menu') + '</h1><p>' + sub + '</p></div>' +
       sel + '<button class="refresh" id="refresh" title="Refresh">&#x21bb;</button></header>';
   }
   function wireHead() {
@@ -179,32 +182,45 @@
     $('#refresh').onclick = function () { refresh(); };
   }
   function main(html) { var m = $('#main'); if (m) m.innerHTML = html; return m; }
+  /** Tablet / computer: a list on the left and what's open on the right. Phone: one screen at a time. */
+  function split(listHtml, detailHtml) {
+    return '<div class="split"><div class="split-list">' + listHtml + '</div><div class="split-detail" id="detail">' + detailHtml + '</div></div>';
+  }
+  function pane(html) { var d = $('#detail'); if (d) { d.innerHTML = html; return d; } return main(html); }
+  function pickHint(text) { return '<div class="pick-hint">' + esc(text) + '</div>'; }
 
   // ---------------------------------------------------------------- overview
   function overview() {
     var g = S.g;
-    return Promise.all([call('getStaff', g.gtype, g.name), call('getAnnouncement', g.gtype, g.name)]).then(function (r) {
+    var jobs = [call('getStaff', g.gtype, g.name), call('getAnnouncement', g.gtype, g.name)];
+    if (g.gtype === 'job' && S.m.funds) jobs.push(call('getPayroll', g.gtype, g.name));
+    return Promise.all(jobs).then(function (r) {
       var members = arr(r[0][0] && r[0][0].members);
-      var onDuty = members.filter(function (m) { return m.onduty; }).length;
+      var onDuty = members.filter(function (m) { return m.onduty; });
+      var star = members.find(function (m) { return m.eotw; });
       var ann = r[1][0];
+      var pay = r[2] && r[2][0];
       var stats = '<div class="stat"><small>' + (g.gtype === 'gang' ? 'Members' : 'Staff') + '</small><b>' + members.length + '</b></div>' +
-        (g.gtype === 'job' ? '<div class="stat"><small>On duty</small><b class="green">' + onDuty + '</b></div>' : '') +
+        (g.gtype === 'job' ? '<div class="stat"><small>On duty</small><b class="green">' + onDuty.length + '</b></div>' : '') +
         (S.m.apps ? '<div class="stat"><small>New applications</small><b>' + (S.m.newApps || 0) + '</b></div>' : '') +
-        (S.m.funds ? '<div class="stat"><small>Balance</small><b class="money">' + money(S.m.balance) + '</b></div>' : '');
+        (S.m.funds ? '<div class="stat"><small>Balance</small><b class="money">' + money(S.m.balance) + '</b></div>' : '') +
+        (pay && wide() ? '<div class="stat"><small>Payroll per paycheck</small><b class="money">' + money(pay.perPaycheckOnDuty) + '</b><span class="mini">' + money(pay.perPaycheckAll) + ' if everyone is on duty</span></div>' : '') +
+        (star ? '<div class="stat"><small>Employee of the week</small><b class="name">&#9733; ' + esc(star.name) + '</b></div>' : '');
       var annHtml = ann && ann.message
         ? '<div class="notice">' + esc(ann.message) + '<small>' + esc(ann.by_name || 'Management') + (ann.at ? ' · ' + esc(ann.at) : '') + '</small></div>'
         : '<div class="notice" style="color:var(--faint)">No announcement.</div>';
-      var duty = members.filter(function (m) { return m.onduty; });
       var m = main('<div class="section"><div class="stats">' + stats + '</div></div>' +
-        '<div class="section"><div class="bar"><h2 class="grow" style="margin:0">Announcement</h2><button class="btn" id="annEdit">Edit</button></div>' + annHtml + '</div>' +
-        (g.gtype === 'job' ? '<div class="section"><h2>On duty now</h2><div class="list">' + (duty.length ? duty.map(personRow).join('') : '<div class="empty">Nobody is on duty.</div>') + '</div></div>' : ''));
+        '<div class="cols"><div class="section"><div class="bar"><h2 class="grow" style="margin:0">Announcement</h2><button class="btn" id="annEdit">Edit</button></div>' + annHtml + '</div>' +
+        (g.gtype === 'job' ? '<div class="section"><h2>On duty now</h2><div class="list">' + (onDuty.length ? onDuty.map(personRow).join('') : '<div class="empty">Nobody is on duty.</div>') + '</div></div>' : '') +
+        '</div><img class="brand-foot" src="brand.webp" alt="Blaze Scriptworks">');
       $('#annEdit', m).onclick = function () {
         modal({ title: 'Announcement', text: 'Staff see it right away, and when they clock in. Leave it empty to clear it.', ok: 'Post',
           fields: [{ id: 'msg', label: 'Message', type: 'textarea', value: ann && ann.message }] }).then(function (v) {
           if (!v) return;
-          return call('postAnnouncement', g.gtype, g.name, v.msg.trim()).then(function (r) { if (result(r)) render(); });
+          return call('postAnnouncement', g.gtype, g.name, v.msg.trim()).then(function (res) { if (result(res)) render(); });
         }).catch(failed);
       };
+      m.querySelectorAll('[data-cid]').forEach(function (row) { row.onclick = function () { S.tab = 'staff'; S.sub = row.getAttribute('data-cid'); render(); }; });
     });
   }
 
@@ -219,7 +235,7 @@
     return t.join('');
   }
   function personRow(m) {
-    return '<div class="row' + (m.citizenid ? ' click' : '') + '" data-cid="' + esc(m.citizenid) + '"><div class="av">' + esc(initials(m.name)) +
+    return '<div class="row' + (m.citizenid ? ' click' : '') + (S.sub && S.sub === m.citizenid ? ' sel' : '') + '" data-cid="' + esc(m.citizenid) + '"><div class="av">' + esc(initials(m.name)) +
       '<i class="' + (m.onduty ? 'on' : '') + '"></i></div><div class="who"><b>' + esc(m.name) + '</b><small>' + esc(m.gradeName || ('Rank ' + m.grade)) +
       (m.callsign ? ' · ' + esc(m.callsign) : '') + (m.hours != null ? ' · ' + Number(m.hours).toFixed(1) + ' h' : '') + '</small></div><div class="side">' + badges(m) + '</div></div>';
   }
@@ -228,14 +244,18 @@
     return call('getStaff', g.gtype, g.name).then(function (r) {
       var d = r[0] || {};
       var members = arr(d.members), grades = arr(d.grades), limit = d.limit;
-      if (S.sub) {
-        var m = members.find(function (x) { return x.citizenid === S.sub; });
-        if (m) return member(m, grades, limit);
-        S.sub = null;
-      }
-      var el = main('<div class="bar"><h2 class="grow" style="margin:0">' + members.length + ' ' + (g.gtype === 'gang' ? 'members' : 'staff') + '</h2>' +
-        '<button class="btn pri" id="hire">Hire</button></div><div class="list">' + (members.length ? members.map(personRow).join('') : '<div class="empty">Nobody yet.</div>') + '</div>');
-      el.querySelectorAll('[data-cid]').forEach(function (row) { row.onclick = function () { S.sub = row.getAttribute('data-cid'); staff().catch(failed); }; });
+      var m = S.sub && members.find(function (x) { return x.citizenid === S.sub; });
+      if (S.sub && !m) S.sub = null;
+      var listHtml = '<div class="bar"><h2 class="grow" style="margin:0">' + members.length + ' ' + (g.gtype === 'gang' ? 'members' : 'staff') + '</h2>' +
+        '<button class="btn pri" id="hire">Hire</button></div><div class="list">' + (members.length ? members.map(personRow).join('') : '<div class="empty">Nobody yet.</div>') + '</div>';
+      var el;
+      if (wide()) el = main(split(listHtml, m ? '<div class="loading">Loading…</div>' : pickHint('Pick someone to see their profile and manage them.')));
+      else if (m) return member(m, grades, limit);
+      else el = main(listHtml);
+      el.querySelectorAll('.split-list [data-cid], .main > .list [data-cid], #main > .list [data-cid]').forEach(function (row) {
+        row.onclick = function () { S.sub = row.getAttribute('data-cid'); staff().catch(failed); };
+      });
+      if (!wide()) el.querySelectorAll('[data-cid]').forEach(function (row) { row.onclick = function () { S.sub = row.getAttribute('data-cid'); staff().catch(failed); }; });
       $('#hire', el).onclick = function () {
         var opts = grades.filter(function (gr) { return gr.level < limit; }).map(function (gr) { return { value: gr.level, label: gr.name }; });
         if (!opts.length) return toast('You can\'t hire for any rank.', 'bad');
@@ -247,66 +267,104 @@
             return call('hire', g.gtype, g.name, Number(v.id), Number(v.grade)).then(function (res) { if (result(res)) staff(); });
           }).catch(failed);
       };
+      if (m) return member(m, grades, limit);
     });
   }
   function member(m, grades, limit) {
     var g = S.g;
-    var manage = !m.isSelf && m.grade < limit;
-    var next = grades.find(function (gr) { return gr.level === m.grade + 1; });
-    var el = main('<button class="back" id="back">&#8592; ' + (g.gtype === 'gang' ? 'Members' : 'Staff') + '</button>' +
-      '<div class="section"><div class="list"><div class="row">' + personRow(m).replace(/^<div class="row[^"]*" data-cid="[^"]*">/, '').replace(/<\/div>$/, '') + '</div></div></div>' +
-      '<div class="section"><div class="kv">' +
-      '<span>Rank</span><span>' + esc(m.gradeName) + '</span>' +
-      (m.callsign ? '<span>Callsign</span><span>' + esc(m.callsign) + '</span>' : '') +
-      '<span>Status</span><span>' + (m.onduty ? 'On duty' : (m.online ? 'Online, off duty' : 'Offline')) + '</span>' +
-      (m.hours != null ? '<span>Hours (last 31 days)</span><span>' + Number(m.hours).toFixed(1) + '</span>' : '') +
-      (m.hiredAt ? '<span>Hired</span><span>' + esc(m.hiredAt) + '</span>' : '') +
-      '</div></div><div class="section"><div class="bar">' +
-      '<button class="btn good" id="promote"' + (manage && next && next.level < limit ? '' : ' disabled') + '>Promote' + (next ? ' to ' + esc(next.name) : '') + '</button>' +
-      '<button class="btn" id="demote"' + (manage && m.grade > 0 ? '' : ' disabled') + '>Demote</button>' +
-      (S.m.callsigns ? '<button class="btn" id="callsign"' + (manage || m.isSelf ? '' : ' disabled') + '>Callsign</button>' : '') +
-      '<button class="btn bad" id="fire"' + (manage ? '' : ' disabled') + '>' + (g.gtype === 'gang' ? 'Kick' : 'Fire') + '</button></div>' +
-      (manage ? '' : '<p style="color:var(--faint);font-size:12.5px;margin:4px 0 0">' + (m.isSelf ? 'This is you.' : 'You can only manage people below your rank.') + '</p>') + '</div>');
-    var again = function () { staff().catch(failed); };
-    $('#back', el).onclick = function () { S.sub = null; again(); };
-    $('#promote', el).onclick = function () { call('promote', g.gtype, g.name, m.citizenid).then(function (r) { result(r); again(); }).catch(failed); };
-    $('#demote', el).onclick = function () { call('demote', g.gtype, g.name, m.citizenid).then(function (r) { result(r); again(); }).catch(failed); };
-    var cs = $('#callsign', el);
-    if (cs) cs.onclick = function () {
-      modal({ title: 'Callsign', ok: 'Save', fields: [{ id: 'cs', label: 'Callsign (empty = remove)', value: m.callsign || '' }] }).then(function (v) {
-        if (!v) return;
-        return call('setCallsign', g.gtype, g.name, m.citizenid, v.cs.trim()).then(function (r) { result(r); again(); });
-      }).catch(failed);
-    };
-    $('#fire', el).onclick = function () {
-      modal({ title: (g.gtype === 'gang' ? 'Kick ' : 'Fire ') + m.name + '?', text: 'They lose the ' + (g.gtype === 'gang' ? 'gang' : 'job') + ' and its access right away.', ok: g.gtype === 'gang' ? 'Kick' : 'Fire', danger: true })
-        .then(function (v) {
-          if (!v) return;
-          return call('fire', g.gtype, g.name, m.citizenid).then(function (r) { if (result(r)) S.sub = null; again(); });
-        }).catch(failed);
-    };
+    return call('getProfile', g.gtype, g.name, m.citizenid).then(function (r) {
+      var p = r[0] || {};
+      var manage = !m.isSelf && m.grade < limit;
+      var next = grades.find(function (gr) { return gr.level === m.grade + 1; });
+      var records = arr(p.records);
+      var kv = function (k, v) { return v == null || v === '' ? '' : '<span>' + k + '</span><span>' + v + '</span>'; };
+      var el = pane((wide() ? '' : '<button class="back" id="back">&#8592; ' + (g.gtype === 'gang' ? 'Members' : 'Staff') + '</button>') +
+        '<div class="profile"><div class="av big">' + esc(initials(m.name)) + '<i class="' + (m.onduty ? 'on' : '') + '"></i></div><div><b>' + esc(m.name) + '</b><small>' +
+        esc(m.gradeName) + (m.callsign ? ' · ' + esc(m.callsign) : '') + '</small><div>' + badges(m) + '</div></div></div>' +
+        '<div class="section"><div class="kv">' +
+        kv('Status', m.onduty ? 'On duty' : (m.online ? 'Online, off duty' : 'Offline')) +
+        kv('Hired', esc(p.hiredAt || m.hiredAt)) +
+        kv('Probation until', esc(p.probationUntil)) +
+        kv('Hours this week', p.hoursWeek != null ? Number(p.hoursWeek).toFixed(1) : '') +
+        kv('Hours (last 31 days)', m.hours != null ? Number(m.hours).toFixed(1) : '') +
+        kv('Last clock-in', esc(p.lastCheckin)) +
+        kv('Phone', esc(p.phone)) + kv('Email', esc(p.email)) +
+        kv('Record', (p.commendations || 0) + ' commendations · ' + (p.warnings || 0) + ' write-ups') +
+        kv('Contracts', arr(p.contracts).length ? arr(p.contracts).map(function (c) { return esc(c.number || ('#' + c.id)) + ' (' + esc(c.at) + ')'; }).join(', ') : '') +
+        '</div></div>' +
+        '<div class="section"><h2>Manage</h2><div class="bar">' +
+        '<button class="btn good" id="promote"' + (manage && next && next.level < limit ? '' : ' disabled') + '>Promote' + (next ? ' to ' + esc(next.name) : '') + '</button>' +
+        '<button class="btn" id="demote"' + (manage && m.grade > 0 ? '' : ' disabled') + '>Demote</button>' +
+        (S.m.callsigns ? '<button class="btn" id="callsign"' + (manage || m.isSelf ? '' : ' disabled') + '>Callsign</button>' : '') +
+        '<button class="btn bad" id="fire"' + (manage ? '' : ' disabled') + '>' + (g.gtype === 'gang' ? 'Kick' : 'Fire') + '</button></div>' +
+        '<div class="bar"><button class="btn good" id="commend"' + (m.isSelf ? ' disabled' : '') + '>Commend</button>' +
+        '<button class="btn" id="writeup"' + (manage ? '' : ' disabled') + '>Write up</button>' +
+        '<button class="btn" id="eotw"' + (m.isSelf || m.eotw ? ' disabled' : '') + '>&#9733; Employee of the week</button>' +
+        (S.m.funds ? '<button class="btn" id="bonus"' + (m.isSelf || !m.online ? ' disabled' : '') + '>Bonus</button>' : '') + '</div>' +
+        (manage ? '' : '<p class="hint">' + (m.isSelf ? 'This is you.' : 'You can only manage people below your rank.') + '</p>') + '</div>' +
+        '<div class="section"><h2>Record</h2><div class="list">' + (records.length ? records.map(function (x) {
+          var good = x.type === 'commend';
+          return '<div class="row"><div class="who"><b style="white-space:normal">' + esc(x.text) + '</b><small>' + esc(x.by_name || '') + '</small></div><div class="side"><span class="tag ' +
+            (good ? 'green">Commendation' : 'red">Write-up') + '</span><br>' + esc(x.at || '') + '</div></div>';
+        }).join('') : '<div class="empty">Nothing on record.</div>') + '</div></div>');
+      var again = function () { staff().catch(failed); };
+      var back = $('#back', el);
+      if (back) back.onclick = function () { S.sub = null; again(); };
+      var go = function (name) { var a = Array.prototype.slice.call(arguments, 1); return api.call(name, a).then(function (res) { result(res); again(); }); };
+      $('#promote', el).onclick = function () { go('promote', g.gtype, g.name, m.citizenid).catch(failed); };
+      $('#demote', el).onclick = function () { go('demote', g.gtype, g.name, m.citizenid).catch(failed); };
+      var cs = $('#callsign', el);
+      if (cs) cs.onclick = function () {
+        modal({ title: 'Callsign', ok: 'Save', fields: [{ id: 'cs', label: 'Callsign (empty = remove)', value: m.callsign || '' }] })
+          .then(function (v) { if (v) return go('setCallsign', g.gtype, g.name, m.citizenid, v.cs.trim()); }).catch(failed);
+      };
+      $('#fire', el).onclick = function () {
+        modal({ title: (g.gtype === 'gang' ? 'Kick ' : 'Fire ') + m.name + '?', text: 'They lose the ' + (g.gtype === 'gang' ? 'gang' : 'job') + ' and its access right away.', ok: g.gtype === 'gang' ? 'Kick' : 'Fire', danger: true })
+          .then(function (v) { if (v) return api.call('fire', [g.gtype, g.name, m.citizenid]).then(function (res) { if (result(res)) S.sub = null; again(); }); }).catch(failed);
+      };
+      var record = function (kind) {
+        modal({ title: kind === 'commend' ? 'Commend ' + m.name : 'Write up ' + m.name, ok: kind === 'commend' ? 'Commend' : 'Write up', danger: kind !== 'commend',
+          text: kind === 'commend' ? 'Goes on their record, and they get a message.' : 'Goes on their record, and they get a message.',
+          fields: [{ id: 'text', label: kind === 'commend' ? 'What for' : 'What happened', type: 'textarea' }] })
+          .then(function (v) { if (v) return go('addRecord', g.gtype, g.name, m.citizenid, kind, v.text.trim()); }).catch(failed);
+      };
+      $('#commend', el).onclick = function () { record('commend'); };
+      $('#writeup', el).onclick = function () { record('warning'); };
+      $('#eotw', el).onclick = function () {
+        modal({ title: 'Employee of the week', text: m.name + ' is shown to the whole department this week.', ok: 'Pick', fields: [{ id: 'why', label: 'Why (optional)' }] })
+          .then(function (v) { if (v) return go('setEmployeeOfWeek', g.gtype, g.name, m.citizenid, v.why.trim()); }).catch(failed);
+      };
+      var bonus = $('#bonus', el);
+      if (bonus) bonus.onclick = function () {
+        modal({ title: 'Bonus for ' + m.name, text: 'Paid from the society account into their bank.', ok: 'Pay',
+          fields: [{ id: 'amount', label: 'Amount', type: 'number' }, { id: 'reason', label: 'Reason' }] })
+          .then(function (v) { if (v) return go('bonus', g.gtype, g.name, 'one', m.citizenid, Math.floor(Number(v.amount)), v.reason.trim()); }).catch(failed);
+      };
+    });
   }
 
   // ---------------------------------------------------------------- applications
   var STATUS = { new: ['New', 'blue'], interview: ['Interview', 'amber'], accepted: ['Accepted', 'green'], denied: ['Denied', 'red'], withdrawn: ['Withdrawn', ''] };
   function apps() {
     var job = S.g.name;
-    if (S.sub) return application(job, S.sub);
+    if (S.sub && !wide()) return application(job, S.sub);
     return call('getApplications', job, S.filter === 'open' ? null : S.filter).then(function (r) {
       var rows = arr(r[0]);
       var f = [['open', 'Open'], ['accepted', 'Accepted'], ['denied', 'Denied'], ['withdrawn', 'Withdrawn']];
-      var el = main('<div class="bar"><div class="seg">' + f.map(function (x) { return '<button data-f="' + x[0] + '" class="' + (S.filter === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') +
-        '</div><span class="grow"></span><button class="btn ' + (S.m.appsOpen ? 'bad' : 'good') + '" id="toggle">' + (S.m.appsOpen ? 'Close applications' : 'Open applications') + '</button></div>' +
+      var listHtml = '<div class="bar"><div class="seg">' + f.map(function (x) { return '<button data-f="' + x[0] + '" class="' + (S.filter === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') +
+        '</div><span class="grow"></span><button class="btn ' + (S.m.appsOpen ? 'bad' : 'good') + '" id="toggle">' + (S.m.appsOpen ? 'Close' : 'Open') + ' applications</button></div>' +
         '<div class="list">' + (rows.length ? rows.map(function (a) {
           var st = STATUS[a.status] || [a.status, ''];
-          return '<div class="row click" data-id="' + a.id + '"><div class="av">' + esc(initials(a.name)) + '</div><div class="who"><b>' + esc(a.name) + '</b><small>Sent ' + esc(a.created) +
+          return '<div class="row click' + (S.sub === a.id ? ' sel' : '') + '" data-id="' + a.id + '"><div class="av">' + esc(initials(a.name)) + '</div><div class="who"><b>' + esc(a.name) + '</b><small>Sent ' + esc(a.created) +
             '</small></div><div class="side"><span class="tag ' + st[1] + '">' + st[0] + '</span></div></div>';
-        }).join('') : '<div class="empty">No applications here.</div>') + '</div>');
-      el.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { S.filter = b.getAttribute('data-f'); apps().catch(failed); }; });
+        }).join('') : '<div class="empty">No applications here.</div>') + '</div>';
+      var el = wide() ? main(split(listHtml, S.sub ? '<div class="loading">Loading…</div>' : pickHint('Pick an application to read it and decide.'))) : main(listHtml);
+      el.querySelectorAll('[data-f]').forEach(function (b) { b.onclick = function () { S.filter = b.getAttribute('data-f'); S.sub = null; apps().catch(failed); }; });
       el.querySelectorAll('[data-id]').forEach(function (row) { row.onclick = function () { S.sub = Number(row.getAttribute('data-id')); apps().catch(failed); }; });
       $('#toggle', el).onclick = function () {
-        call('toggleApplications', job).then(function (r) { result(r); return loadMenu(); }).then(render).catch(failed);
+        call('toggleApplications', job).then(function (res) { result(res); return loadMenu(); }).then(render).catch(failed);
       };
+      if (S.sub) return application(job, S.sub);
     });
   }
   function application(job, id) {
@@ -322,17 +380,26 @@
       }).join('');
       var votes = a.votes ? '<div class="bar"><span class="tag green">' + a.votes.up + ' for</span><span class="tag red">' + a.votes.down + ' against</span><span class="grow"></span>' +
         '<button class="btn good" data-vote="1"' + (a.votes.mine === 1 ? ' disabled' : '') + '>Vote for</button><button class="btn bad" data-vote="-1"' + (a.votes.mine === -1 ? ' disabled' : '') + '>Vote against</button></div>' : '';
-      var el = main('<button class="back" id="back">&#8592; Applications</button>' +
+      var el = pane((wide() ? '' : '<button class="back" id="back">&#8592; Applications</button>') +
         '<div class="bar"><h2 class="grow" style="margin:0;text-transform:none;letter-spacing:0;font-size:16px;color:var(--text)">' + esc(a.name) + '</h2><span class="tag ' + st[1] + '">' + esc(a.statusLabel || st[0]) + '</span></div>' +
-        (a.reviewed_by ? '<p style="color:var(--muted);font-size:12.5px;margin:-4px 0 12px">Last update by ' + esc(a.reviewed_by) + '</p>' : '') +
+        (a.reviewed_by ? '<p class="hint" style="margin:-4px 0 12px">Last update by ' + esc(a.reviewed_by) + '</p>' : '') +
+        (a.deny_reason ? '<div class="notice" style="margin-bottom:12px">Denied: ' + esc(a.deny_reason) + '</div>' : '') +
+        (a.interview_msg ? '<div class="notice" style="margin-bottom:12px">Interview: ' + esc(a.interview_msg) + '</div>' : '') +
         votes + '<div class="section">' + (answers || '<div class="empty">No answers.</div>') + '</div>' +
-        (open ? '<div class="section"><div class="bar"><button class="btn pri" id="accept">Accept &amp; hire</button><button class="btn" id="interview">Invite to interview</button><button class="btn bad" id="deny">Deny</button></div></div>' : ''));
+        (open ? '<div class="section"><div class="bar"><button class="btn pri" id="accept">Accept &amp; hire</button><button class="btn" id="interview">Invite to interview</button><button class="btn bad" id="deny">Deny</button></div></div>' : '') +
+        '<div class="section"><h2>Manager notes</h2><textarea class="notes" id="notes" placeholder="Only managers see these.">' + esc(a.notes || '') + '</textarea>' +
+        '<div class="bar" style="margin-top:8px"><span class="grow"></span><button class="btn" id="saveNotes">Save notes</button></div></div>');
       var back = function () { S.sub = null; loadMenu().then(render).catch(failed); };
       var again = function () { application(job, id).catch(failed); };
-      $('#back', el).onclick = back;
+      var bb = $('#back', el);
+      if (bb) bb.onclick = back;
       el.querySelectorAll('[data-vote]').forEach(function (b) {
         b.onclick = function () { call('voteApplication', job, id, Number(b.getAttribute('data-vote'))).then(function (res) { result(res, 'Vote saved.'); again(); }).catch(failed); };
       });
+      var notes = $('#notes', el);
+      notes.onfocus = function () { typing(true); };
+      notes.onblur = function () { typing(false); };
+      $('#saveNotes', el).onclick = function () { call('saveNote', job, id, notes.value).then(function (res) { result(res, 'Notes saved.'); }).catch(failed); };
       if (!open) return;
       $('#accept', el).onclick = function () {
         var opts = grades.filter(function (gr) { return gr.level < limit; }).map(function (gr) { return { value: gr.level, label: gr.name }; });
@@ -353,18 +420,27 @@
   // ---------------------------------------------------------------- funds
   function funds() {
     var g = S.g;
-    return call('getFunds', g.gtype, g.name).then(function (r) {
-      var d = r[0];
-      if (!d) return main('<div class="notice">' + esc(r[1] || 'Funds aren\'t available.') + '</div>');
+    var jobs = [call('getFunds', g.gtype, g.name)];
+    if (g.gtype === 'job') jobs.push(call('getPayroll', g.gtype, g.name));
+    return Promise.all(jobs).then(function (r) {
+      var d = r[0][0];
+      if (!d) return main('<div class="notice">' + esc(r[0][1] || 'Funds aren\'t available.') + '</div>');
       var hist = arr(d.history);
+      var pay = r[1] && r[1][0];
+      var payroll = pay ? '<div class="section"><h2>Payroll</h2><div class="list">' + arr(pay.grades).map(function (gr) {
+        return '<div class="row"><div class="who"><b>' + esc(gr.name) + '</b><small>' + gr.members + ' ' + (gr.members === 1 ? 'person' : 'people') + ' · ' + gr.onduty + ' on duty</small></div>' +
+          '<div class="side money">' + money(gr.pay) + '</div></div>';
+      }).join('') + '<div class="row total"><div class="who"><b>Per paycheck</b><small>' + money(pay.perPaycheckAll) + ' if everyone is on duty</small></div><div class="side money">' + money(pay.perPaycheckOnDuty) + '</div></div></div></div>' : '';
+      var recent = '<div class="section"><h2>Recent</h2><div class="list">' + (hist.length ? hist.map(function (h) {
+        var plus = h.type === 'deposit';
+        return '<div class="row"><div class="who"><b class="money ' + (plus ? 'plus' : 'minus') + '">' + (plus ? '+ ' : '- ') + money(h.amount) + '</b><small>' + esc(h.reason || h.type) +
+          '</small></div><div class="side">' + esc(h.name || '') + '<br>' + esc(h.at || '') + '</div></div>';
+      }).join('') : '<div class="empty">Nothing yet.</div>') + '</div></div>';
       var el = main('<div class="section"><div class="stats"><div class="stat"><small>Balance</small><b class="money">' + money(d.balance) + '</b></div>' +
         (d.left != null ? '<div class="stat"><small>You can still take out today</small><b class="money">' + money(d.left) + '</b></div>' : '') + '</div></div>' +
-        '<div class="section"><div class="bar"><button class="btn good" id="dep">Deposit cash</button><button class="btn" id="wd">Withdraw</button></div></div>' +
-        '<div class="section"><h2>Recent</h2><div class="list">' + (hist.length ? hist.map(function (h) {
-          var plus = h.type === 'deposit';
-          return '<div class="row"><div class="who"><b class="money ' + (plus ? 'plus' : 'minus') + '">' + (plus ? '+ ' : '- ') + money(h.amount) + '</b><small>' + esc(h.reason || h.type) +
-            '</small></div><div class="side">' + esc(h.name || '') + '<br>' + esc(h.at || '') + '</div></div>';
-        }).join('') : '<div class="empty">Nothing yet.</div>') + '</div></div>');
+        '<div class="section"><div class="bar"><button class="btn good" id="dep">Deposit cash</button><button class="btn" id="wd">Withdraw</button>' +
+        '<button class="btn" id="bonusAll">Bonus everyone on duty</button></div></div>' +
+        (wide() && payroll ? '<div class="cols">' + recent + payroll + '</div>' : recent + payroll));
       function move(kind) {
         modal({ title: kind === 'deposit' ? 'Deposit cash' : 'Withdraw', ok: kind === 'deposit' ? 'Deposit' : 'Withdraw',
           fields: [{ id: 'amount', label: 'Amount', type: 'number', placeholder: '0' }, { id: 'reason', label: 'Reason', placeholder: 'What it\'s for' }] })
@@ -381,6 +457,47 @@
       }
       $('#dep', el).onclick = function () { move('deposit'); };
       $('#wd', el).onclick = function () { move('withdraw'); };
+      $('#bonusAll', el).onclick = function () {
+        modal({ title: 'Bonus everyone on duty', text: 'Each person on duty (not you) gets this amount in their bank, from the society account.', ok: 'Pay',
+          fields: [{ id: 'amount', label: 'Amount per person', type: 'number' }, { id: 'reason', label: 'Reason' }] })
+          .then(function (v) {
+            if (!v) return;
+            return call('bonus', g.gtype, g.name, 'all', null, Math.floor(Number(v.amount)), v.reason.trim()).then(function (res) { result(res); return loadMenu(); }).then(render);
+          }).catch(failed);
+      };
+    });
+  }
+
+  // ---------------------------------------------------------------- ranks (rank editor turned on)
+  function ranks() {
+    var g = S.g;
+    return call('getStaff', g.gtype, g.name).then(function (r) {
+      var d = r[0] || {};
+      var grades = arr(d.grades), limit = d.limit, own = S.m.ownGrade;
+      var count = {};
+      arr(d.members).forEach(function (m) { count[m.grade] = (count[m.grade] || 0) + 1; });
+      var el = main('<h2>Ranks</h2><div class="list">' + grades.slice().reverse().map(function (gr) {
+        var can = gr.level < limit || gr.level === own;
+        return '<div class="row' + (can ? ' click' : '') + '" data-lvl="' + gr.level + '"><div class="av">' + gr.level + '</div><div class="who"><b>' + esc(gr.name) + '</b><small>' +
+          (count[gr.level] || 0) + ' ' + ((count[gr.level] || 0) === 1 ? 'person' : 'people') + (g.gtype === 'job' && gr.payment != null ? ' · ' + money(gr.payment) + ' per paycheck' : '') +
+          '</small></div><div class="side">' + (gr.isboss ? '<span class="tag purple">Boss</span>' : '') + (gr.bankAuth ? '<span class="tag blue">Bank</span>' : '') + '</div></div>';
+      }).join('') + '</div><p class="hint">Changes are saved in the framework and kept across restarts. You can edit ranks below yours, and your own.</p>');
+      el.querySelectorAll('.row.click').forEach(function (row) {
+        row.onclick = function () {
+          var gr = grades.find(function (x) { return x.level === Number(row.getAttribute('data-lvl')); });
+          var yes = [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }];
+          var fields = [{ id: 'name', label: 'Rank name', value: gr.name }];
+          if (g.gtype === 'job') fields.push({ id: 'pay', label: 'Pay per paycheck', type: 'number', value: gr.payment });
+          fields.push({ id: 'boss', label: 'Boss access (can open the boss menu)', type: 'select', options: yes, value: gr.isboss ? '1' : '0' });
+          if (g.gtype === 'job') fields.push({ id: 'bank', label: 'Bank access (society account)', type: 'select', options: yes, value: gr.bankAuth ? '1' : '0' });
+          modal({ title: 'Edit rank ' + gr.level, ok: 'Save', fields: fields }).then(function (v) {
+            if (!v) return;
+            var data = { name: v.name.trim(), isboss: v.boss === '1' };
+            if (g.gtype === 'job') { data.payment = Number(v.pay); data.bankAuth = v.bank === '1'; }
+            return call('modifyGrade', g.gtype, g.name, gr.level, data).then(function (res) { result(res); ranks(); });
+          }).catch(failed);
+        };
+      });
     });
   }
 
@@ -403,10 +520,14 @@
       { citizenid: 'A4', name: 'Ana Lopez', grade: 2, gradeName: 'Paramedic', callsign: 'E-17', onduty: false, online: true, hours: 22, readyForPromotion: true },
       { citizenid: 'A5', name: 'Chris Vale', grade: 3, gradeName: 'Senior Paramedic', onduty: false, online: false, hours: 0, inactive: true },
     ];
-    var grades = ['Probationary EMT', 'EMT', 'Paramedic', 'Senior Paramedic', 'Supervisor', 'Chief'].map(function (n, i) { return { level: i, name: n }; });
+    var grades = ['Probationary EMT', 'EMT', 'Paramedic', 'Senior Paramedic', 'Supervisor', 'Chief'].map(function (n, i) { return { level: i, name: n, payment: 250 + i * 150, isboss: i >= 4, bankAuth: i >= 5 }; });
     var D = {
       getMyJobs: [{ groups: [{ gtype: 'job', name: 'ambulance', label: 'EMS', apps: true }, { gtype: 'gang', name: 'lostmc', label: 'Lost MC' }] }],
-      getMenu: [{ label: 'EMS', apps: true, funds: true, appsOpen: true, newApps: 2, balance: 284650, callsigns: true }],
+      getMenu: [{ label: 'EMS', apps: true, funds: true, appsOpen: true, newApps: 2, balance: 284650, callsigns: true, gradeEdit: true, ownGrade: 5 }],
+      getProfile: [{ hiredAt: '10-03-2026', probationUntil: '11-17-2026 20:00', hoursWeek: 6.5, lastCheckin: '11-14-2026 18:02', phone: '(555) 014-2290', email: 'jane.doe@ems.ls',
+        commendations: 2, warnings: 0, contracts: [{ id: 42, number: 'EA-0042', at: '10-03-2026' }],
+        records: [{ type: 'commend', text: 'Stayed late to cover the Paleto call.', by_name: 'Dr. Steven Blaze', at: '11-09-2026' }, { type: 'commend', text: 'Great teamwork at the highway pile-up.', by_name: 'Dr. Steven Blaze', at: '10-28-2026' }] }],
+      getPayroll: [{ grades: [{ name: 'Chief', pay: 1000, members: 1, onduty: 1 }, { name: 'Senior Paramedic', pay: 700, members: 1, onduty: 0 }, { name: 'Paramedic', pay: 550, members: 2, onduty: 1 }, { name: 'EMT', pay: 400, members: 1, onduty: 1 }], perPaycheckAll: 3200, perPaycheckOnDuty: 1950 }],
       getStaff: [{ members: staffList, limit: 5, grades: grades }],
       getAnnouncement: [{ message: 'Training night Thursday 8pm at Pillbox. Bring your trauma kit.', by_name: 'Dr. Steven Blaze', at: '11-13-2026 18:00' }],
       getApplications: [[{ id: 1, name: 'Sam Rivers', status: 'new', created: '11-14-2026 18:20' }, { id: 2, name: 'Leah Tran', status: 'interview', created: '11-13-2026 21:02' }]],

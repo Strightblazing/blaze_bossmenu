@@ -346,8 +346,10 @@ Config = {
         computers = true,
         computerIds = nil,
         pinned = true, -- also on the taskbar / dock
-        -- sd-phone: a pre-installed app on the phone; sd-tablet shows it too (players in a configured job)
+        -- sd-phone: an app on the phone; sd-tablet shows it too (players in a configured job)
         phone = true,
+        -- false = players download it from the phone's App Store first; true = already installed
+        preinstalled = false,
     },
 
     -- Extras. Each one can be turned off on its own.
