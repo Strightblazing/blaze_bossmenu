@@ -369,15 +369,18 @@ end
 openPlacement = function()
     local info = call('getPlacementInfo')
     if not info then return result(false, 'Admins only.') end
+    -- Lation UI: each type's icon in the same colour as its ring on the ground (Show zones / the preview)
+    local function col(t) local c = ZONE_COLOR[t] return c and ('#%02X%02X%02X'):format(c[1], c[2], c[3]) or nil end
     UI.registerMenu({
         id = 'blaze_boss_place', title = 'Points', menu = 'blaze_boss_admin',
+        subtitle = 'Aim, preview, place', headerIcon = 'fa-solid fa-location-dot', headerIconColor = UI.color.red,
         options = {
-            { title = 'Add boss desk', description = 'Managers open the boss menu here', icon = 'fa-solid fa-briefcase', arrow = true, onSelect = function() addFlow(info, 'boss') end },
-            { title = 'Add applications point', description = 'Anyone can apply here', icon = TYPE_ICON.applications, arrow = true, onSelect = function() addFlow(info, 'applications') end },
-            { title = 'Add application review point', description = 'Managers review that job\'s applications here', icon = TYPE_ICON.review, arrow = true, onSelect = function() addFlow(info, 'review') end },
-            { title = 'Add duty point', description = TYPE_DESC.duty, icon = TYPE_ICON.duty, arrow = true, disabled = not (Config.duty or {}).enabled, onSelect = function() addFlow(info, 'duty') end },
-            { title = 'Add wardrobe', description = TYPE_DESC.outfits, icon = TYPE_ICON.outfits, arrow = true, disabled = not (Config.outfits or {}).enabled, onSelect = function() addFlow(info, 'outfits') end },
-            { title = 'Manage points', description = ('%d points: move, change look, size, delete'):format(#info.points), icon = 'fa-solid fa-list', arrow = true, onSelect = function() manageFlow(info) end },
+            { title = 'Add boss desk', description = 'Managers open the boss menu here', icon = 'fa-solid fa-briefcase', iconColor = col('boss'), arrow = true, onSelect = function() addFlow(info, 'boss') end },
+            { title = 'Add applications point', description = 'Anyone can apply here', icon = TYPE_ICON.applications, iconColor = col('applications'), arrow = true, onSelect = function() addFlow(info, 'applications') end },
+            { title = 'Add application review point', description = 'Managers review that job\'s applications here', icon = TYPE_ICON.review, iconColor = col('review'), arrow = true, onSelect = function() addFlow(info, 'review') end },
+            { title = 'Add duty point', description = TYPE_DESC.duty, icon = TYPE_ICON.duty, iconColor = col('duty'), arrow = true, disabled = not (Config.duty or {}).enabled, onSelect = function() addFlow(info, 'duty') end },
+            { title = 'Add wardrobe', description = TYPE_DESC.outfits, icon = TYPE_ICON.outfits, iconColor = col('outfits'), arrow = true, disabled = not (Config.outfits or {}).enabled, onSelect = function() addFlow(info, 'outfits') end },
+            { title = 'Manage points', description = ('%d points: move, change look, size, delete'):format(#info.points), icon = 'fa-solid fa-list', iconColor = UI.color.grey, keybind = tostring(#info.points), arrow = true, onSelect = function() manageFlow(info) end },
         },
     })
     UI.showMenu('blaze_boss_place')

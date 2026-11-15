@@ -740,11 +740,14 @@ openGroup = function(gtype, name, fromPicker, asAdmin)
         { title = 'Hire', description = 'Hire someone nearby or by server ID', icon = 'fa-solid fa-user-plus', arrow = true, onSelect = function() openHire(m) end },
     }
     if m.apps then
+        local new = m.newApps or 0
         options[#options + 1] = { title = 'Applications', icon = 'fa-solid fa-file-signature', arrow = true,
-            description = ('%d new · %s'):format(m.newApps or 0, m.appsOpen and 'Open' or 'Closed'), onSelect = function() openApps(m) end }
+            description = ('%d new · %s'):format(new, m.appsOpen and 'Open' or 'Closed'), onSelect = function() openApps(m) end,
+            keybind = new > 0 and (new .. ' new') or (m.appsOpen and 'Open' or 'Closed'), iconAnimation = new > 0 and 'beat' or nil }
     end
     if m.funds then
-        options[#options + 1] = { title = 'Funds', description = 'Balance: ' .. money(m.balance), icon = 'fa-solid fa-building-columns', arrow = true, onSelect = function() openFunds(m) end }
+        options[#options + 1] = { title = 'Funds', description = 'Balance: ' .. money(m.balance), icon = 'fa-solid fa-building-columns', arrow = true, onSelect = function() openFunds(m) end,
+            keybind = money(m.balance) }
     end
     if m.gradeEdit then
         options[#options + 1] = { title = 'Manage ranks', description = 'Rank names, pay and boss access', icon = 'fa-solid fa-clipboard-list', arrow = true, onSelect = function() openGrades(m) end }
@@ -775,7 +778,19 @@ openGroup = function(gtype, name, fromPicker, asAdmin)
     for _, item in pairs(dynamicItems) do
         if item.args and type(item.args.type) == 'string' and item.args.type:lower() == gtype then options[#options + 1] = item end
     end
+    -- Lation UI: coloured icons per section, a header icon and a subtitle (ox_lib ignores these)
+    local C = UI.color
+    local ICON_COLOR = {
+        ['fa-solid fa-users'] = C.blue, ['fa-solid fa-user-plus'] = C.green, ['fa-solid fa-file-signature'] = C.purple,
+        ['fa-solid fa-building-columns'] = C.gold, ['fa-solid fa-clipboard-list'] = C.teal, ['fa-solid fa-file-invoice-dollar'] = C.gold,
+        ['fa-solid fa-bullhorn'] = C.amber, ['fa-solid fa-shirt'] = C.pink, ['fa-solid fa-location-dot'] = C.red,
+        ['fa-solid fa-file-contract'] = C.teal, ['fa-solid fa-list-check'] = C.grey,
+    }
+    for _, o in ipairs(options) do o.iconColor = o.iconColor or ICON_COLOR[o.icon] end
     UI.registerMenu({ id = 'blaze_boss_main', title = m.label .. (m.asAdmin and ' · Admin' or ' · Management'),
+        subtitle = m.asAdmin and 'Admin access · every action is logged' or (gtype == 'gang' and 'Gang management' or 'Department management'),
+        headerIcon = gtype == 'gang' and 'fa-solid fa-users-rectangle' or 'fa-solid fa-briefcase',
+        headerIconColor = m.asAdmin and C.red or C.blue,
         menu = m.asAdmin and 'blaze_boss_admin_groups' or (fromPicker and 'blaze_boss_pick' or nil), options = options })
     UI.showMenu('blaze_boss_main')
 end

@@ -19,29 +19,40 @@ UI.lation = useLation
 ---------------------------------------------------------------------------
 -- Menus
 ---------------------------------------------------------------------------
---- data = { id, title, menu (back to), onExit, onBack, canClose, options = { { title, description, icon, iconColor,
----          disabled, readOnly, arrow, menu, onSelect, args, metadata } } }
+--- data = { id, title, menu (back to), onExit, onBack, canClose,
+---          Lation extras: subtitle, headerIcon, headerIconColor, headerIconAnimation,
+---          options = { { title, description, icon, iconColor, disabled, readOnly, arrow, menu, onSelect, args, metadata,
+---                        progress, progressColor, colorScheme, iconAnimation ('beat' | 'fade' | 'bounce' | 'shake' | 'spin'),
+---                        keybind (Lation: little tag on the right) } } }
+--- With Lation UI every extra is used (header icon, coloured icons, animations, coloured progress bars, tags).
+--- ox_lib keeps its plain look (progress bars and arrows only); the extras are simply left out.
 function UI.registerMenu(data)
     local menu = { id = data.id, title = data.title, menu = data.menu, onExit = data.onExit, onBack = data.onBack, canClose = data.canClose, options = {} }
     for i, o in ipairs(data.options or {}) do
         local opt = {
             title = o.title, description = o.description, icon = o.icon, disabled = o.disabled, readOnly = o.readOnly,
-            menu = o.menu, onSelect = o.onSelect, args = o.args, metadata = o.metadata, progress = o.progress,
+            menu = o.menu, onSelect = o.onSelect, args = o.args, metadata = o.metadata, progress = o.progress, arrow = o.arrow,
             event = o.event, serverEvent = o.serverEvent, -- used by menu items other scripts add (AddBossMenuItem)
         }
-        if useLation then
-            opt.iconColor = o.iconColor -- Lation-only extra
-        else
-            opt.arrow = o.arrow
+        if useLation then -- ox_lib keeps its plain look
+            opt.iconColor, opt.iconAnimation, opt.keybind = o.iconColor, o.iconAnimation, o.keybind
+            opt.progressColor, opt.colorScheme = o.progressColor, o.colorScheme
         end
         menu.options[i] = opt
     end
     if useLation then
         menu.subtitle = data.subtitle
+        menu.headerIcon, menu.headerIconColor, menu.headerIconAnimation = data.headerIcon, data.headerIconColor, data.headerIconAnimation
         return exports.lation_ui:registerMenu(menu)
     end
     return lib.registerContext(menu)
 end
+
+--- One palette for the menus, so every screen uses the same colours (Lation icons, tags, progress bars)
+UI.color = {
+    blue = '#5AA9FF', green = '#3DDC84', amber = '#F0A93B', red = '#E5484D', purple = '#A78BFA',
+    teal = '#2DD4BF', pink = '#F472B6', gold = '#F5C542', grey = '#8F99A5',
+}
 
 function UI.showMenu(id)
     if useLation then return exports.lation_ui:showMenu(id) end
