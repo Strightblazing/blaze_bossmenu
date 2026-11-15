@@ -192,6 +192,11 @@ Config = {
                 'Come to the front desk today. Check in at the review desk when you arrive.',
                 'Contact a manager in the city to set up a time.',
             },
+            -- "Needs training": passed the interview, training before they're hired
+            training = {
+                'You passed your interview. Complete a ride-along with a senior member before you are hired.',
+                'Finish the department training course, then contact a manager.',
+            },
         },
         -- Who can build/edit the application form in game:
         -- 'management' = managers (+ admins), 'admin' = admins only, false = no in-game editing

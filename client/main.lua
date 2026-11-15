@@ -439,14 +439,15 @@ local FILTERS = {
     { key = 'all',       title = 'All applications',  tip = 'Every application',          icon = 'fa-solid fa-layer-group', color = '#8F99A5' },
     { key = 'new',       title = 'To review',         tip = 'Waiting for a review',       icon = 'fa-solid fa-clock',       color = '#F0A93B' },
     { key = 'interview', title = 'Pending interview', tip = 'Invited, not decided yet',   icon = 'fa-solid fa-comments',    color = '#5AA9FF' },
+    { key = 'training',  title = 'Needs training',    tip = 'Passed the interview, training before hire', icon = 'fa-solid fa-graduation-cap', color = '#A78BFA' },
     { key = 'accepted',  title = 'Accepted',          tip = 'Accepted applicants',        icon = 'fa-solid fa-check',       color = '#3DDC84' },
     { key = 'denied',    title = 'Denied',            tip = 'Denied applications',        icon = 'fa-solid fa-xmark',       color = '#E5484D' },
-    { key = 'withdrawn', title = 'Withdrawn',         tip = 'Withdrawn by the applicant', icon = 'fa-solid fa-rotate-left', color = '#8F99A5' },
+    { key = 'withdrawn', title = 'Withdrawn',         tip = 'Withdrawn by the applicant', icon = 'fa-solid fa-rotate-left', color = '#8F99A5', hideEmpty = true },
 }
 local FILTER_BY = {}
 for _, f in ipairs(FILTERS) do FILTER_BY[f.key] = f end
-local STATUS_LABEL = { new = 'To review', interview = 'Pending interview', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
-local STATUS_ICON = { new = 'fa-solid fa-envelope', interview = 'fa-solid fa-comments', accepted = 'fa-solid fa-check', denied = 'fa-solid fa-xmark', withdrawn = 'fa-solid fa-rotate-left' }
+local STATUS_LABEL = { new = 'To review', interview = 'Pending interview', training = 'Needs training', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
+local STATUS_ICON = { new = 'fa-solid fa-envelope', interview = 'fa-solid fa-comments', training = 'fa-solid fa-graduation-cap', accepted = 'fa-solid fa-check', denied = 'fa-solid fa-xmark', withdrawn = 'fa-solid fa-rotate-left' }
 
 --- A disabled label row that splits a menu into sections (APPLICANT, ACTIONS, ...)
 local function section(title, hint)
@@ -520,6 +521,7 @@ local function openApp(m, id, filter)
     local meta = { { label = 'Applied for', value = m.label }, { label = 'Sent', value = a.created or '?' } }
     for _, c in ipairs(contact) do meta[#meta + 1] = c end
     if a.interview_msg then meta[#meta + 1] = { label = 'Interview', value = a.interview_msg } end
+    if a.training_msg then meta[#meta + 1] = { label = 'Training', value = a.training_msg } end
     if a.deny_reason then meta[#meta + 1] = { label = 'Deny reason', value = a.deny_reason } end
 
     local options = {
@@ -534,10 +536,17 @@ local function openApp(m, id, filter)
         options[#options + 1] = { title = 'Decided', description = 'This application is closed', icon = 'fa-solid fa-lock', iconColor = UI.color.grey, readOnly = true }
     else
         local invited = a.status == 'interview'
-        options[#options + 1] = { title = invited and 'Edit interview invite' or 'Invite to interview',
+        if a.status ~= 'training' then options[#options + 1] = { title = invited and 'Edit interview invite' or 'Invite to interview',
             description = invited and short(a.interview_msg, 50) or 'Send a time and place', icon = 'fa-solid fa-comments', iconColor = UI.color.blue, onSelect = function()
             local msg = messageDialog('Invite ' .. a.name, 'Message (when / where)', 'interview', a.interview_msg)
             if msg and result(call('interview', m.name, a.id, msg)) then return back('interview') end
+            reopen()
+        end } end
+        local training = a.status == 'training'
+        options[#options + 1] = { title = training and 'Edit training note' or 'Needs training',
+            description = training and short(a.training_msg, 50) or 'Passed the interview, train before hire', icon = 'fa-solid fa-graduation-cap', iconColor = UI.color.purple, onSelect = function()
+            local msg = messageDialog('Training · ' .. a.name, 'What training they need (the applicant sees this)', 'training', a.training_msg)
+            if msg and result(call('training', m.name, a.id, msg)) then return back('training') end
             reopen()
         end }
         options[#options + 1] = { title = 'Accept & hire', description = 'Pick a rank, then confirm', icon = 'fa-solid fa-user-check', iconColor = UI.color.green, onSelect = function()
@@ -631,7 +640,7 @@ end
 --- With no filter picked: open on what needs attention (To review, else the first status that has applications)
 local function defaultFilter(counts)
     if (counts.new or 0) > 0 then return 'new' end
-    for _, k in ipairs({ 'interview', 'accepted', 'denied', 'withdrawn' }) do
+    for _, k in ipairs({ 'interview', 'training', 'accepted', 'denied', 'withdrawn' }) do
         if (counts[k] or 0) > 0 then return k, 'Nothing waiting for review' end
     end
     return 'new'
@@ -645,11 +654,11 @@ openApps = function(m, filter, noShow)
     local list = call('getApplications', m.name, filter) or {}
     local showing = FILTER_BY[filter]
 
-    -- filters first; empty ones are hidden (All and the one you're on always show)
+    -- filters first; Withdrawn only shows when it has applications (or you're on it)
     local options = { section('FILTER') }
     for _, f in ipairs(FILTERS) do
         local n, active = counts[f.key] or 0, f.key == filter
-        if n > 0 or active or f.key == 'all' then
+        if n > 0 or active or not f.hideEmpty then
             options[#options + 1] = {
                 title = ('%s (%d)'):format(f.title, n),
                 description = active and 'Showing now' or f.tip,
@@ -868,7 +877,8 @@ openGroup = function(gtype, name, fromPicker, asAdmin)
     if m.apps then
         local new = m.newApps or 0
         options[#options + 1] = { title = 'Applications', icon = 'fa-solid fa-file-signature', arrow = true,
-            description = ('%d new%s · %s'):format(new, (m.interviews or 0) > 0 and (' · %d interview%s'):format(m.interviews, m.interviews == 1 and '' or 's') or '', m.appsOpen and 'Open' or 'Closed'),
+            description = ('%d new%s%s · %s'):format(new, (m.interviews or 0) > 0 and (' · %d interview%s'):format(m.interviews, m.interviews == 1 and '' or 's') or '',
+                (m.training or 0) > 0 and (' · %d in training'):format(m.training) or '', m.appsOpen and 'Open' or 'Closed'),
             onSelect = function() openApps(m) end,
             keybind = new > 0 and (new .. ' new') or (m.appsOpen and 'Open' or 'Closed'), iconAnimation = new > 0 and 'beat' or nil }
     end
@@ -984,7 +994,7 @@ exports('openApplication', openApplication)
 ---------------------------------------------------------------------------
 -- My applications (status menu: /applicationstatus, the application point, or the export)
 ---------------------------------------------------------------------------
-local STATUS_COLOR = { new = '#5AA9FF', interview = '#F0A93B', accepted = '#3DDC84', denied = '#E5484D', withdrawn = '#8F99A5' }
+local STATUS_COLOR = { new = '#5AA9FF', interview = '#F0A93B', training = '#A78BFA', accepted = '#3DDC84', denied = '#E5484D', withdrawn = '#8F99A5' }
 local openMyApplications
 
 local function openMyApplication(a, job)
@@ -995,6 +1005,10 @@ local function openMyApplication(a, job)
     if a.status == 'interview' and a.interviewMsg then
         options[#options + 1] = { title = 'Interview details', description = short(a.interviewMsg, 80), icon = 'fa-solid fa-comments', readOnly = true,
             metadata = #a.interviewMsg > 80 and { { label = 'Message', value = a.interviewMsg } } or nil }
+    end
+    if a.status == 'training' and a.trainingMsg then
+        options[#options + 1] = { title = 'Training needed', description = short(a.trainingMsg, 80), icon = 'fa-solid fa-graduation-cap', readOnly = true,
+            metadata = #a.trainingMsg > 80 and { { label = 'Message', value = a.trainingMsg } } or nil }
     end
     if a.status == 'denied' then
         if a.denyReason then
@@ -1013,7 +1027,7 @@ local function openMyApplication(a, job)
         options[#options + 1] = { title = ans.label, description = short(text, 80), icon = 'fa-regular fa-comment', readOnly = true,
             metadata = #text > 80 and { { label = 'Your answer', value = text } } or nil }
     end
-    if Config.applications.allowWithdraw and (a.status == 'new' or a.status == 'interview') then
+    if Config.applications.allowWithdraw and (a.status == 'new' or a.status == 'interview' or a.status == 'training') then
         options[#options + 1] = { title = 'Withdraw application', icon = 'fa-solid fa-rotate-left', iconColor = '#E5484D', onSelect = function()
             if UI.confirm({ header = 'Withdraw application', content = ('Withdraw your %s application? You can apply again later.'):format(a.jobLabel), type = 'warning', confirm = 'Withdraw' }) then
                 result(call('withdrawApplication', a.id))

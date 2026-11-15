@@ -427,13 +427,13 @@
   }
 
   // ---------------------------------------------------------------- applications
-  var STATUS = { new: ['New', 'blue'], interview: ['Interview', 'amber'], accepted: ['Accepted', 'green'], denied: ['Denied', 'red'], withdrawn: ['Withdrawn', ''] };
+  var STATUS = { new: ['New', 'blue'], interview: ['Interview', 'amber'], training: ['Training', 'purple'], accepted: ['Accepted', 'green'], denied: ['Denied', 'red'], withdrawn: ['Withdrawn', ''] };
   function apps() {
     var job = S.g.name;
     if (S.sub && !wide()) return application(job, S.sub);
     return call('getApplications', job, S.filter === 'open' ? null : S.filter).then(function (r) {
       var rows = arr(r[0]);
-      var f = [['open', 'Open'], ['interview', 'Interviews'], ['accepted', 'Accepted'], ['denied', 'Denied'], ['withdrawn', 'Withdrawn']];
+      var f = [['open', 'Open'], ['interview', 'Interviews'], ['training', 'Training'], ['accepted', 'Accepted'], ['denied', 'Denied'], ['withdrawn', 'Withdrawn']];
       var listHtml = '<div class="bar"><div class="seg">' + f.map(function (x) { return '<button data-f="' + x[0] + '" class="' + (S.filter === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') +
         '</div><span class="grow"></span><button class="btn ' + (S.m.appsOpen ? 'bad' : 'good') + '" id="toggle">' + (S.m.appsOpen ? 'Close' : 'Open') + ' applications</button></div>' +
         '<div class="list">' + (rows.length ? rows.map(function (a) {
@@ -456,7 +456,7 @@
       if (!a) { S.sub = null; return apps(); }
       var grades = arr(r[1][0] && r[1][0].grades), limit = r[1][0] && r[1][0].limit;
       var st = STATUS[a.status] || [a.status, ''];
-      var open = a.status === 'new' || a.status === 'interview';
+      var open = a.status === 'new' || a.status === 'interview' || a.status === 'training';
       var answers = arr(a.answers).map(function (q) {
         var v = q.type === 'checkbox' ? (q.answer ? 'Yes' : 'No') : (q.answer == null || q.answer === '' ? '—' : q.answer);
         return '<div class="answer"><small>' + esc(q.label) + '</small><p>' + esc(v) + '</p></div>';
@@ -468,8 +468,9 @@
         (a.reviewed_by ? '<p class="hint" style="margin:-4px 0 12px">Last update by ' + esc(a.reviewed_by) + '</p>' : '') +
         (a.deny_reason ? '<div class="notice" style="margin-bottom:12px">Denied: ' + esc(a.deny_reason) + '</div>' : '') +
         (a.interview_msg ? '<div class="notice" style="margin-bottom:12px">Interview: ' + esc(a.interview_msg) + '</div>' : '') +
+        (a.training_msg ? '<div class="notice" style="margin-bottom:12px">Training: ' + esc(a.training_msg) + '</div>' : '') +
         votes + '<div class="section">' + (answers || '<div class="empty">No answers.</div>') + '</div>' +
-        (open ? '<div class="section"><div class="bar"><button class="btn pri" id="accept">Accept &amp; hire</button><button class="btn" id="interview">Invite to interview</button><button class="btn bad" id="deny">Deny</button></div></div>' : '') +
+        (open ? '<div class="section"><div class="bar"><button class="btn pri" id="accept">Accept &amp; hire</button>' + (a.status !== 'training' ? '<button class="btn" id="interview">Invite to interview</button>' : '') + '<button class="btn" id="training">' + (a.status === 'training' ? 'Edit training' : 'Needs training') + '</button><button class="btn bad" id="deny">Deny</button></div></div>' : '') +
         '<div class="section"><h2>Manager notes</h2>' + (NATIVE
           ? '<div class="notice">' + (a.notes ? esc(a.notes) : '<span style="color:var(--faint)">No notes yet. Only managers see these.</span>') + '</div>' +
             '<div class="bar" style="margin-top:8px"><span class="grow"></span><button class="btn" id="editNotes">Edit notes</button></div>'
@@ -497,7 +498,13 @@
         modal({ title: 'Accept ' + a.name, text: 'They get a contract to sign with this rank.', ok: 'Accept', fields: [{ id: 'grade', label: 'Rank', type: 'select', options: opts, value: opts[0] && opts[0].value }] })
           .then(function (v) { if (!v) return; return call('accept', job, id, Number(v.grade)).then(function (res) { if (result(res)) back(); }); }).catch(failed);
       };
-      $('#interview', el).onclick = function () {
+      var tb = $('#training', el);
+      if (tb) tb.onclick = function () {
+        modal({ title: 'Needs training', text: 'They passed the interview but need training before they are hired.', ok: 'Save', fields: [{ id: 'msg', label: 'What training ' + a.name + ' needs (they see this)', type: 'textarea', value: a.training_msg || '' }] })
+          .then(function (v) { if (!v) return; return call('training', job, id, v.msg.trim()).then(function (res) { result(res); again(); }); }).catch(failed);
+      };
+      var ib = $('#interview', el);
+      if (ib) ib.onclick = function () {
         modal({ title: 'Invite to interview', ok: 'Send', fields: [{ id: 'msg', label: 'Message to ' + a.name, type: 'textarea', placeholder: 'When and where to come' }] })
           .then(function (v) { if (!v) return; return call('interview', job, id, v.msg.trim()).then(function (res) { result(res); again(); }); }).catch(failed);
       };

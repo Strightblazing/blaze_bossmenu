@@ -7,11 +7,15 @@
   below a "SHOWING" line (no separate "Showing" step). Applicants show their ID, status and date; the detail menu adds the
   ID, the job and the date sent, Back keeps the filter, and after interview / accept / deny it opens the new status.
   The main Applications line shows how many interviews are waiting; the phone / tablet app has an Interviews filter.
+- **Needs training:** a new step between the interview and hiring. Managers mark an applicant as needing training
+  with a message (quick replies in `applications.quickReplies.training`). The applicant is told and gets a phone mail.
+  From there they can be accepted & hired or denied. It has its own filter in the boss menu and the phone / tablet app,
+  and the main Applications line shows how many are in training. Older installs get the new column added automatically.
 - **Applications menu, easier to read:**
   - Applicants come right after the filters.
   - Accepting on / off and Edit form moved into a **Hiring settings** option at the bottom.
   - The header says whether you're Open or Closed.
-  - Empty filters are hidden (All and the one you're on always show).
+  - To review, Pending interview, Needs training, Accepted, Denied and All always show; Withdrawn only when it has any.
   - When nothing is waiting for review, the menu opens on the first status that has applications.
   - Applicant lines are short ("#1042 · 2h ago · 2 for · 0 against"); hover for age, phone and the first answer.
   - The applicant menu is split into sections (Applicant, Actions, Team vote, Answers, Notes), with the actions first.

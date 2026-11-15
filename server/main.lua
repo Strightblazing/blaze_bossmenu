@@ -225,6 +225,7 @@ local function createTables()
         `notes` TEXT NULL,
         `deny_reason` TEXT NULL,
         `interview_msg` TEXT NULL,
+        `training_msg` TEXT NULL,
         `reviewed_by` VARCHAR(128) NULL,
         `notified` TINYINT(1) NOT NULL DEFAULT 1,
         `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -275,6 +276,10 @@ local function createTables()
     -- 1.2.2: points can have a PED or prop (older installs get the column added once)
     if (MySQL.scalar.await("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blaze_boss_points' AND COLUMN_NAME = 'entity'") or 0) == 0 then
         MySQL.query.await('ALTER TABLE `blaze_boss_points` ADD COLUMN `entity` LONGTEXT NULL')
+    end
+    -- 1.2.4: "Needs training" step between interview and hire, with its own message to the applicant
+    if (MySQL.scalar.await("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'blaze_boss_applications' AND COLUMN_NAME = 'training_msg'") or 0) == 0 then
+        MySQL.query.await('ALTER TABLE `blaze_boss_applications` ADD COLUMN `training_msg` TEXT NULL AFTER `interview_msg`')
     end
     -- Member extras: hire date + probation (rows exist for people hired through blaze_bossmenu)
     MySQL.query.await([[CREATE TABLE IF NOT EXISTS `blaze_boss_members` (
@@ -671,7 +676,7 @@ local function validateAnswers(questions, answers)
     return snapshot
 end
 
-local STATUS_LABEL = { new = 'Waiting for review', interview = 'Invited to interview', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
+local STATUS_LABEL = { new = 'Waiting for review', interview = 'Invited to interview', training = 'Needs training', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
 
 local function statusMessage(job, row)
     local label = groupLabel('job', job)
@@ -682,13 +687,16 @@ local function statusMessage(job, row)
     if row.status == 'interview' then
         return ('You are invited to an interview for %s.%s'):format(label, row.interview_msg and (' ' .. row.interview_msg) or ''), 'inform'
     end
+    if row.status == 'training' then
+        return ('You passed your %s interview. Finish your training before you are hired.%s'):format(label, row.training_msg and (' ' .. row.training_msg) or ''), 'inform'
+    end
     if row.status == 'withdrawn' then return ('You withdrew your %s application.'):format(label), 'inform' end
     return ('Your %s application is waiting for review.'):format(label), 'inform'
 end
 
 --- Tell the applicant now if online, otherwise flag it for their next login
 local function notifyApplicant(id)
-    local row = MySQL.single.await('SELECT id, citizenid, job, name, status, deny_reason, interview_msg FROM blaze_boss_applications WHERE id = ?', { id })
+    local row = MySQL.single.await('SELECT id, citizenid, job, name, status, deny_reason, interview_msg, training_msg FROM blaze_boss_applications WHERE id = ?', { id })
     if not row then return end
     hook('applicationUpdate', row)
     local p = Bridge.GetPlayerByCitizenId(row.citizenid)
@@ -707,7 +715,7 @@ AddEventHandler('QBCore:Server:PlayerLoaded', function(player)
     if not pd then return end
     local src, cid = pd.source, pd.citizenid
     SetTimeout(5000, function()
-        local rows = MySQL.query.await("SELECT id, job, status, deny_reason, interview_msg FROM blaze_boss_applications WHERE citizenid = ? AND notified = 0 AND status IN ('accepted','denied','interview')", { cid }) or {}
+        local rows = MySQL.query.await("SELECT id, job, status, deny_reason, interview_msg, training_msg FROM blaze_boss_applications WHERE citizenid = ? AND notified = 0 AND status IN ('accepted','denied','interview','training')", { cid }) or {}
         for _, r in ipairs(rows) do
             local msg, t = statusMessage(r.job, r)
             Bridge.Notify(src, msg, t, 'Application')
@@ -808,6 +816,7 @@ register('getMenu', function(src, gtype, name, asAdmin)
         data.appsOpen = isOpen(name)
         data.newApps = MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status = 'new'", { name }) or 0
         data.interviews = MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status = 'interview'", { name }) or 0
+        data.training = MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status = 'training'", { name }) or 0
     end
     if data.funds then data.balance = Banking.getBalance(groupCfg(gtype, name).society) end
     return data
@@ -1128,7 +1137,7 @@ if APPS.enabled then
         local cid = Bridge.GetCitizenId(src)
         if not cid then return false, 'Character not loaded.' end
         if Bridge.GetPlayerGroupGrade(src, 'job', job) then return false, 'You already work here.' end
-        local open = MySQL.scalar.await("SELECT id FROM blaze_boss_applications WHERE citizenid = ? AND job = ? AND status IN ('new','interview') LIMIT 1", { cid, job })
+        local open = MySQL.scalar.await("SELECT id FROM blaze_boss_applications WHERE citizenid = ? AND job = ? AND status IN ('new','interview','training') LIMIT 1", { cid, job })
         if open then return false, 'You already have an application waiting for review.' end
         local hours = tonumber(APPS.denyCooldownHours) or 0
         if hours > 0 then
@@ -1174,7 +1183,7 @@ if APPS.enabled then
         if not cid then return {} end
         if job ~= nil and not appsOn('job', job) then return {} end
         local hours = tonumber(APPS.denyCooldownHours) or 0
-        local rows = MySQL.query.await(([[SELECT id, job, status, answers, deny_reason, interview_msg, reviewed_by,
+        local rows = MySQL.query.await(([[SELECT id, job, status, answers, deny_reason, interview_msg, training_msg, reviewed_by,
                 DATE_FORMAT(created_at, '%%m-%%d-%%Y %%H:%%i') AS created, DATE_FORMAT(updated_at, '%%m-%%d-%%Y %%H:%%i') AS updated,
                 DATE_FORMAT(updated_at + INTERVAL ? HOUR, '%%m-%%d-%%Y %%H:%%i') AS reapply_at,
                 (updated_at + INTERVAL ? HOUR > NOW()) AS cooling
@@ -1186,7 +1195,7 @@ if APPS.enabled then
                 local msg = statusMessage(r.job, r)
                 out[#out + 1] = {
                     id = r.id, job = r.job, jobLabel = groupLabel('job', r.job), status = r.status, statusLabel = STATUS_LABEL[r.status],
-                    message = msg, answers = json.decode(r.answers) or {}, denyReason = r.deny_reason, interviewMsg = r.interview_msg,
+                    message = msg, answers = json.decode(r.answers) or {}, denyReason = r.deny_reason, interviewMsg = r.interview_msg, trainingMsg = r.training_msg,
                     reviewedBy = r.reviewed_by, created = r.created, updated = r.updated,
                     reapplyAt = (r.status == 'denied' and hours > 0 and (r.cooling == 1 or r.cooling == true)) and r.reapply_at or nil,
                     open = isOpen(r.job),
@@ -1200,11 +1209,12 @@ if APPS.enabled then
 
     register('getApplications', function(src, job, filter)
         if not managerCheck(src, job) then return nil end
-        local where = "status IN ('new','interview')"
+        local where = "status IN ('new','interview','training')"
         if filter == 'accepted' then where = "status = 'accepted'"
         elseif filter == 'denied' then where = "status = 'denied'"
         elseif filter == 'withdrawn' then where = "status = 'withdrawn'"
         elseif filter == 'interview' then where = "status = 'interview'"
+        elseif filter == 'training' then where = "status = 'training'"
         elseif filter == 'new' then where = "status = 'new'"
         elseif filter == 'all' then where = '1 = 1' end
         local votes = APPS.votes and [[,
@@ -1239,7 +1249,7 @@ if APPS.enabled then
     --- How many applications this job has per status (the Applications menu's filters), and in all
     register('getApplicationCounts', function(src, job)
         if not managerCheck(src, job) then return nil end
-        local out = { all = 0, new = 0, interview = 0, accepted = 0, denied = 0, withdrawn = 0 }
+        local out = { all = 0, new = 0, interview = 0, training = 0, accepted = 0, denied = 0, withdrawn = 0 }
         for _, r in ipairs(MySQL.query.await('SELECT status, COUNT(*) AS n FROM blaze_boss_applications WHERE job = ? GROUP BY status', { job }) or {}) do
             local n = tonumber(r.n) or 0
             if out[r.status] ~= nil then out[r.status] = n end
@@ -1285,12 +1295,27 @@ if APPS.enabled then
         return true, 'Interview invite sent.'
     end)
 
+    --- Passed the interview, needs training before they're hired. msg = what they need to do (the applicant sees it).
+    register('training', function(src, job, id, msg)
+        local limit, err = managerCheck(src, job)
+        if not limit then return false, err end
+        local row = loadApp(job, id)
+        if not row then return false, 'Application not found.' end
+        if row.status ~= 'new' and row.status ~= 'interview' and row.status ~= 'training' then return false, 'This application was already decided.' end
+        msg = cleanText(msg, 300)
+        if not msg or #msg < 1 then return false, 'Write what training they need.' end
+        MySQL.update.await("UPDATE blaze_boss_applications SET status = 'training', training_msg = ?, reviewed_by = ? WHERE id = ?", { msg, Bridge.GetName(src), row.id })
+        notifyApplicant(row.id)
+        Logs.log('training', src, ('%s marked %s as needing training (%s)'):format(Logs.who(src), row.name, groupLabel('job', job)), { Job = job, Application = row.id })
+        return true, 'Marked as needing training.'
+    end)
+
     register('accept', function(src, job, id, grade)
         local limit, err = managerCheck(src, job)
         if not limit then return false, err end
         local row = loadApp(job, id)
         if not row then return false, 'Application not found.' end
-        if row.status ~= 'new' and row.status ~= 'interview' then return false, 'This application was already decided.' end
+        if row.status ~= 'new' and row.status ~= 'interview' and row.status ~= 'training' then return false, 'This application was already decided.' end
         grade = tonumber(grade)
         if not grade or not Bridge.GetGrade('job', job, grade) then return false, 'That rank doesn\'t exist.' end
         if grade >= limit then return false, 'You can only hire up to the rank below yours.' end
@@ -1311,7 +1336,7 @@ if APPS.enabled then
         if not limit then return false, err end
         local row = loadApp(job, id)
         if not row then return false, 'Application not found.' end
-        if row.status ~= 'new' and row.status ~= 'interview' then return false, 'This application was already decided.' end
+        if row.status ~= 'new' and row.status ~= 'interview' and row.status ~= 'training' then return false, 'This application was already decided.' end
         reason = cleanText(reason, 300)
         if not reason or #reason < 1 then return false, 'A reason is required.' end
         MySQL.update.await("UPDATE blaze_boss_applications SET status = 'denied', deny_reason = ?, reviewed_by = ? WHERE id = ?", { reason, Bridge.GetName(src), row.id })

@@ -36,8 +36,8 @@ The boss menu itself uses ox_lib (or Lation UI) menus in game.
   just below yours, and can't act on yourself (except your own callsign). Admins can manage any configured job.
 - **Hire**: nearby players or by server ID. The person signs an **employment contract** first (or a simple
   Accept / Decline popup with `contract.enabled = false`).
-- **Applications**: anyone applies at an application point. Managers review, invite to interview, accept & hire
-  (picking the starting rank), or deny with a reason. Applicants are told right away, or on their next login.
+- **Applications**: anyone applies at an application point. Managers review, invite to interview, mark as needing training
+  (passed the interview, training before hire), accept & hire (picking the starting rank), or deny with a reason. Applicants are told right away, or on their next login.
   Managers can also review at a separate **application review point**, and applicants check theirs with `/applicationstatus`.
 - **Form builder in game**: add, edit, reorder, delete and preview questions; edit the intro; save or reset to default.
   Old applications keep their own questions and answers, so they still read correctly after the form changes.
@@ -227,7 +227,7 @@ Boss desks and review points only show to that job's managers (and admins). Appl
 ## Checking your applications
 
 `/applicationstatus` (or "My application status" at an application point) opens **My applications**:
-every job you applied to, with the status (waiting, interview, accepted, denied), the interview message,
+every job you applied to, with the status (waiting, interview, needs training, accepted, denied), the interview and training messages,
 the deny reason and when you can apply again, who reviewed it, and your own answers. Manager notes are never shown.
 Change or turn off the command with `applications.statusCommand`.
 
@@ -297,7 +297,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `funds.confirmAbove` | Deposits/withdrawals of this amount or more ask to confirm. |
 | `funds.historyLimit` | Transactions shown in Recent history. |
 | `applications.allowWithdraw` / `votes` / `interviewCheckIn` | Applicant withdraw, manager votes, interview check-in at the review point. |
-| `applications.quickReplies` | Ready-made `deny` and `interview` messages. |
+| `applications.quickReplies` | Ready-made `deny`, `interview` and `training` messages. |
 | `funds.bonuses` / `maxBonus` / `payroll` | Bonuses from society funds, biggest bonus per person, the Payroll page. |
 | `jobs[x].description` | Text shown on the `/jobs` board. |
 | `jobs[x].fullName` | Full job name shown under the label on the time clock (e.g. Emergency Medical Services). |
@@ -331,7 +331,7 @@ The applicant's full name always comes from their character. It is never a quest
 
 Set `set blaze_bossmenu_webhook "https://discord.com/api/webhooks/..."` in `server.cfg`.
 The webhook is **never** read from a file, so it can't end up in the repo. Logs are batched to stay under Discord's rate limit.
-Events: hire, fire, promote, demote, callsign, accept, deny, interview, deposit, withdraw, toggle, formEdit,
+Events: hire, fire, promote, demote, callsign, accept, deny, interview, training, deposit, withdraw, toggle, formEdit,
 formReset, placement, gradeEdit, record, eotw, announce, bonus, withdrawApp, checkin, contractEdit, outfit.
 Turn single events off in `Config.logs.events`.
 

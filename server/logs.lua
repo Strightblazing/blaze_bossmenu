@@ -10,7 +10,7 @@ local events = cfg.events or {}
 
 local COLOURS = {
     hire = 0x3DDC84, accept = 0x3DDC84, promote = 0x5AA9FF, demote = 0xF0A93B, fire = 0xE5484D,
-    deny = 0xE5484D, interview = 0x5AA9FF, callsign = 0x8F99A5, deposit = 0x3DDC84, withdraw = 0xF0A93B,
+    deny = 0xE5484D, interview = 0x5AA9FF, training = 0xA78BFA, callsign = 0x8F99A5, deposit = 0x3DDC84, withdraw = 0xF0A93B,
     toggle = 0xA78BFA, formEdit = 0xA78BFA, formReset = 0xA78BFA, placement = 0x8F99A5, gradeEdit = 0xA78BFA,
     record = 0x5AA9FF, eotw = 0xF5C542, announce = 0xA78BFA, bonus = 0x3DDC84, withdrawApp = 0x8F99A5, checkin = 0x5AA9FF,
     contractEdit = 0xA78BFA, outfit = 0x8F99A5,

@@ -118,6 +118,10 @@ BM.hooks.applicationUpdate = function(row)
         subject = ('Interview invitation: %s'):format(jl)
         body = ('Hi %s,\n\nYou are invited to an interview with %s.%s\n\nWhen you arrive, check in at the review desk.\n\n%s Management')
             :format(row.name or '', jl, row.interview_msg and ('\n\n' .. row.interview_msg) or '', jl)
+    elseif row.status == 'training' then
+        subject = ('Training before you start: %s'):format(jl)
+        body = ('Hi %s,\n\nThanks for coming in. You passed your interview with %s, but you need to finish your training before you are hired.%s\n\n%s Management')
+            :format(row.name or '', jl, row.training_msg and ('\n\n' .. row.training_msg) or '', jl)
     else
         return
     end
@@ -456,7 +460,7 @@ if APPS.enabled then
             local cid = Bridge.GetCitizenId(src)
             local row = MySQL.single.await('SELECT id, job, name, status FROM blaze_boss_applications WHERE id = ? AND citizenid = ?', { tonumber(id), cid })
             if not row then return false, 'Application not found.' end
-            if row.status ~= 'new' and row.status ~= 'interview' then return false, 'This application was already decided.' end
+            if row.status ~= 'new' and row.status ~= 'interview' and row.status ~= 'training' then return false, 'This application was already decided.' end
             MySQL.update.await("UPDATE blaze_boss_applications SET status = 'withdrawn', notified = 1 WHERE id = ?", { row.id })
             Logs.log('withdrawApp', src, ('%s withdrew their %s application'):format(Logs.who(src), label('job', row.job)), { Job = row.job, Application = row.id })
             return true, 'Application withdrawn.'
@@ -817,7 +821,7 @@ if DUTY.enabled then
         -- department stats (applications waiting: managers only)
         local manager = BM.actorLimit(src, 'job', job) ~= nil
         local appsWaiting = (manager and BM.appsOn('job', job))
-            and MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status IN ('new','interview')", { job }) or nil
+            and MySQL.scalar.await("SELECT COUNT(*) FROM blaze_boss_applications WHERE job = ? AND status IN ('new','interview','training')", { job }) or nil
         local eotwName = F.employeeOfWeek and MySQL.scalar.await('SELECT name FROM blaze_boss_eotw WHERE job = ? AND week = YEARWEEK(NOW(), 3)', { key }) or nil
 
         -- phone / email only when the time clock shows them (duty.view)

@@ -17,7 +17,7 @@ local ALLOWED = {
     getMyJobs = 0, getMenu = 2, getStaff = 2,
     promote = 3, demote = 3, fire = 3, setCallsign = 4, hire = 4,
     getFunds = 2, deposit = 4, withdraw = 4,
-    getApplications = 2, getApplication = 2, interview = 3, accept = 3, deny = 3, voteApplication = 3, toggleApplications = 1,
+    getApplications = 2, getApplication = 2, interview = 3, training = 3, accept = 3, deny = 3, voteApplication = 3, toggleApplications = 1,
     getAnnouncement = 2, postAnnouncement = 3, getAudit = 2,
     getProfile = 3, addRecord = 5, setEmployeeOfWeek = 4, bonus = 6, getPayroll = 2, saveNote = 3, modifyGrade = 4,
 }
