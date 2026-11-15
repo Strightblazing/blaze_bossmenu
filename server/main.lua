@@ -1083,9 +1083,10 @@ if APPS.enabled then
         local needPhone = C.phone ~= false and C.phoneRequired ~= false and not phone
         local needEmail = C.email ~= false and C.emailRequired ~= false and not email
         local missing
-        if needPhone and needEmail then missing = 'Set up your phone number and an email on your phone before you apply. Managers use them to reach you.'
-        elseif needPhone then missing = 'Set up your phone number on your phone before you apply. Managers use it to reach you.'
-        elseif needEmail then missing = 'Set up an email on your phone (the Mail app) before you apply. Managers use it to reach you.' end
+        -- (the client keys off "before you apply" to stop retrying)
+        if needPhone and needEmail then missing = 'The hiring team needs a way to reach you. Get a phone number and an email address set up on your phone before you apply.'
+        elseif needPhone then missing = 'The hiring team needs a number to call you back on. Get your phone set up before you apply.'
+        elseif needEmail then missing = 'The hiring team sends updates by email. Set up an email address in your phone\'s Mail app before you apply.' end
         return out, missing
     end
 

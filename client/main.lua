@@ -822,16 +822,18 @@ local function openApplication(job)
     -- phone number and email come from their phone; when one is required but not set up, say so before the form
     if form.contactMissing then return notify(form.contactMissing, 'error', 'Application') end
     local contact = form.contact or {}
-    local sent = {}
-    if contact.phone then sent[#sent + 1] = 'phone number' end
-    if contact.email then sent[#sent + 1] = 'email' end
-    local note = 'Your name is taken from your character automatically' .. (#sent > 0 and (', and your ' .. table.concat(sent, ' and ') .. ' from your phone.') or '.')
-    if not UI.confirm({ header = 'Apply for ' .. form.label, content = (form.intro ~= '' and form.intro or 'Fill in the form to apply.') .. '\n\n' .. note,
+    local reach = {}
+    if contact.phone then reach[#reach + 1] = 'number' end
+    if contact.email then reach[#reach + 1] = 'email' end
+    local note = #reach > 0
+        and ('The hiring team will reach you at the %s on your application, so make sure they\'re yours and up to date.'):format(table.concat(reach, ' and '))
+        or 'Answer honestly. The hiring team reads every application.'
+    if not UI.confirm({ header = 'Apply for ' .. form.label, content = (form.intro ~= '' and form.intro or 'Thanks for your interest in joining us. Fill in the form below to apply.') .. '\n\n' .. note,
             type = 'info', confirm = 'Start' }) then return end
     -- shown at the top of the form, filled in and locked (the server reads them from the phone again on send)
     local fixed = {}
-    if contact.phone then fixed[#fixed + 1] = { type = 'input', label = 'Phone number (from your phone)', default = contact.phone, disabled = true, icon = 'phone' } end
-    if contact.email then fixed[#fixed + 1] = { type = 'input', label = 'Email (from your phone)', default = contact.email, disabled = true, icon = 'envelope' } end
+    if contact.phone then fixed[#fixed + 1] = { type = 'input', label = 'Contact number', default = contact.phone, disabled = true, icon = 'phone' } end
+    if contact.email then fixed[#fixed + 1] = { type = 'input', label = 'Email address', default = contact.email, disabled = true, icon = 'envelope' } end
     local fields, answers = nil, nil
     while true do
         fields = buildFields(form.questions, answers)
