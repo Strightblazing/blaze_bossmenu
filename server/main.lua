@@ -1207,7 +1207,33 @@ if APPS.enabled then
         elseif filter == 'interview' then where = "status = 'interview'"
         elseif filter == 'new' then where = "status = 'new'"
         elseif filter == 'all' then where = '1 = 1' end
-        return MySQL.query.await(("SELECT id, name, status, DATE_FORMAT(created_at, '%%m-%%d-%%Y %%H:%%i') AS created FROM blaze_boss_applications WHERE job = ? AND %s ORDER BY id DESC LIMIT 100"):format(where), { job }) or {}
+        local votes = APPS.votes and [[,
+                (SELECT COUNT(*) FROM blaze_boss_app_votes v WHERE v.app_id = a.id AND v.vote > 0) AS up,
+                (SELECT COUNT(*) FROM blaze_boss_app_votes v WHERE v.app_id = a.id AND v.vote < 0) AS down]] or ''
+        local rows = MySQL.query.await(([[SELECT a.id, a.name, a.status, a.answers, DATE_FORMAT(a.created_at, '%%m-%%d-%%Y %%H:%%i') AS created,
+                TIMESTAMPDIFF(MINUTE, a.created_at, NOW()) AS mins%s
+            FROM blaze_boss_applications a WHERE a.job = ? AND %s ORDER BY a.id DESC LIMIT 100]]):format(votes, where), { job }) or {}
+        -- each row: vote counts, minutes since sent, and a hover peek (age, phone, first answer) for the list
+        for _, r in ipairs(rows) do
+            local peek = {}
+            local first
+            for _, ans in ipairs(json.decode(r.answers or '[]') or {}) do
+                if ans.contact then
+                    if ans.label == 'Age' or ans.label == 'Phone number' then peek[#peek + 1] = { label = ans.label, value = tostring(ans.answer) } end
+                elseif not first and type(ans.answer) == 'string' and ans.answer ~= '' then
+                    first = ans
+                end
+            end
+            if first then
+                local text = first.answer:gsub('\n', ' ')
+                peek[#peek + 1] = { label = first.label, value = #text > 120 and (text:sub(1, 119) .. '…') or text }
+            end
+            r.peek = peek
+            r.answers = nil
+            r.mins = tonumber(r.mins)
+            r.up, r.down = tonumber(r.up), tonumber(r.down)
+        end
+        return rows
     end)
 
     --- How many applications this job has per status (the Applications menu's filters), and in all
@@ -1241,6 +1267,7 @@ if APPS.enabled then
         local sent = tonumber(row.created_at)
         row.created = sent and os.date('%m-%d-%Y %H:%M', math.floor(sent / 1000)) or nil
         row.created_at, row.updated_at = nil, nil
+        row.mins = tonumber(MySQL.scalar.await('SELECT TIMESTAMPDIFF(MINUTE, created_at, NOW()) FROM blaze_boss_applications WHERE id = ?', { row.id }))
         return row
     end)
 

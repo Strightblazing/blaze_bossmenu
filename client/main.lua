@@ -443,8 +443,26 @@ local FILTERS = {
     { key = 'denied',    title = 'Denied',            tip = 'Denied applications',        icon = 'fa-solid fa-xmark',       color = '#E5484D' },
     { key = 'withdrawn', title = 'Withdrawn',         tip = 'Withdrawn by the applicant', icon = 'fa-solid fa-rotate-left', color = '#8F99A5' },
 }
+local FILTER_BY = {}
+for _, f in ipairs(FILTERS) do FILTER_BY[f.key] = f end
 local STATUS_LABEL = { new = 'To review', interview = 'Pending interview', accepted = 'Accepted', denied = 'Denied', withdrawn = 'Withdrawn' }
 local STATUS_ICON = { new = 'fa-solid fa-envelope', interview = 'fa-solid fa-comments', accepted = 'fa-solid fa-check', denied = 'fa-solid fa-xmark', withdrawn = 'fa-solid fa-rotate-left' }
+
+--- A disabled label row that splits a menu into sections (APPLICANT, ACTIONS, ...)
+local function section(title, hint)
+    return { title = title, description = hint, disabled = true }
+end
+
+--- "12m ago", "3h ago", "yesterday", "4d ago" from minutes
+local function ago(mins)
+    mins = tonumber(mins)
+    if not mins then return '?' end
+    if mins < 1 then return 'just now' end
+    if mins < 60 then return ('%dm ago'):format(mins) end
+    if mins < 1440 then return ('%dh ago'):format(mins // 60) end
+    if mins < 2880 then return 'yesterday' end
+    return ('%dd ago'):format(mins // 1440)
+end
 
 --- Message dialog with optional ready-made replies (Config.applications.quickReplies[kind]).
 --- Returns the text, or nil if cancelled.
@@ -479,109 +497,193 @@ local function openApp(m, id, filter)
         again.fromReview = m.fromReview
         openApps(again, newFilter or filter)
     end
-    local reopen = function() openApp(m, id, filter) end
-    local statusLine = STATUS_LABEL[a.status] or a.statusLabel or a.status
-    if a.reviewed_by then statusLine = statusLine .. ' · by ' .. a.reviewed_by end
-    local meta = {}
-    if a.deny_reason then meta[#meta + 1] = { label = 'Deny reason', value = a.deny_reason } end
-    if a.interview_msg then meta[#meta + 1] = { label = 'Interview message', value = a.interview_msg } end
-    local options = {
-        { title = ('%s (#%d)'):format(a.name, a.id), description = statusLine, icon = STATUS_ICON[a.status] or 'fa-solid fa-file', readOnly = true,
-          metadata = #meta > 0 and meta or nil },
-        { title = 'Applied for: ' .. m.label, description = 'Sent ' .. (a.created or '?'), icon = 'fa-solid fa-briefcase', readOnly = true },
-    }
+    -- reopen this applicant; the list behind it is rebuilt too, so its back arrow shows fresh votes / counts
+    local reopen = function()
+        openApps(m, filter, true)
+        openApp(m, id, filter)
+    end
+    local f = FILTER_BY[a.status] or {}
+
+    -- the fixed fields (age / phone / email) go into the applicant header; the rest are the answers
+    local age, contact, answers = nil, {}, {}
     for _, ans in ipairs(a.answers or {}) do
+        if ans.contact then
+            if ans.label == 'Age' then age = ans.answer
+            else contact[#contact + 1] = { label = ans.label, value = tostring(ans.answer) } end
+        else
+            answers[#answers + 1] = ans
+        end
+    end
+    local statusLine = (STATUS_LABEL[a.status] or a.statusLabel or a.status)
+    if a.reviewed_by then statusLine = statusLine .. ' · by ' .. a.reviewed_by end
+    statusLine = statusLine .. ' · sent ' .. ago(a.mins)
+    local meta = { { label = 'Applied for', value = m.label }, { label = 'Sent', value = a.created or '?' } }
+    for _, c in ipairs(contact) do meta[#meta + 1] = c end
+    if a.interview_msg then meta[#meta + 1] = { label = 'Interview', value = a.interview_msg } end
+    if a.deny_reason then meta[#meta + 1] = { label = 'Deny reason', value = a.deny_reason } end
+
+    local options = {
+        section('APPLICANT'),
+        { title = age and ('%s · %s'):format(a.name, age) or a.name, description = statusLine, readOnly = true,
+          icon = STATUS_ICON[a.status] or 'fa-solid fa-file', iconColor = f.color, metadata = meta },
+        section('ACTIONS'),
+    }
+
+    -- actions first, right under the applicant
+    if decided then
+        options[#options + 1] = { title = 'Decided', description = 'This application is closed', icon = 'fa-solid fa-lock', iconColor = UI.color.grey, readOnly = true }
+    else
+        local invited = a.status == 'interview'
+        options[#options + 1] = { title = invited and 'Edit interview invite' or 'Invite to interview',
+            description = invited and short(a.interview_msg, 50) or 'Send a time and place', icon = 'fa-solid fa-comments', iconColor = UI.color.blue, onSelect = function()
+            local msg = messageDialog('Invite ' .. a.name, 'Message (when / where)', 'interview', a.interview_msg)
+            if msg and result(call('interview', m.name, a.id, msg)) then return back('interview') end
+            reopen()
+        end }
+        options[#options + 1] = { title = 'Accept & hire', description = 'Pick a rank, then confirm', icon = 'fa-solid fa-user-check', iconColor = UI.color.green, onSelect = function()
+            local grade = pickRank(m, 'Hire ' .. a.name)
+            if grade and UI.confirm({ header = 'Accept & hire', content = ('Hire %s into %s?'):format(a.name, m.label), type = 'info', confirm = 'Hire' }) then
+                if result(call('accept', m.name, a.id, grade)) then return back('accepted') end
+            end
+            reopen()
+        end }
+        options[#options + 1] = { title = 'Deny', description = 'The applicant sees your reason', icon = 'fa-solid fa-xmark', iconColor = UI.color.red, onSelect = function()
+            local reason = messageDialog('Deny ' .. a.name, 'Reason (the applicant sees this)', 'deny')
+            if reason and UI.confirm({ header = 'Deny application', content = ('Deny %s\'s application?'):format(a.name), type = 'error', confirm = 'Deny' }) then
+                if result(call('deny', m.name, a.id, reason)) then return back('denied') end
+            end
+            reopen()
+        end }
+    end
+
+    -- team vote: totals with a for / against bar; voting only while it's still open
+    if a.votes then
+        local mine, up, down = a.votes.mine, a.votes.up, a.votes.down
+        local total = up + down
+        options[#options + 1] = section('TEAM VOTE', ('%d vote%s'):format(total, total == 1 and '' or 's'))
+        options[#options + 1] = { title = ('%d for · %d against'):format(up, down), icon = 'fa-solid fa-square-poll-vertical', readOnly = true,
+            description = mine == 1 and 'You voted for' or (mine == -1 and 'You voted against' or 'You haven\'t voted'),
+            progress = total > 0 and math.floor(up / total * 100) or 0, progressColor = UI.color.green, colorScheme = 'green',
+            metadata = #a.votes.voters > 0 and a.votes.voters or nil }
+        if not decided then
+            options[#options + 1] = { title = mine == 1 and 'Remove your vote' or 'Vote for', icon = 'fa-solid fa-thumbs-up', iconColor = UI.color.green, onSelect = function()
+                result(call('voteApplication', m.name, a.id, mine == 1 and 0 or 1)) reopen()
+            end }
+            options[#options + 1] = { title = mine == -1 and 'Remove your vote' or 'Vote against', icon = 'fa-solid fa-thumbs-down', iconColor = UI.color.red, onSelect = function()
+                result(call('voteApplication', m.name, a.id, mine == -1 and 0 or -1)) reopen()
+            end }
+        end
+    end
+
+    -- answers: one popup with all of them, then each one short (hover for the full text)
+    options[#options + 1] = section('ANSWERS', ('%d question%s'):format(#answers, #answers == 1 and '' or 's'))
+    if #answers > 0 then
+        options[#options + 1] = { title = 'Read full answers', description = 'Every answer in one window', icon = 'fa-solid fa-file-lines', arrow = true, onSelect = function()
+            local parts = {}
+            for _, ans in ipairs(answers) do
+                parts[#parts + 1] = (UI.lation and '%s\n%s' or '**%s**  \n%s'):format(ans.label, answerText(ans))
+            end
+            UI.confirm({ header = 'Answers · ' .. a.name, content = table.concat(parts, '\n\n'), type = 'info', confirm = 'Done', cancel = 'Close' })
+            reopen()
+        end }
+    end
+    for _, ans in ipairs(answers) do
         local text = answerText(ans)
         options[#options + 1] = {
-            title = ans.label, description = short(text, 80), icon = 'fa-regular fa-comment', readOnly = true,
-            metadata = #text > 80 and { { label = 'Answer', value = text } } or nil,
+            title = ans.label, description = short(text, 60), icon = 'fa-regular fa-comment', readOnly = true,
+            metadata = #text > 60 and { { label = 'Answer', value = text } } or nil,
         }
     end
-    if a.votes then
-        local mine = a.votes.mine
-        local voterMeta = {}
-        for _, s in ipairs(a.votes.voters) do voterMeta[#voterMeta + 1] = s end
-        options[#options + 1] = { title = ('Team vote: %d for · %d against'):format(a.votes.up, a.votes.down), icon = 'fa-solid fa-square-poll-vertical',
-            description = mine == 1 and 'You voted for' or (mine == -1 and 'You voted against' or 'You haven\'t voted'), readOnly = true,
-            metadata = #voterMeta > 0 and voterMeta or nil }
-        options[#options + 1] = { title = mine == 1 and 'Remove your vote' or 'Vote for', icon = 'fa-solid fa-thumbs-up', iconColor = '#3DDC84', onSelect = function()
-            result(call('voteApplication', m.name, a.id, mine == 1 and 0 or 1)) reopen()
-        end }
-        options[#options + 1] = { title = mine == -1 and 'Remove your vote' or 'Vote against', icon = 'fa-solid fa-thumbs-down', iconColor = '#E5484D', onSelect = function()
-            result(call('voteApplication', m.name, a.id, mine == -1 and 0 or -1)) reopen()
-        end }
-    end
-    options[#options + 1] = { title = 'Invite to interview', icon = 'fa-solid fa-comments', disabled = decided, onSelect = function()
-        local msg = messageDialog('Invite ' .. a.name, 'Message (when / where)', 'interview', a.interview_msg)
-        if msg and result(call('interview', m.name, a.id, msg)) then return back('interview') end
-        reopen()
-    end }
-    options[#options + 1] = { title = 'Accept & hire', icon = 'fa-solid fa-user-check', iconColor = '#3DDC84', disabled = decided, onSelect = function()
-        local grade = pickRank(m, 'Hire ' .. a.name)
-        if grade and UI.confirm({ header = 'Accept & hire', content = ('Hire %s into %s?'):format(a.name, m.label), type = 'info', confirm = 'Hire' }) then
-            if result(call('accept', m.name, a.id, grade)) then return back('accepted') end
-        end
-        reopen()
-    end }
-    options[#options + 1] = { title = 'Deny', icon = 'fa-solid fa-xmark', iconColor = '#E5484D', disabled = decided, onSelect = function()
-        local reason = messageDialog('Deny ' .. a.name, 'Reason (the applicant sees this)', 'deny')
-        if reason and UI.confirm({ header = 'Deny application', content = ('Deny %s\'s application?'):format(a.name), type = 'error', confirm = 'Deny' }) then
-            if result(call('deny', m.name, a.id, reason)) then return back('denied') end
-        end
-        reopen()
-    end }
+
+    options[#options + 1] = section('NOTES', 'managers only')
     options[#options + 1] = { title = a.notes and a.notes ~= '' and 'Edit note' or 'Add note', icon = 'fa-solid fa-note-sticky',
-        description = a.notes and a.notes ~= '' and short(a.notes, 60) or 'Only managers see notes', onSelect = function()
+        description = a.notes and a.notes ~= '' and short(a.notes, 50) or 'Only managers see notes', onSelect = function()
         local v = UI.input('Note · ' .. a.name, { { type = 'textarea', label = 'Note', default = a.notes, maxLength = 1000 } })
         if v then result(call('saveNote', m.name, a.id, v[1] or '')) end
         reopen()
     end }
-    UI.registerMenu({ id = 'blaze_boss_app', title = 'Application #' .. a.id, menu = 'blaze_boss_apps', options = options })
+    UI.registerMenu({ id = 'blaze_boss_app', title = ('%s · #%d'):format(a.name, a.id), menu = 'blaze_boss_apps', options = options,
+        headerIcon = 'fa-solid fa-user', headerIconColor = f.color })
     UI.showMenu('blaze_boss_app')
 end
 
-openApps = function(m, filter)
-    filter = filter or 'new'
-    local list = call('getApplications', m.name, filter) or {}
-    local counts = call('getApplicationCounts', m.name) or {}
+--- Hiring settings (accepting on / off, edit form): moved out of the list so the applicants come first
+local function openHiringSettings(m, filter)
     local options = {
         { title = 'Accepting applications: ' .. (m.appsOpen and 'On' or 'Off'), icon = m.appsOpen and 'fa-solid fa-toggle-on' or 'fa-solid fa-toggle-off',
-          iconColor = m.appsOpen and '#3DDC84' or '#8F99A5', description = 'Click to turn ' .. (m.appsOpen and 'off' or 'on'), onSelect = function()
+          iconColor = m.appsOpen and UI.color.green or UI.color.grey, description = 'Select to turn ' .. (m.appsOpen and 'off' or 'on'), onSelect = function()
             local ok, msg, open = call('toggleApplications', m.name)
             result(ok, msg)
             if ok then m.appsOpen = open end
-            openApps(m, filter)
+            openApps(m, filter, true) -- the list behind it shows the new state too
+            openHiringSettings(m, filter)
         end },
     }
     if m.formEdit then
-        options[#options + 1] = { title = 'Edit application form', icon = 'fa-solid fa-pen-to-square', arrow = true, onSelect = function() openFormEditor(m) end }
+        options[#options + 1] = { title = 'Edit application form', description = 'Name, age, phone and email are added automatically',
+            icon = 'fa-solid fa-pen-to-square', arrow = true, onSelect = function() openFormEditor(m) end }
     end
-    -- filters right in this menu: one pick shows the matching applicants below (no separate "Showing" step)
-    options[#options + 1] = { title = 'FILTER APPLICATIONS', disabled = true }
-    local showing
+    UI.registerMenu({ id = 'blaze_boss_apps_settings', title = 'Hiring settings · ' .. m.label, menu = 'blaze_boss_apps', options = options,
+        headerIcon = 'fa-solid fa-gear' })
+    UI.showMenu('blaze_boss_apps_settings')
+end
+
+--- With no filter picked: open on what needs attention (To review, else the first status that has applications)
+local function defaultFilter(counts)
+    if (counts.new or 0) > 0 then return 'new' end
+    for _, k in ipairs({ 'interview', 'accepted', 'denied', 'withdrawn' }) do
+        if (counts[k] or 0) > 0 then return k, 'Nothing waiting for review' end
+    end
+    return 'new'
+end
+
+--- The Applications list. noShow = only rebuild it (so a submenu's back arrow shows fresh data).
+openApps = function(m, filter, noShow)
+    local counts = call('getApplicationCounts', m.name) or {}
+    local why
+    if not filter then filter, why = defaultFilter(counts) end
+    local list = call('getApplications', m.name, filter) or {}
+    local showing = FILTER_BY[filter]
+
+    -- filters first; empty ones are hidden (All and the one you're on always show)
+    local options = { section('FILTER') }
     for _, f in ipairs(FILTERS) do
-        local active = f.key == filter
-        if active then showing = f end
-        options[#options + 1] = {
-            title = ('%s (%d)'):format(f.title, counts[f.key] or 0),
-            description = active and ('Showing now · ' .. f.tip) or f.tip,
-            icon = active and 'fa-solid fa-circle-check' or f.icon, iconColor = f.color,
-            onSelect = function() openApps(m, f.key) end,
-        }
+        local n, active = counts[f.key] or 0, f.key == filter
+        if n > 0 or active or f.key == 'all' then
+            options[#options + 1] = {
+                title = ('%s (%d)'):format(f.title, n),
+                description = active and 'Showing now' or f.tip,
+                icon = active and 'fa-solid fa-circle-check' or f.icon, iconColor = f.color,
+                onSelect = function() openApps(m, f.key) end,
+            }
+        end
     end
-    options[#options + 1] = { title = ('SHOWING: %s · %d'):format((showing and showing.title or filter):upper(), #list), disabled = true }
+
+    -- the applicants: short line (id · when · votes), hover for age, phone and the first answer
+    options[#options + 1] = section(('SHOWING: %s · %d'):format((showing and showing.title or filter):upper(), #list), why)
     for _, a in ipairs(list) do
+        local line = ('#%d · %s'):format(a.id, ago(a.mins))
+        if a.up then line = line .. (' · %d for · %d against'):format(a.up, a.down or 0) end
+        if filter == 'all' then line = line .. ' · ' .. (STATUS_LABEL[a.status] or a.status) end
         options[#options + 1] = {
-            title = a.name,
-            description = ('#%d · %s · Sent %s'):format(a.id, STATUS_LABEL[a.status] or a.status, a.created or '?'),
-            icon = STATUS_ICON[a.status] or 'fa-solid fa-file', arrow = true,
+            title = a.name, description = line, arrow = true,
+            icon = 'fa-solid fa-user', iconColor = (FILTER_BY[a.status] or {}).color,
+            metadata = a.peek and #a.peek > 0 and a.peek or nil,
             onSelect = function() openApp(m, a.id, filter) end,
         }
     end
     if #list == 0 then options[#options + 1] = { title = 'No applications in this category', disabled = true } end
+
+    options[#options + 1] = section('SETTINGS')
+    options[#options + 1] = { title = 'Hiring settings', icon = 'fa-solid fa-gear', arrow = true,
+        description = ('Accepting: %s%s'):format(m.appsOpen and 'On' or 'Off', m.formEdit and ' · Edit the form' or ''),
+        onSelect = function() openHiringSettings(m, filter) end }
+
     -- opened from a review point: no "back" to the boss menu (they may not be at a desk)
-    UI.registerMenu({ id = 'blaze_boss_apps', title = 'Applications · ' .. m.label, menu = not m.fromReview and 'blaze_boss_main' or nil, options = options })
-    UI.showMenu('blaze_boss_apps')
+    UI.registerMenu({ id = 'blaze_boss_apps', title = ('Applications · %s (%s)'):format(m.label, m.appsOpen and 'Open' or 'Closed'),
+        menu = not m.fromReview and 'blaze_boss_main' or nil, options = options,
+        headerIcon = 'fa-solid fa-file-signature', headerIconColor = m.appsOpen and UI.color.green or UI.color.grey })
+    if not noShow then UI.showMenu('blaze_boss_apps') end
 end
 
 ---------------------------------------------------------------------------
