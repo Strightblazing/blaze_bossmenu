@@ -178,8 +178,11 @@ local function short(v)
     return tostring(v)
 end
 
+-- Every handler, also callable from inside the server (server/devices.lua: the Boss Menu app on computers / phones
+-- goes through the very same checks as the boss menu)
+BM.handlers = {}
 local function register(name, fn)
-    lib.callback.register(('%s:%s'):format(RES, name), function(src, ...)
+    local function handler(src, ...)
         local started = os.clock()
         local ok, a, b, c = pcall(fn, src, ...)
         if not ok then
@@ -197,7 +200,9 @@ local function register(name, fn)
             end
         end
         return a, b, c
-    end)
+    end
+    BM.handlers[name] = handler
+    lib.callback.register(('%s:%s'):format(RES, name), handler)
 end
 
 ---------------------------------------------------------------------------

@@ -24,6 +24,7 @@ server_scripts {
     'server/main.lua',
     'server/features.lua', -- extras (profiles, records, bonuses, ...): needs server/main.lua first
     'server/test.lua',     -- /bossmenutest (admins)
+    'server/devices.lua',  -- Boss Menu app on sd-computers / sd-phone / sd-tablet (config: devices)
 }
 
 client_scripts {
@@ -35,6 +36,7 @@ client_scripts {
     'client/admin.lua',    -- /bossmenuadmin: admin tools (needs client/main.lua and client/placement.lua first)
     'client/test.lua',
     'client/debug.lua',   -- live debug panel (/bossdebug)
+    'client/devices.lua', -- Boss Menu app on sd-phone (and sd-tablet)
 }
 
 -- Web screens: web/index.html hosts the employment contract (signed with the mouse), the time clock, the debug panel and the placement card
@@ -45,6 +47,7 @@ files {
     'web/timeclock.html',
     'web/debug.html',
     'web/place.html',
+    'web/apps/*',         -- Boss Menu app page (sd-computers, sd-phone, sd-tablet)
 }
 
 -- ox_target / qb-target / lation_ui are optional and detected at runtime

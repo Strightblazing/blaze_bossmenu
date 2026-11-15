@@ -338,6 +338,18 @@ Config = {
         adminLabel = 'Boss admin',
     },
 
+    -- Boss Menu app on other devices: staff, hiring, applications, funds and activity, with the same server checks
+    -- as the boss menu. Each only does anything when that resource is running.
+    devices = {
+        label = 'Boss Menu',
+        -- sd-computers: an app on the desktop of every computer (computerIds = { 'pc_1', ... } for only those)
+        computers = true,
+        computerIds = nil,
+        pinned = true, -- also on the taskbar / dock
+        -- sd-phone: a pre-installed app on the phone; sd-tablet shows it too (players in a configured job)
+        phone = true,
+    },
+
     -- Extras. Each one can be turned off on its own.
     features = {
         -- Employee profiles (staff list + /myjob): hire date, hours this week, rank history, record
