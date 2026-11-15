@@ -167,6 +167,12 @@ Config = {
         statusCommand = 'applicationstatus',
         -- Applicants can withdraw an application that hasn't been decided yet
         allowWithdraw = true,
+        -- The applicant's phone number and email, pulled from their phone (sd-phone, lb-phone, ...; see contact below)
+        -- and sent with the application so managers can reach them. required = they must set it up on their phone first.
+        contact = {
+            phone = true, phoneRequired = true,
+            email = true, emailRequired = true,
+        },
         -- Managers vote for/against applications and see the tally
         votes = true,
         -- Applicants invited to an interview can "Check in" at the review point; online managers are told

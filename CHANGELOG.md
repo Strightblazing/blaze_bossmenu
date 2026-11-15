@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Phone number and email on job applications:** pulled from the applicant's phone (the same phone resources as profiles)
+  and sent with the application, shown at the top of the form and to managers. If one isn't set up, the applicant is told
+  to set it up on their phone first (`applications.contact`: `phone`, `email`, `phoneRequired`, `emailRequired`).
+
 ## 1.2.3
 
 - **Boss Menu app for sd-phone and sd-tablet** (`devices` in config.lua; sd-computers too, experimental and off by default): overview, staff (promote,

@@ -287,6 +287,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `applications.enabled` | `false` = applications off everywhere (the boss menu still works). |
 | `applications.startOpen` | Whether applications start open. Managers can open/close them in game. |
 | `applications.denyCooldownHours` | Wait after a denial before applying to the same job again. |
+| `applications.contact` | The applicant's phone number and email, pulled from their phone and sent with the application (`phone`, `email`). With `phoneRequired` / `emailRequired` they're told to set them up on their phone before they can apply. |
 | `applications.statusCommand` | Command for "My applications" (default `applicationstatus`), or `false` for none. |
 | `applications.formEditor` | `'management'` (managers + admins), `'admin'` (admins only) or `false` (no in-game editing). |
 | `applications.maxQuestions` | Most questions a form can have. |

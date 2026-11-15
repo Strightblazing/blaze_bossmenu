@@ -819,17 +819,32 @@ local function openApplication(job)
     local form = call('getForm', job)
     if not form then return notify('This job doesn\'t take applications.', 'error', 'Application') end
     if not form.open then return notify(('%s is not accepting applications right now.'):format(form.label), 'error', 'Application') end
-    if not UI.confirm({ header = 'Apply for ' .. form.label, content = (form.intro ~= '' and form.intro or 'Fill in the form to apply.') .. '\n\nYour name is taken from your character automatically.',
+    -- phone number and email come from their phone; when one is required but not set up, say so before the form
+    if form.contactMissing then return notify(form.contactMissing, 'error', 'Application') end
+    local contact = form.contact or {}
+    local sent = {}
+    if contact.phone then sent[#sent + 1] = 'phone number' end
+    if contact.email then sent[#sent + 1] = 'email' end
+    local note = 'Your name is taken from your character automatically' .. (#sent > 0 and (', and your ' .. table.concat(sent, ' and ') .. ' from your phone.') or '.')
+    if not UI.confirm({ header = 'Apply for ' .. form.label, content = (form.intro ~= '' and form.intro or 'Fill in the form to apply.') .. '\n\n' .. note,
             type = 'info', confirm = 'Start' }) then return end
+    -- shown at the top of the form, filled in and locked (the server reads them from the phone again on send)
+    local fixed = {}
+    if contact.phone then fixed[#fixed + 1] = { type = 'input', label = 'Phone number (from your phone)', default = contact.phone, disabled = true, icon = 'phone' } end
+    if contact.email then fixed[#fixed + 1] = { type = 'input', label = 'Email (from your phone)', default = contact.email, disabled = true, icon = 'envelope' } end
     local fields, answers = nil, nil
     while true do
         fields = buildFields(form.questions, answers)
+        for i = #fixed, 1, -1 do table.insert(fields, 1, fixed[i]) end
         local v = UI.input('Apply · ' .. form.label, fields, { submitText = 'Send application' })
         if not v then return end
+        local own = {}
+        for i = #fixed + 1, #fields do own[i - #fixed] = v[i] end -- the form's own answers, without the phone / email lines
+        v = own
         local ok, msg = call('submitApplication', job, v)
         if ok then return notify(msg, 'success', 'Application') end
         notify(msg or 'Your application could not be sent.', 'error', 'Application')
-        if msg and (msg:find('already') or msg:find('not accepting') or msg:find('denied') or msg:find('turned off') or msg:find('doesn\'t take')) then return end
+        if msg and (msg:find('already') or msg:find('not accepting') or msg:find('denied') or msg:find('turned off') or msg:find('doesn\'t take') or msg:find('before you apply')) then return end
         answers = v
     end
 end

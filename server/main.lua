@@ -1073,10 +1073,28 @@ if APPS.enabled then
         return MySQL.single.await('SELECT * FROM blaze_boss_applications WHERE id = ? AND job = ?', { id, job })
     end
 
+    --- The applicant's phone number and email, from their phone (Bridge.GetContact), and what's missing.
+    --- Returns contact = { phone, email } (only the ones that are sent) and a message when a required one isn't set up.
+    local function applicantContact(src)
+        local C = APPS.contact or {}
+        if C.phone == false and C.email == false then return {}, nil end
+        local phone, email = Bridge.GetContact(Bridge.GetCitizenId(src), src)
+        local out = { phone = C.phone ~= false and phone or nil, email = C.email ~= false and email or nil }
+        local needPhone = C.phone ~= false and C.phoneRequired ~= false and not phone
+        local needEmail = C.email ~= false and C.emailRequired ~= false and not email
+        local missing
+        if needPhone and needEmail then missing = 'Set up your phone number and an email on your phone before you apply. Managers use them to reach you.'
+        elseif needPhone then missing = 'Set up your phone number on your phone before you apply. Managers use it to reach you.'
+        elseif needEmail then missing = 'Set up an email on your phone (the Mail app) before you apply. Managers use it to reach you.' end
+        return out, missing
+    end
+
     register('getForm', function(src, job)
         if not appsOn('job', job) then return nil end
         local f = currentForm(job)
-        return { intro = f.intro, questions = f.questions, custom = f.custom, open = isOpen(job), label = groupLabel('job', job), maxQuestions = APPS.maxQuestions or 15 }
+        local contact, missing = applicantContact(src)
+        return { intro = f.intro, questions = f.questions, custom = f.custom, open = isOpen(job), label = groupLabel('job', job), maxQuestions = APPS.maxQuestions or 15,
+            contact = contact, contactMissing = missing }
     end)
 
     register('submitApplication', function(src, job, answers)
@@ -1092,8 +1110,13 @@ if APPS.enabled then
             local recent = MySQL.scalar.await("SELECT id FROM blaze_boss_applications WHERE citizenid = ? AND job = ? AND status = 'denied' AND updated_at > (NOW() - INTERVAL ? HOUR) LIMIT 1", { cid, job, hours })
             if recent then return false, ('Your last application was denied. You can apply again %d hours after the denial.'):format(hours) end
         end
+        -- phone number and email come from their phone here (never from the form), and must be set up when required
+        local contact, missing = applicantContact(src)
+        if missing then return false, missing end
         local snapshot, err, badIndex = validateAnswers(currentForm(job).questions, answers)
         if not snapshot then return false, err, badIndex end
+        if contact.email then table.insert(snapshot, 1, { label = 'Email', type = 'input', answer = contact.email, contact = true }) end
+        if contact.phone then table.insert(snapshot, 1, { label = 'Phone number', type = 'input', answer = contact.phone, contact = true }) end
         local name = Bridge.GetName(src)
         MySQL.insert.await('INSERT INTO blaze_boss_applications (citizenid, job, name, answers) VALUES (?, ?, ?, ?)', { cid, job, name, json.encode(snapshot) })
         for target in pairs(Bridge.GetPlayers() or {}) do
