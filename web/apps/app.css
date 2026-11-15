@@ -150,13 +150,6 @@ h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--muted); l
 textarea.notes { width: 100%; min-height: 80px; resize: vertical; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; outline: none; }
 textarea.notes:focus { border-color: var(--accent); }
 
-/* your logo: bottom of the sidebar (tablet / computer), bottom of the overview (phone) */
-.brand { margin-top: auto; width: 100%; max-width: 160px; align-self: center; opacity: .85; padding-top: 12px; }
-.narrow .brand { display: none; }
-.brand-foot { display: none; }
-.narrow .brand-foot { display: block; width: 150px; margin: 22px auto 4px; opacity: .8; }
-/* phone / tablet: no logo inside the app, the app icon is enough */
-[data-device="phone"] .brand, [data-device="phone"] .brand-foot { display: none !important; }
 
 /* no scrollbars (the game's browser draws a big white one); lists still scroll with the wheel, drag or swipe */
 * { scrollbar-width: none; }

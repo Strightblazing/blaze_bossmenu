@@ -118,8 +118,45 @@
     return ask(0);
   }
 
+  /** sd-computers: the same idea with the desktop's own dialogs (a text box in the app page has the same focus
+   *  problem as on the phone): one prompt per text field, the desktop's menu for a choice, a confirm for a yes / no. */
+  function computerModal(o) {
+    var c = window.computer;
+    var fields = o.fields || [];
+    var out = {};
+    var pause = function () { return new Promise(function (r) { setTimeout(r, 300); }); };
+    function ask(i) {
+      if (i >= fields.length) return Promise.resolve(out);
+      var f = fields[i], last = i === fields.length - 1;
+      var next = function () { return last ? out : pause().then(function () { return ask(i + 1); }); };
+      if (f.type === 'select') {
+        var items = f.options.map(function (op) { return { id: String(op.value), label: String(op.label) }; });
+        return Promise.resolve(c.menu({ x: Math.round(window.innerWidth / 2 - 110), y: Math.round(window.innerHeight / 3), items: items })).then(function (id) {
+          if (id == null) return null;
+          out[f.id] = String(id);
+          return next();
+        });
+      }
+      return Promise.resolve(c.dialog.prompt({
+        title: o.title, message: (i === 0 && o.text ? o.text + '\n\n' : '') + f.label,
+        value: f.value == null ? '' : String(f.value), placeholder: f.placeholder || '',
+        confirmLabel: last ? (o.ok || 'OK') : 'Next', cancelLabel: 'Cancel', danger: last && !!o.danger,
+      })).then(function (v) {
+        if (v == null) return null;
+        out[f.id] = String(v);
+        return next();
+      });
+    }
+    if (!fields.length) {
+      return Promise.resolve(c.dialog.confirm({ title: o.title, message: o.text || '', confirmLabel: o.ok || 'OK', cancelLabel: 'Cancel', danger: !!o.danger }))
+        .then(function (yes) { return yes ? {} : null; });
+    }
+    return ask(0);
+  }
+
   function modal(o) {
-    if (NATIVE) return phoneModal(o);
+    if (NATIVE === 'phone') return phoneModal(o);
+    if (NATIVE === 'computer') return computerModal(o);
     return new Promise(function (resolve) {
       var shade = document.createElement('div');
       shade.className = 'shade';
@@ -206,7 +243,7 @@
     app.innerHTML = head() + '<div class="body"><nav class="nav">' + tabs.map(function (t) {
       var count = t[0] === 'apps' && S.m.newApps > 0 ? '<span class="count">' + S.m.newApps + '</span>' : '';
       return '<button data-tab="' + t[0] + '" class="' + (S.tab === t[0] ? 'on' : '') + '">' + ICON[t[0]] + '<span>' + t[1] + '</span>' + count + '</button>';
-    }).join('') + '<img class="brand" src="brand.webp" alt="Blaze Scriptworks"></nav><div class="main" id="main"><div class="loading">Loading…</div></div></div>';
+    }).join('') + '</nav><div class="main" id="main"><div class="loading">Loading…</div></div></div>';
     wireHead();
     app.querySelectorAll('[data-tab]').forEach(function (b) {
       b.onclick = function () { S.tab = b.getAttribute('data-tab'); S.sub = null; render(); };
@@ -258,7 +295,7 @@
       var m = main('<div class="section"><div class="stats">' + stats + '</div></div>' +
         '<div class="cols"><div class="section"><div class="bar"><h2 class="grow" style="margin:0">Announcement</h2><button class="btn" id="annEdit">Edit</button></div>' + annHtml + '</div>' +
         (g.gtype === 'job' ? '<div class="section"><h2>On duty now</h2><div class="list">' + (onDuty.length ? onDuty.map(personRow).join('') : '<div class="empty">Nobody is on duty.</div>') + '</div></div>' : '') +
-        '</div><img class="brand-foot" src="brand.webp" alt="Blaze Scriptworks">');
+        '</div>');
       $('#annEdit', m).onclick = function () {
         modal({ title: 'Announcement', text: 'Staff see it right away, and when they clock in. Leave it empty to clear it.', ok: 'Post',
           fields: [{ id: 'msg', label: 'Message', type: 'textarea', value: ann && ann.message }] }).then(function (v) {
@@ -600,7 +637,8 @@
   function layout() { document.getElementById('app').classList.toggle('narrow', window.innerWidth < 640); }
   function start() {
     api = makeApi();
-    NATIVE = DEVICE === 'phone' && typeof window.SetPopUp === 'function';
+    NATIVE = DEVICE === 'phone' && typeof window.SetPopUp === 'function' ? 'phone'
+      : (DEVICE === 'computer' && window.computer && window.computer.inComputer !== false && window.parent !== window && window.computer.dialog) ? 'computer' : false;
     if (api.theme) document.documentElement.setAttribute('data-theme', api.theme);
     document.body.classList.remove('phone-wait');
     document.body.style.visibility = 'visible';
