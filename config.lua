@@ -340,10 +340,28 @@ Config = {
         },
     },
 
-    -- Hide your HUD resource while placing, moving or resizing points (the GTA HUD and minimap always hide).
-    -- false = off, or function(hidden) that hides/shows your HUD. It runs on the client. Example:
-    --   placementHud = function(hidden) exports['your_hud']:setVisible(not hidden) end,
-    -- Or listen to the client event 'blaze_bossmenu:client:placing' (true / false) in your HUD instead.
+    -- Your HUD resource: hidden while boss menu screens are open (menus, forms, popups, the contract, the time clock)
+    -- and while placing, moving or resizing points (the GTA HUD and minimap always hide then).
+    -- It only shows again if it was on before. Other scripts can use the same thing:
+    --   exports.blaze_bossmenu:HideHud(true)   -- hide (for example while examining a patient)
+    --   exports.blaze_bossmenu:HideHud(false)  -- let go (shows again when nothing else is hiding it)
+    hud = {
+        hideInMenus = false, -- true = hide while boss menu screens are open
+        hideWhilePlacing = true, -- hide while placing / moving / resizing points
+        -- Which export hides your HUD (client side). false = none. Either one "set visible" export:
+        --   export = { resource = 'your_hud', set = 'setVisible', isVisible = 'isVisible' },
+        --     set(true / false) shows / hides it; isVisible (optional) remembers if it was on before
+        -- or separate hide / show exports:
+        --   export = { resource = 'your_hud', hide = 'hideHud', show = 'showHud' },
+        -- element_hud: { resource = 'element_hud', set = 'setHudVisible', isVisible = 'isHudVisible' }
+        export = false,
+        -- Or a function(hidden) for anything else, for example:
+        --   toggle = function(hidden) TriggerEvent('your_hud:toggle', not hidden) end,
+        -- HUDs can also listen to the client event 'blaze_bossmenu:client:hud' (true = hide, false = show).
+        toggle = false,
+    },
+
+    -- Older option, still works: function(hidden) called only while placing points. Use hud above instead.
     placementHud = false,
 
     -- Radial menu (ox_lib / qbx_radialmenu): a "Work" entry for bosses with their boss menu, applications and My job

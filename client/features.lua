@@ -184,6 +184,7 @@ local function openPaper(mode, payload, seconds)
     if nuiPending then return { accepted = false } end
     local p = promise.new()
     nuiPending = p
+    if (Config.hud or {}).hideInMenus then UI.hudHold('contract', true) end
     SetNuiFocus(true, true)
     SendNUIMessage({ action = 'openContract', mode = mode, offer = payload, seconds = seconds })
     if seconds then
@@ -192,6 +193,7 @@ local function openPaper(mode, payload, seconds)
             nuiPending = nil
             SendNUIMessage({ action = 'closeContract' })
             SetNuiFocus(false, false)
+            UI.hudHold('contract', false)
             p:resolve({ accepted = false, expired = true })
         end)
     end
@@ -204,6 +206,7 @@ local function nuiDone(data, cb)
     if not p then return end
     nuiPending = nil
     SetNuiFocus(false, false)
+    UI.hudHold('contract', false)
     p:resolve(data or {})
 end
 RegisterNUICallback('contract:result', nuiDone)
@@ -798,6 +801,7 @@ function BMC.openClock(job)
     local data, err, methods = call('getClockData', job)
     if not data then return notify(err or 'This time clock isn\'t for you.', 'error', 'Time clock') end
     clockJob = job
+    if (Config.hud or {}).hideInMenus then UI.hudHold('clock', true) end
     SetNuiFocus(true, true)
     SendNUIMessage({ action = 'openClock', data = data, methods = methods, size = (Config.duty or {}).size, view = (Config.duty or {}).view })
 end
@@ -817,6 +821,7 @@ RegisterNUICallback('clock:close', function(_, cb)
     cb(1)
     clockJob = nil
     SetNuiFocus(false, false)
+    UI.hudHold('clock', false)
 end)
 
 AddEventHandler('onResourceStop', function(res)

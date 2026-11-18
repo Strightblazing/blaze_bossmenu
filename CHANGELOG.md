@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Hide your HUD** while boss menu screens are open (menus, forms, popups, the contract, the time clock) and while
+  placing points: `hud` in config.lua names your HUD's export (`{ resource, set, isVisible }` or `{ resource, hide, show }`),
+  or a `toggle` function. It only shows again if it was on before. Off by default (`hud.hideInMenus = false`).
+  Other scripts can use it too: `exports.blaze_bossmenu:HideHud(true / false)` (for example while examining a patient).
+  HUDs can also listen to the client event `blaze_bossmenu:client:hud`. `placementHud` still works for older configs.
+
 ## 1.2.4
 
 - **Applications menu, rebuilt to be easier to read and faster to review:**

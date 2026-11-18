@@ -143,3 +143,116 @@ function UI.closeConfirm()
     if useLation then return pcall(function() exports.lation_ui:closeAlert() end) end
     return lib.closeAlertDialog()
 end
+
+---------------------------------------------------------------------------
+-- Your HUD: hidden while boss menu screens are open and while placing points (config.lua > hud)
+---------------------------------------------------------------------------
+-- Several things can hold the HUD hidden at once (a menu, a form, the contract, placing, another script).
+-- It hides on the first hold and only shows again when the last one lets go, and only if it was visible before.
+local HUD = Config.hud or {}
+local holds, hudHidden, hudWasVisible, showTimer = {}, false, nil, 0
+
+local function setHud(hide)
+    TriggerEvent(GetCurrentResourceName() .. ':client:hud', hide) -- for HUDs that listen instead
+    if type(HUD.toggle) == 'function' then
+        local ok, err = pcall(HUD.toggle, hide)
+        if not ok then print(('^3[blaze_bossmenu]^7 hud.toggle failed: %s'):format(err)) end
+    end
+    local e = HUD.export
+    if type(e) ~= 'table' or type(e.resource) ~= 'string' or GetResourceState(e.resource) ~= 'started' then return end
+    local ok, err = pcall(function()
+        local r = exports[e.resource]
+        if hide and e.isVisible then hudWasVisible = r[e.isVisible](r) ~= false end
+        if not hide and hudWasVisible == false then return end -- it was already off before we hid it
+        if e.set then
+            r[e.set](r, not hide) -- set(visible)
+        elseif hide and e.hide then
+            r[e.hide](r)
+        elseif not hide and e.show then
+            r[e.show](r)
+        end
+    end)
+    if not ok then print(('^3[blaze_bossmenu]^7 hud.export (%s) failed: %s'):format(e.resource, err)) end
+end
+
+local function hudUpdate()
+    if next(holds) then
+        showTimer = showTimer + 1
+        if not hudHidden then hudHidden = true setHud(true) end
+        return
+    end
+    if not hudHidden then return end
+    -- show again a moment later, so going from a menu to a form (or back) doesn't flash the HUD
+    showTimer = showTimer + 1
+    local mine = showTimer
+    SetTimeout(400, function()
+        if mine ~= showTimer or next(holds) or not hudHidden then return end
+        hudHidden = false
+        setHud(false)
+    end)
+end
+
+--- Hold the HUD hidden (on = true) or let go (on = false) for one reason ('menu', 'placing', 'contract', ...)
+function UI.hudHold(reason, on)
+    holds[reason] = on and true or nil
+    hudUpdate()
+end
+
+--- For other scripts: exports.blaze_bossmenu:HideHud(true) to hide your HUD (through config.lua > hud), false to let go.
+--- Each calling resource has its own hold (an optional key lets one resource keep several).
+exports('HideHud', function(hidden, key)
+    UI.hudHold(('ext:%s:%s'):format(GetInvokingResource() or '?', key or ''), hidden == true)
+end)
+
+if HUD.hideInMenus then
+    -- our menus: hidden while one is open (the ids all start with blaze_boss / bb_)
+    local function ours(id) return type(id) == 'string' and (id:find('^blaze_boss') or id:find('^bb_')) ~= nil end
+    local function menuOpen()
+        if useLation then
+            local ok, id = pcall(function() return exports.lation_ui:getOpenMenu() end)
+            return ok and ours(id)
+        end
+        return ours(lib.getOpenContextMenu())
+    end
+    local watching = false
+    local function watchMenus()
+        UI.hudHold('menu', true)
+        if watching then return end
+        watching = true
+        CreateThread(function()
+            local misses = 0
+            while misses < 2 do
+                Wait(250)
+                misses = menuOpen() and 0 or misses + 1
+            end
+            watching = false
+            UI.hudHold('menu', false)
+        end)
+    end
+    local show = UI.showMenu
+    UI.showMenu = function(id)
+        local r = show(id)
+        watchMenus()
+        return r
+    end
+    -- forms and confirm popups: hidden while they're up
+    local dialogs = 0
+    local function wrap(fn)
+        return function(...)
+            dialogs = dialogs + 1
+            UI.hudHold('dialog', true)
+            local r = table.pack(fn(...))
+            dialogs = dialogs - 1
+            if dialogs == 0 then UI.hudHold('dialog', false) end
+            return table.unpack(r, 1, r.n)
+        end
+    end
+    UI.input, UI.confirm = wrap(UI.input), wrap(UI.confirm)
+end
+
+AddEventHandler('onResourceStop', function(res)
+    if res ~= GetCurrentResourceName() or not hudHidden then return end
+    holds = {}
+    hudHidden = false
+    setHud(false)
+end)

@@ -190,8 +190,8 @@ they never wander off, flee or react. With ox_target / qb-target you aim at the 
   exactly where (and how) the real one will stand. Change the size with the **mouse wheel** or **↑ / ↓** (0.5-5 m) and
   turn the PED / prop with **← / →**. **Page Up / Page Down** raise or lower the point and its PED / prop (±2 m),
   for counters, upper floors or uneven ground.
-  The game HUD and minimap hide while you place. To hide your HUD resource too, set `placementHud` in config.lua
-  (a function that hides / shows it), or listen to the client event `blaze_bossmenu:client:placing` (true / false). Press **G** on the card to switch **Output** to **Copy config line**:
+  The game HUD and minimap hide while you place. To hide your HUD resource too, set `hud.export` in config.lua
+  (see [Hiding your HUD](#hiding-your-hud)), or listen to the client event `blaze_bossmenu:client:placing` (true / false). Press **G** on the card to switch **Output** to **Copy config line**:
   E then copies a ready `config.lua > locations` line (job, type, coords, heading, size) to your clipboard and F8
   instead of saving the point. Moving a point in **Manage points** can export the same way.
 - **Add applications point**: same, but only for jobs with applications on.
@@ -270,6 +270,7 @@ The applicant's full name always comes from their character. It is never a quest
 | `debugCommand` | Admin debug command (default `bossdebug`). |
 | `testCommand` | Admin test tools command (default `bossmenutest`), or `false` once you go live. |
 | `versionCheck` | On start, compare with the latest GitHub release and say if there's an update. |
+| `hud` | Hide your HUD resource while boss menu screens are open (`hideInMenus`) and while placing points (`hideWhilePlacing`), through your HUD's export (`export`) or a function (`toggle`). See [Hiding your HUD](#hiding-your-hud). |
 | `useLationUI` | `true` = menus, forms and confirms use Lation UI. Falls back to ox_lib if lation_ui isn't started. |
 | `target` | `'auto'`, `'ox_target'`, `'qb-target'` or `'none'` (walk-up `[E]` prompt). |
 | `adminAce` | Ace for the admin menu and its tools. Framework admins also count. |
@@ -344,6 +345,27 @@ With it on: confirm popups get colours (red for Fire/Deny, orange for Withdraw/R
 If your server runs **Lation's ox_lib fork**, ox_lib itself forwards menus to lation_ui while it's started,
 so you'll see Lation UI even with `useLationUI = false`.
 
+## Hiding your HUD
+
+Set `hud` in config.lua to hide your HUD resource while boss menu screens are open (menus, forms, popups, the
+contract and the time clock) and while placing points. Name your HUD's export, client side:
+
+```lua
+hud = {
+    hideInMenus = true,
+    hideWhilePlacing = true,
+    export = { resource = 'your_hud', set = 'setVisible', isVisible = 'isVisible' }, -- set(true / false)
+    -- or: export = { resource = 'your_hud', hide = 'hideHud', show = 'showHud' },
+    -- element_hud: { resource = 'element_hud', set = 'setHudVisible', isVisible = 'isHudVisible' }
+},
+```
+
+`isVisible` is optional: with it, a HUD the player had turned off stays off afterwards. For anything else use
+`toggle = function(hidden) ... end`, or listen to the client event `blaze_bossmenu:client:hud` (true = hide).
+Other scripts can hide the HUD the same way, for example while examining a patient:
+`exports.blaze_bossmenu:HideHud(true)` and `exports.blaze_bossmenu:HideHud(false)` when done. Each script has its
+own hold, so the HUD only comes back once nothing is hiding it any more.
+
 ## Exports
 
 Client:
@@ -352,6 +374,7 @@ Client:
 exports.blaze_bossmenu:openBossMenu('ambulance')          -- opens if the player manages that job
 exports.blaze_bossmenu:openApplication('ambulance')       -- the apply flow
 exports.blaze_bossmenu:openApplicationStatus('ambulance') -- shows their application status
+exports.blaze_bossmenu:HideHud(true)                      -- hide your HUD (config.lua > hud); false to let go
 ```
 
 Server:
