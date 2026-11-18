@@ -375,6 +375,7 @@ exports.blaze_bossmenu:openBossMenu('ambulance')          -- opens if the player
 exports.blaze_bossmenu:openApplication('ambulance')       -- the apply flow
 exports.blaze_bossmenu:openApplicationStatus('ambulance') -- shows their application status
 exports.blaze_bossmenu:HideHud(true)                      -- hide your HUD (config.lua > hud); false to let go
+exports.blaze_bossmenu:openTimeClock('ambulance')         -- open the time clock at a duty point handed over with SetDutyPoints
 ```
 
 Server:
@@ -382,6 +383,9 @@ Server:
 ```lua
 exports.blaze_bossmenu:isManager(source, 'ambulance')        -- true/false (jobs)
 exports.blaze_bossmenu:isManager(source, 'lostmc', 'gang')   -- gangs
+-- another resource's time clocks (e.g. Blaze Medical's duty points): the time clock accepts a clock-in there too.
+-- Per resource, replaced on each call, cleared when that resource stops. jobs = nil: any job.
+exports.blaze_bossmenu:SetDutyPoints({ { coords = vec3(x, y, z), radius = 1.2, jobs = { 'ambulance' } } })
 ```
 
 qbx_management-style exports, also answered as `exports.qbx_management:*` while qbx_management is stopped:

@@ -726,6 +726,29 @@ if OUT.enabled then
 end
 
 ---------------------------------------------------------------------------
+-- Duty points from other resources (e.g. Blaze Medical): they hand over where their time clocks are, so this
+-- time clock can open there too. Set on the server only, per resource, and cleared when that resource stops.
+--   exports.blaze_bossmenu:SetDutyPoints({ { coords = vec3(...), radius = 1.2, jobs = { 'ambulance', 'firefighter' } }, ... })
+--   jobs = nil: any job's staff can use it (each clocks into their own job)
+---------------------------------------------------------------------------
+BM.externalDuty = {}
+exports('SetDutyPoints', function(points)
+    local res = GetInvokingResource() or '?'
+    local list = {}
+    for _, p in ipairs(type(points) == 'table' and points or {}) do
+        local c = type(p) == 'table' and p.coords
+        if c and tonumber(c.x) and tonumber(c.y) and tonumber(c.z) then
+            local jobs
+            if type(p.jobs) == 'table' then jobs = {} for _, j in ipairs(p.jobs) do jobs[tostring(j)] = true end end
+            list[#list + 1] = { coords = vec3(c.x + 0.0, c.y + 0.0, c.z + 0.0), radius = math.min(tonumber(p.radius) or 1.2, 6.0), jobs = jobs }
+        end
+    end
+    BM.externalDuty[res] = #list > 0 and list or nil
+    return #list
+end)
+AddEventHandler('onResourceStop', function(res) if BM.externalDuty then BM.externalDuty[res] = nil end end)
+
+---------------------------------------------------------------------------
 -- Time clock (Config.duty.style = 'clock'): everything the clock screen shows, from the boss menu's own data
 ---------------------------------------------------------------------------
 if DUTY.enabled then
@@ -741,12 +764,17 @@ if DUTY.enabled then
         return ('%dh %dm'):format(sec // 3600, (sec // 60) % 60)
     end
 
-    --- Is the player standing at one of this job's duty points?
+    --- Is the player standing at one of this job's duty points (ours, or one another resource handed over)?
     local function atDutyPoint(src, job)
         local pos = GetEntityCoords(GetPlayerPed(src))
         for _, p in ipairs(BM.allPoints()) do
             if p.type == 'duty' and p.gtype == 'job' and p.group == job then
                 if #(pos - vec3(p.coords.x, p.coords.y, p.coords.z)) <= (p.radius or 1.0) + 3.0 then return true end
+            end
+        end
+        for _, list in pairs(BM.externalDuty or {}) do
+            for _, p in ipairs(list) do
+                if (not p.jobs or p.jobs[job]) and #(pos - p.coords) <= p.radius + 3.0 then return true end
             end
         end
         return false

@@ -806,6 +806,21 @@ function BMC.openClock(job)
     SendNUIMessage({ action = 'openClock', data = data, methods = methods, size = (Config.duty or {}).size, view = (Config.duty or {}).view })
 end
 
+--- For other resources (e.g. Blaze Medical) at the duty points they handed over with SetDutyPoints: open this
+--- time clock for the player's job (or clock in / out at once with duty.style = 'instant'). The server checks the spot.
+--- Returns false when the time clock is off (Config.duty.enabled = false).
+exports('openTimeClock', function(job)
+    if not (Config.duty or {}).enabled then return false end
+    job = job or ((Bridge.PlayerData() or {}).job or {}).name
+    if (Config.duty or {}).style == 'instant' then
+        local r = call('clockPunch', job, 'instant') or {}
+        notify(r.msg or (r.ok and (r.onDuty and 'You are now on duty.' or 'You are now off duty.') or 'Could not clock in.'), r.ok and 'success' or 'error', 'Time clock')
+        return true
+    end
+    BMC.openClock(job)
+    return true
+end)
+
 RegisterNUICallback('clock:punch', function(d, cb)
     if not clockJob then return cb({ ok = false, msg = 'The time clock is closed.' }) end
     cb(call('clockPunch', clockJob, d and d.method, d and d.pin) or { ok = false, msg = 'The time clock didn\'t respond.' })
