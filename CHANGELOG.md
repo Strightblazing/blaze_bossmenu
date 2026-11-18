@@ -15,6 +15,9 @@
   - Back keeps your filter, and after interview / training / accept / deny the menu opens on the new status.
   - The main Applications line shows how many interviews and trainees are waiting; the phone / tablet app has
     Interviews and Training filters.
+  - With **Lation UI** (`useLationUI = true`) the new menus get Lation's extras: a header icon on the Applications list
+    (green when open, grey when closed), on each applicant (in their status colour) and on Hiring settings; coloured
+    status, action and vote icons; and a green for / against bar on the team vote. ox_lib keeps its plain look.
 - **Needs training:** a new step between the interview and hiring. Managers mark an applicant as needing training
   with a message (quick replies in `applications.quickReplies.training`). The applicant is told and gets a phone mail,
   and sees the message in "My applications". From there they can be accepted & hired or denied.
